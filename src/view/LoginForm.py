@@ -1,19 +1,22 @@
 from PyQt4 import QtGui, QtCore
 from src.controller.AuthenticationController import AuthenticationController
 
+
 class LoginForm(QtGui.QWidget):
     loggedIn = QtCore.pyqtSignal()
 
     def __init__(self, *args, **kwargs):
         super(QtGui.QWidget, self).__init__(*args, **kwargs)
         self.__setupGui()
-        
+
         self.auth = AuthenticationController()
-    
+
     def __setupGui(self):
-        self.setFixedSize(300, 230)
         self.__setLayout()
         self.__setStyle()
+        palette = self.palette()
+        palette.setColor(self.backgroundRole(), QtGui.QColor('#FFFFFF'))
+        self.setPalette(palette)
 
     def __setLayout(self):
         self.setObjectName('alma')
@@ -63,7 +66,7 @@ class LoginForm(QtGui.QWidget):
 
         self.setStyleSheet(
             """
-                #usernameField { 
+                #usernameField {
                     margin-bottom:10px;
                 }
                 #errorLabel {
@@ -75,7 +78,7 @@ class LoginForm(QtGui.QWidget):
                     width:75%;
                     margin-left:auto;
                     margin-right:auto;
-                    height:30px;
+                    height:40px;
                     background-color:#7ae6ff;
                 }
                 .QLabel {
@@ -88,8 +91,8 @@ class LoginForm(QtGui.QWidget):
                     width: 75%;
                     margin-left:auto;
                     margin-right:auto;
-                    height:30px;
-                    font-size:18px;
+                    height:40px;
+                    font-size:22px;
                 }
                 .QLineEdit:focus {
                     border-color:#09c5ef;

@@ -2,6 +2,7 @@ from PyQt4 import QtGui, QtCore
 from src.controller.settings import Settings
 from AboutDialog import AboutDialog
 
+
 class SystemTrayIcon(QtGui.QSystemTrayIcon):
 
     def __init__(self, icon, parent=None):
@@ -12,7 +13,7 @@ class SystemTrayIcon(QtGui.QSystemTrayIcon):
     def __setup(self):
         self.__createAboutDialog()
         self.__setupMenu()
-        self.setToolTip ("CryptStorePi")
+        self.setToolTip("CryptStorePi")
         self.activated.connect(self.__activationHandler)
 
     def __setupMenu(self):
@@ -43,11 +44,11 @@ class SystemTrayIcon(QtGui.QSystemTrayIcon):
 
     def __exitAction(self):
         QtCore.QCoreApplication.quit()
-    
+
     def __activationHandler(self, reason):
         if(reason == QtGui.QSystemTrayIcon.DoubleClick):
             self.parent().show()
-    
+
     def __createAboutDialog(self):
-        flags=QtCore.Qt.CustomizeWindowHint|QtCore.Qt.WindowTitleHint|QtCore.Qt.WindowCloseButtonHint
+        flags = QtCore.Qt.CustomizeWindowHint | QtCore.Qt.WindowTitleHint | QtCore.Qt.WindowCloseButtonHint
         self.aboutDialog = AboutDialog(self.parent().parent(), flags=flags)
