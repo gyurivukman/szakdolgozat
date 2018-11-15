@@ -1,25 +1,22 @@
 from PyQt4 import QtGui, QtCore
 from src.controller.AuthenticationController import AuthenticationController
 
-
 class LoginForm(QtGui.QWidget):
     loggedIn = QtCore.pyqtSignal()
 
     def __init__(self, *args, **kwargs):
         super(QtGui.QWidget, self).__init__(*args, **kwargs)
         self.__setupGui()
-
+        
         self.auth = AuthenticationController()
-
+    
     def __setupGui(self):
+        self.setFixedSize(300, 230)
         self.__setLayout()
+        self.__setBackgroundColor()
         self.__setStyle()
-        palette = self.palette()
-        palette.setColor(self.backgroundRole(), QtGui.QColor('#FFFFFF'))
-        self.setPalette(palette)
 
     def __setLayout(self):
-        self.setObjectName('alma')
         layout = QtGui.QFormLayout(self)
 
         self.__setupUsernameField(layout)
@@ -52,6 +49,11 @@ class LoginForm(QtGui.QWidget):
         self.errorLabel.setObjectName('errorLabel')
         layout.addRow(self.errorLabel)
 
+    def __setBackgroundColor(self):
+        palette = self.palette()
+        palette.setColor(self.backgroundRole(), QtGui.QColor('#FFFFFF'))
+        self.setPalette(palette)
+
     def __attemptLogin(self):
         uname = self.usernameField.text()
         pwd = self.passwordField.text()
@@ -66,7 +68,7 @@ class LoginForm(QtGui.QWidget):
 
         self.setStyleSheet(
             """
-                #usernameField {
+                #usernameField { 
                     margin-bottom:10px;
                 }
                 #errorLabel {
@@ -78,7 +80,7 @@ class LoginForm(QtGui.QWidget):
                     width:75%;
                     margin-left:auto;
                     margin-right:auto;
-                    height:40px;
+                    height:30px;
                     background-color:#7ae6ff;
                 }
                 .QLabel {
@@ -91,8 +93,8 @@ class LoginForm(QtGui.QWidget):
                     width: 75%;
                     margin-left:auto;
                     margin-right:auto;
-                    height:40px;
-                    font-size:22px;
+                    height:30px;
+                    font-size:18px;
                 }
                 .QLineEdit:focus {
                     border-color:#09c5ef;
