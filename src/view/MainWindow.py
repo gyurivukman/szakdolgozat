@@ -11,7 +11,7 @@ class MainWindow(QtGui.QMainWindow):
         self.setWindowTitle('CryptStorePi')
         self.setWindowIcon(QtGui.QIcon("./resources/logo.png"))
         self.__setBackgroundColor()
-        self.__settings = Settings()
+        # self.__settings = Settings()
         #self.__initLoginForm()
         self.__uploadsWidget = UploadsWidget(self)
         self.setCentralWidget(self.__uploadsWidget)

@@ -6,7 +6,6 @@ class SystemTrayIcon(QtGui.QSystemTrayIcon):
 
     def __init__(self, icon, parent=None):
         super(SystemTrayIcon, self).__init__(icon, parent)
-        self.settings = Settings()
         self.__setup()
 
     def __setup(self):

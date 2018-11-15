@@ -14,8 +14,6 @@ def main():
         appid = u'elte.cryptstorepi'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
 
-    settings = Settings() #TODO
-
     app = QtGui.QApplication(sys.argv)
     QtCore.QCoreApplication.setOrganizationName('elte')
     QtCore.QCoreApplication.setApplicationName('cryptstorepi')
