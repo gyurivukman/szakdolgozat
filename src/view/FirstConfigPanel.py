@@ -1,13 +1,14 @@
 from PyQt4 import QtCore, QtGui
-
+from AccountDialog import AccountDialog
 
 class FirstConfigPanel(QtGui.QWidget):
     firstConfigFinished = QtCore.pyqtSignal()
 
     def __init__(self, *args, **kwargs):
         super(FirstConfigPanel, self).__init__(*args, **kwargs)
-        
         self.settings = QtCore.QSettings()
+        self.accountDialog = AccountDialog(self)
+        self.accountDialog.dataEmitter.connect(self.__onSaveAccount)
         self.__setup()
 
     def __setup(self):
@@ -109,9 +110,11 @@ class FirstConfigPanel(QtGui.QWidget):
         controlsPanel.setSpacing(5)
         addAccountButton = QtGui.QPushButton("Add Account")
         addAccountButton.clicked.connect(self.__addAccount)
+
         self.editAccountButton = QtGui.QPushButton("Edit Account")
         self.editAccountButton.setEnabled(False)
         self.editAccountButton.clicked.connect(self.__editAccount)
+
         controlsPanel.addWidget(addAccountButton)
         controlsPanel.addWidget(self.editAccountButton)
         controlsPanel.addStretch()
@@ -132,7 +135,11 @@ class FirstConfigPanel(QtGui.QWidget):
         self.selectedAccount = item
     
     def __addAccount(self):
-        self.accountListWidget.addItem("Sajt")
+        self.accountDialog.show()
+
+    def __onSaveAccount(self, accData):
+        self.accountDialog.hide()
+        print accData
 
     def __editAccount(self):
         pass
