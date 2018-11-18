@@ -7,8 +7,7 @@ class FirstConfigPanel(QtGui.QWidget):
     def __init__(self, *args, **kwargs):
         super(FirstConfigPanel, self).__init__(*args, **kwargs)
         self.settings = QtCore.QSettings()
-        self.accountDialog = AccountDialog(self)
-        self.accountDialog.dataEmitter.connect(self.__onSaveAccount)
+        self.accounts = []
         self.__setup()
 
     def __setup(self):
@@ -135,11 +134,15 @@ class FirstConfigPanel(QtGui.QWidget):
         self.selectedAccount = item
     
     def __addAccount(self):
+        self.accountDialog = AccountDialog(self)
+        self.accountDialog.dataEmitter.connect(self.__onSaveAccount)
         self.accountDialog.show()
 
     def __onSaveAccount(self, accData):
         self.accountDialog.hide()
         print accData
+        # self.accounts.append(accData)
+        # self.accountListWidget.addItem(accData[])
 
     def __editAccount(self):
         pass

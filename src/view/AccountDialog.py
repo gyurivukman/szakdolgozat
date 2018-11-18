@@ -1,5 +1,4 @@
 from PyQt4 import QtGui, QtCore
-from AccountPanels.DropboxAccountPanel import DropboxAccountPanel
 import src.model.AccountSchemas as AccountSchemas
 from src.controller.AccountPanelBuilder import AccountPanelBuilder
 
