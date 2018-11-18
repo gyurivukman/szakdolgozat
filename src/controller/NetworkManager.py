@@ -1,4 +1,7 @@
 import paramiko
+from PyQt4 import QtCore
 
-class NetworkManager(object):
-    pass
+class NetworkManager(QtCore.QObject):
+
+    def printMessage(self, message):
+        print message

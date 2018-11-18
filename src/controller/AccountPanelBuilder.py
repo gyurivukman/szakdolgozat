@@ -6,25 +6,34 @@ class AccountPanelBuilder(object):
         self.bindingSchema = []
         container = QtGui.QWidget()
         containerLayout = QtGui.QVBoxLayout(container)
-
+        containerLayout.addLayout(self.__buildDisplayNamePanel())
         for field in schema['fields']:
             containerLayout.addLayout(self.__buildPartial(field))
-        containerLayout.addStretch()
         container.setLayout(containerLayout)
         return {
+            "account_type": schema['name'],
+            "get_display_name":self.displayNameField.text,
             "panel": container,
             "bindings": self.bindingSchema
         }
 
+    def __buildDisplayNamePanel(self):
+        layout = QtGui.QHBoxLayout()
+        self.displayNameField = QtGui.QLineEdit()
+        layout.addWidget(QtGui.QLabel("Name your account:"))
+        layout.addWidget(self.displayNameField)
+
+        return layout
+
     def __buildPartial(self, fieldSchema):
         layout = QtGui.QHBoxLayout()
-        layout.addWidget(QtGui.QLabel(fieldSchema['name']))
+        layout.addWidget(QtGui.QLabel(fieldSchema['display_name']))
         if(fieldSchema['type'] == "text"):
             field = QtGui.QLineEdit()
             layout.addWidget(field)
             self.bindingSchema.append(
                 {
-                    "name": fieldSchema['name'],
+                    "name": fieldSchema['model_name'],
                     "value": field.text
                 }
             )
@@ -35,7 +44,7 @@ class AccountPanelBuilder(object):
             layout.addWidget(field)
             self.bindingSchema.append(
                 {
-                    "name":fieldSchema['name'],
+                    "name":fieldSchema['model_name'],
                     "value":field.text
                 }
             )

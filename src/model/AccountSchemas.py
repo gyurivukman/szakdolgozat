@@ -1,13 +1,16 @@
 accountSchemas = [
     {
+
         "name":"Dropbox",
         "fields":[
             {
-                "name": "username",
+                "display_name": "Username",
+                "model_name":"username",
                 "type": "text"
             },
             {
-                "name": "password",
+                "display_name":"Password",
+                "model_name": "password",
                 "type": "password"
             }
         ]
@@ -16,21 +19,70 @@ accountSchemas = [
         "name":"NotDropbox",
         "fields":[
             {
-                "name":"somefield",
+                "display_name":"somefield",
+                "model_name":"username",
                 "type":"text"
             },
             {
-                "name":"somefield2",
+                "display_name":"somefield2",
+                "model_name":"somefield2",
                 "type":"text"
             },
             {
-                "name":"somefield3",
+                "display_name":"somefield3",
+                "model_name":"somefield3",
                 "type":"password"
             },
             {
-                "name":"somefield4",
+                "display_name":"somefield4",
+                "model_name":"somefield4",
                 "type":"text"
             }
+        ]
+    },
+    {
+        "name":"NotDropbox2",
+        "fields":[
+            {
+                "display_name":"somefield",
+                "model_name":"username",
+                "type":"text"
+            },
+            {
+                "display_name":"somefield2",
+                "model_name":"somefield2",
+                "type":"text"
+            },
+            {
+                "display_name":"somefield3",
+                "model_name":"somefield3",
+                "type":"password"
+            },
+            {
+                "display_name":"somefield4",
+                "model_name":"somefield4",
+                "type":"text"
+            },
+            {
+                "display_name":"somefield5",
+                "model_name":"username2",
+                "type":"text"
+            },
+            {
+                "display_name":"somefield6",
+                "model_name":"somefield6",
+                "type":"text"
+            },
+            {
+                "display_name":"somefield7",
+                "model_name":"somefield7",
+                "type":"password"
+            },
+            {
+                "display_name":"somefield8",
+                "model_name":"somefield8",
+                "type":"text"
+            },
         ]
     }
 ]

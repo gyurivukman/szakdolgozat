@@ -41,6 +41,7 @@ class FirstConfigPanel(QtGui.QWidget):
 
     def __setupBaseLayout(self):
         self.baseLayout = QtGui.QVBoxLayout()
+        self.baseLayout.setObjectName("baseLayout")
         self.baseLayout.setContentsMargins(3,0,3,15)
         self.baseLayout.setSpacing(15)
 
@@ -102,7 +103,7 @@ class FirstConfigPanel(QtGui.QWidget):
 
         subContainerPanel = QtGui.QHBoxLayout()
         self.accountListWidget = QtGui.QListWidget()
-        self.accountListWidget.itemClicked.connect(self.__selectAccount)
+        self.accountListWidget.currentRowChanged.connect(self.__selectAccount)
         subContainerPanel.addWidget(self.accountListWidget)
 
         controlsPanel = QtGui.QVBoxLayout()
@@ -114,24 +115,30 @@ class FirstConfigPanel(QtGui.QWidget):
         self.editAccountButton.setEnabled(False)
         self.editAccountButton.clicked.connect(self.__editAccount)
 
+        self.removeAccountButton = QtGui.QPushButton("Remove Account")
+        self.removeAccountButton.setEnabled(False)
+        self.removeAccountButton.clicked.connect(self.__removeAccount)
+
         controlsPanel.addWidget(addAccountButton)
         controlsPanel.addWidget(self.editAccountButton)
+        controlsPanel.addWidget(self.removeAccountButton)
         controlsPanel.addStretch()
         subContainerPanel.addLayout(controlsPanel)
         accountsPanel.addLayout(subContainerPanel)
         self.baseLayout.addLayout(accountsPanel)
 
     def __openFileDialog(self):
-        selectedDir = QtGui.QFileDialog().getExistingDirectory(self, "Choose the synchronization directory")
+        selectedDir = QtGui.QFileDialog().getExistingDirectory(self, "Choose the synchronization directory",options=QtGui.QFileDialog.DontUseNativeDialog|QtGui.QFileDialog.ShowDirsOnly)
         self.directoryInputField.setText(selectedDir)
 
     def __testConnection(self):
         self.testResultMessage.setText("OK")
     
-    def __selectAccount(self, item):
+    def __selectAccount(self, index):
         if not self.editAccountButton.isEnabled():
             self.editAccountButton.setEnabled(True)
-        self.selectedAccount = item
+            self.removeAccountButton.setEnabled(True)
+        self.selectedAccountIndex = index 
     
     def __addAccount(self):
         self.accountDialog = AccountDialog(self)
@@ -140,9 +147,13 @@ class FirstConfigPanel(QtGui.QWidget):
 
     def __onSaveAccount(self, accData):
         self.accountDialog.hide()
-        print accData
-        # self.accounts.append(accData)
-        # self.accountListWidget.addItem(accData[])
+        self.accounts.append(accData)
+        self.accountListWidget.addItem("{} / {}".format(self.accounts[-1]["account_type"], unicode(self.accounts[-1]["display_name"]).encode("utf8")))
 
     def __editAccount(self):
-        pass
+        self.accountDialog = AccountDialog(self)
+
+    def __removeAccount(self):
+        del self.accounts[self.selectedAccountIndex]
+        self.accountListWidget.takeItem(self.selectedAccountIndex)
+        
