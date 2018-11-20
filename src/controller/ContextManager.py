@@ -16,13 +16,14 @@ class ContextManager(object):
 
     def __init__(self):
         self.__managers = {
-            'network_manager':None
+            'network_manager': None
         }
 
         self.__threadPool = {
-            'network_thread':None
+            'network_thread': None
         }
-    
+        # self.initNetworkManager()
+
     def getNetworkManager(self):
         if not self.__managers['network_manager']:
             self.__managers['network_manager'] = NetworkManager()

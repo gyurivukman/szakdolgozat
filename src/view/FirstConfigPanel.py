@@ -193,17 +193,18 @@ class FirstConfigPanel(QtGui.QWidget):
     def removeCurrentlySelectedAccountFromGui(self):
         del self.accounts[self.selectedAccountIndex]
         self.accountListWidget.takeItem(self.selectedAccountIndex)
-        if(len(self.accounts)>0):
+        if(len(self.accounts) > 0):
             self.selectedAccountIndex = self.selectedAccountIndex - 1
-    
+            self.accountListWidget.setCurrentRow(self.selectedAccountIndex)
+
     def __onEditAccount(self, accData):
         self.accountDialog.hide()
         self.accounts.insert(self.selectedAccountIndex, accData)
         del self.accounts[self.selectedAccountIndex+1]
-        
+
         displayName = "{} / {}".format(self.accounts[self.selectedAccountIndex]["account_type"], self.accounts[self.selectedAccountIndex]["display_name"])
         self.accountListWidget.insertItem(self.selectedAccountIndex, displayName)    
         self.accountListWidget.takeItem(self.selectedAccountIndex+1)
-    
+
     def __finishConfig(self):
         pass

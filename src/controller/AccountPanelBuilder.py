@@ -51,5 +51,5 @@ class AccountPanelBuilder(object):
                     "setter": field.setText
                 }
             )
-        
+
         return layout

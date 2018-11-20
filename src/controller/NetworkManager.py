@@ -4,7 +4,7 @@ import time
 
 
 class NetworkManager(QtCore.QObject):
-    lofasz = QtCore.pyqtSignal()
+    signal = QtCore.pyqtSignal()
 
     def __init__(self, *args, **kwargs):
         super(NetworkManager, self).__init__()
@@ -12,7 +12,6 @@ class NetworkManager(QtCore.QObject):
 
     def startPrinting(self):
         while(True):
-            # self.lofasz.emit()
             print self.message
             time.sleep(3)
 
