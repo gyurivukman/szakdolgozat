@@ -1,5 +1,7 @@
 from PyQt4 import QtCore, QtGui
 from AccountDialog import AccountDialog
+from src.controller.ContextManager import ContextManager
+
 
 class FirstConfigPanel(QtGui.QWidget):
     firstConfigFinished = QtCore.pyqtSignal()
@@ -11,7 +13,6 @@ class FirstConfigPanel(QtGui.QWidget):
         self.__setup()
 
     def __setup(self):
-        self.setFixedSize(400,500)
         self.__setupBaseLayout()
         self.__setupSyncDirPanel()
         self.__setupRemoteDataPanel()
@@ -49,7 +50,7 @@ class FirstConfigPanel(QtGui.QWidget):
     def __setupBaseLayout(self):
         self.baseLayout = QtGui.QVBoxLayout()
         self.baseLayout.setObjectName("baseLayout")
-        self.baseLayout.setContentsMargins(3,0,3,15)
+        self.baseLayout.setContentsMargins(3, 0, 3, 15)
         self.baseLayout.setSpacing(15)
 
     def __setupSyncDirPanel(self):
@@ -113,7 +114,7 @@ class FirstConfigPanel(QtGui.QWidget):
         messageIcon = QtGui.QLabel()
         messageIcon.setAlignment(QtCore.Qt.AlignLeft)
         messageIcon.setPixmap(QtGui.QPixmap("./resources/warning.png"))
-        message = QtGui.QLabel("Warning, you can only set your account(s) credentials up once.\n YOU CANNOT CHANGE THEM LATER!")
+        message = QtGui.QLabel("Warning, you can only set your accounts up once!\nYOU CANNOT CHANGE THEM LATER!")
         message.setObjectName("accountWarningMessage")
         messagePanel.addWidget(messageIcon)
         messagePanel.addWidget(message)
@@ -136,7 +137,7 @@ class FirstConfigPanel(QtGui.QWidget):
 
         self.removeAccountButton = QtGui.QPushButton("Remove Account")
         self.removeAccountButton.setEnabled(False)
-        self.removeAccountButton.clicked.connect(self.__removeAccount)
+        self.removeAccountButton.clicked.connect(self.removeCurrentlySelectedAccountFromGui)
 
         controlsPanel.addWidget(addAccountButton)
         controlsPanel.addWidget(self.editAccountButton)
@@ -172,14 +173,27 @@ class FirstConfigPanel(QtGui.QWidget):
     def __onSaveAccount(self, accData):
         self.accountDialog.hide()
         self.accounts.append(accData)
-        self.accountListWidget.addItem("{} / {}".format(self.accounts[-1]["account_type"], unicode(self.accounts[-1]["display_name"]).encode("utf8")))
+        self.accountListWidget.addItem("{} / {}".format(self.accounts[-1]["account_type"], self.accounts[-1]["display_name"]))
 
     def __editAccount(self):
-        self.accountDialog = AccountDialog(self)
+        self.accountDialog = AccountDialog(self, edit=True, data=self.accounts[self.selectedAccountIndex])
+        self.accountDialog.dataEmitter.connect(self.__onEditAccount)
+        self.accountDialog.show()
 
-    def __removeAccount(self):
+    def removeCurrentlySelectedAccountFromGui(self):
         del self.accounts[self.selectedAccountIndex]
         self.accountListWidget.takeItem(self.selectedAccountIndex)
+        if(len(self.accounts)>0):
+            self.selectedAccountIndex = self.selectedAccountIndex -1
+    
+    def __onEditAccount(self, accData):
+        self.accountDialog.hide()
+        self.accounts.insert(self.selectedAccountIndex, accData)
+        del self.accounts[self.selectedAccountIndex+1]
+        
+        displayName = "{} / {}".format(self.accounts[self.selectedAccountIndex]["account_type"], self.accounts[self.selectedAccountIndex]["display_name"])
+        self.accountListWidget.insertItem(self.selectedAccountIndex, displayName)    
+        self.accountListWidget.takeItem(self.selectedAccountIndex+1)
     
     def __finishConfig(self):
-        print 'FINISHING'
+        print "FINISH"

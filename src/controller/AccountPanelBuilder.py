@@ -12,7 +12,8 @@ class AccountPanelBuilder(object):
         container.setLayout(containerLayout)
         return {
             "account_type": schema['name'],
-            "get_display_name":self.displayNameField.text,
+            "get_display_name": self.displayNameField.text,
+            "set_display_name": self.displayNameField.setText,
             "panel": container,
             "bindings": self.bindingSchema
         }
@@ -34,7 +35,8 @@ class AccountPanelBuilder(object):
             self.bindingSchema.append(
                 {
                     "name": fieldSchema['model_name'],
-                    "value": field.text
+                    "value": field.text,
+                    "setter": field.setText
                 }
             )
 
@@ -44,8 +46,9 @@ class AccountPanelBuilder(object):
             layout.addWidget(field)
             self.bindingSchema.append(
                 {
-                    "name":fieldSchema['model_name'],
-                    "value":field.text
+                    "name": fieldSchema['model_name'],
+                    "value": field.text,
+                    "setter": field.setText
                 }
             )
         

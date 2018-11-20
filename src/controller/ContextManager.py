@@ -1,6 +1,7 @@
 from src.controller.NetworkManager import NetworkManager
 from PyQt4 import QtCore
 
+
 class ContextManagerWrapper(type):
     _instances = {}
 
@@ -27,6 +28,7 @@ class ContextManager(object):
             self.__managers['network_manager'] = NetworkManager()
             self.__threadPool['network_thread'] = QtCore.QThread()
             self.__managers['network_manager'].moveToThread(self.__threadPool['network_thread'])
-            self.__threadPool['network_thread'].start()
+            self.__threadPool['network_thread'].started.connect((self.__managers['network_manager']).startPrinting)
+            (self.__threadPool['network_thread']).start()
 
         return self.__managers['network_manager']
