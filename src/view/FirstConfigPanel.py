@@ -1,4 +1,6 @@
 from PyQt4 import QtCore, QtGui
+import paramiko
+
 from AccountDialog import AccountDialog
 from src.controller.ContextManager import ContextManager
 
@@ -29,8 +31,7 @@ class FirstConfigPanel(QtGui.QWidget):
                     max-width:250px;
                 }
                 .QPushButton#testConnectionButton{
-                    width:250px;
-                    height:30px;
+                    height:25px;
                 }
                 .QLabel#testResultMessage{
                     margin-left:20px;
@@ -96,16 +97,10 @@ class FirstConfigPanel(QtGui.QWidget):
         remotePasswordPanel.addWidget(self.remotePasswordField)
         self.baseLayout.addLayout(remotePasswordPanel)
         
-        testButtonPanel = QtGui.QHBoxLayout()
         testConnectionButton = QtGui.QPushButton("Test connection")
         testConnectionButton.setObjectName("testConnectionButton")
         testConnectionButton.clicked.connect(self.__testConnection)
-        testButtonPanel.addWidget(testConnectionButton)
-        
-        self.testResultMessage = QtGui.QLabel("")
-        self.testResultMessage.setObjectName("testResultMessage")
-        testButtonPanel.addWidget(self.testResultMessage)
-        self.baseLayout.addLayout(testButtonPanel)
+        self.baseLayout.addWidget(testConnectionButton)
 
     def __setupAccountsPanel(self):
         accountsPanel = QtGui.QVBoxLayout()
@@ -157,7 +152,22 @@ class FirstConfigPanel(QtGui.QWidget):
         self.directoryInputField.setText(selectedDir)
 
     def __testConnection(self):
-        self.testResultMessage.setText("OK")
+        try:
+            client = paramiko.SSHClient()
+            client.load_system_host_keys()
+            client.set_missing_host_key_policy(paramiko.WarningPolicy)
+            client.connect(str(self.addressInputField.text()), port=22, username=str(self.remoteUsernameField.text()), password=str(self.remotePasswordField.text()))
+            msg = QtGui.QMessageBox(self)
+            msg.setWindowTitle("Connection Test")
+            msg.setText("Connected successfully!")
+            msg.exec_()
+        except Exception as e:
+            msg = QtGui.QMessageBox(self)
+            msg.setWindowTitle("Connection Test")
+            msg.setText("Connection failed! reason:\n{}".format(e))
+            msg.exec_()
+        finally:
+            client.close()
     
     def __selectAccount(self, index):
         if not self.editAccountButton.isEnabled():
@@ -184,7 +194,7 @@ class FirstConfigPanel(QtGui.QWidget):
         del self.accounts[self.selectedAccountIndex]
         self.accountListWidget.takeItem(self.selectedAccountIndex)
         if(len(self.accounts)>0):
-            self.selectedAccountIndex = self.selectedAccountIndex -1
+            self.selectedAccountIndex = self.selectedAccountIndex - 1
     
     def __onEditAccount(self, accData):
         self.accountDialog.hide()
@@ -196,4 +206,4 @@ class FirstConfigPanel(QtGui.QWidget):
         self.accountListWidget.takeItem(self.selectedAccountIndex+1)
     
     def __finishConfig(self):
-        print "FINISH"
+        pass
