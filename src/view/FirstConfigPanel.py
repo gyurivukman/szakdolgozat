@@ -38,6 +38,11 @@ class FirstConfigPanel(QtGui.QWidget):
                 .QLabel#accountWarningMessage{
                     border:2px solid red;
                 }
+                .QPushButton#finishButton{
+                    width:100px;
+                    max-width:100px;
+                    height:35px;
+                }
             """
         )
 
@@ -77,6 +82,18 @@ class FirstConfigPanel(QtGui.QWidget):
         portPanel.addWidget(QtGui.QLabel("Remote host port:"))
         portPanel.addWidget(self.portInputField)
         self.baseLayout.addLayout(portPanel)
+
+        remoteUsernamePanel = QtGui.QHBoxLayout()
+        self.remoteUsernameField = QtGui.QLineEdit()
+        remoteUsernamePanel.addWidget(QtGui.QLabel("SSH username:"))
+        remoteUsernamePanel.addWidget(self.remoteUsernameField)
+        self.baseLayout.addLayout(remoteUsernamePanel)
+
+        remotePasswordPanel = QtGui.QHBoxLayout()
+        self.remotePasswordField = QtGui.QLineEdit()
+        remotePasswordPanel.addWidget(QtGui.QLabel("SSH password:"))
+        remotePasswordPanel.addWidget(self.remotePasswordField)
+        self.baseLayout.addLayout(remotePasswordPanel)
         
         testButtonPanel = QtGui.QHBoxLayout()
         testConnectionButton = QtGui.QPushButton("Test connection")
@@ -129,6 +146,11 @@ class FirstConfigPanel(QtGui.QWidget):
         accountsPanel.addLayout(subContainerPanel)
         self.baseLayout.addLayout(accountsPanel)
 
+        finishButton = QtGui.QPushButton("Finish")
+        finishButton.setObjectName("finishButton")
+        finishButton.clicked.connect(self.__finishConfig)
+        self.baseLayout.addWidget(finishButton)
+
     def __openFileDialog(self):
         selectedDir = QtGui.QFileDialog().getExistingDirectory(self, "Choose the synchronization directory",options=QtGui.QFileDialog.DontUseNativeDialog|QtGui.QFileDialog.ShowDirsOnly)
         self.directoryInputField.setText(selectedDir)
@@ -160,4 +182,4 @@ class FirstConfigPanel(QtGui.QWidget):
         self.accountListWidget.takeItem(self.selectedAccountIndex)
     
     def __finishConfig(self):
-        pass
+        print 'FINISHING'
