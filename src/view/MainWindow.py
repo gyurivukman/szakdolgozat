@@ -3,16 +3,26 @@ from src.controller.settings import Settings
 from LoginForm import LoginForm
 from UploadsWidget import UploadsWidget
 from FirstConfigPanel import FirstConfigPanel
+from src.controller.NetworkManager import NetworkManager
 
 
 class MainWindow(QtGui.QMainWindow):
 
     def __init__ (self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
+        self.thread = QtCore.QThread()
+        ntw = NetworkManager()
+        ntw.moveToThread(self.thread)
+        self.thread.started.connect(ntw.startPrinting)
+        ntw.lofasz.connect(self.__miez)
+        self.thread.start()
+
         self.__setupInfos()
         self.__setupWidgets()
         self.show()
-
+        
+    def __miez(self):
+        print "EEEE"
     def __setupInfos(self):
         self.setWindowTitle('CryptStorePi')
         self.setWindowIcon(QtGui.QIcon("./resources/logo.png"))

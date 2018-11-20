@@ -5,7 +5,7 @@ class FirstConfigPanel(QtGui.QWidget):
     firstConfigFinished = QtCore.pyqtSignal()
 
     def __init__(self, *args, **kwargs):
-        super(FirstConfigPanel, self).__init__(*args, **kwargs)
+        super(FirstConfigPanel, self).__init__()
         self.settings = QtCore.QSettings()
         self.accounts = []
         self.__setup()
@@ -16,6 +16,8 @@ class FirstConfigPanel(QtGui.QWidget):
         self.__setupSyncDirPanel()
         self.__setupRemoteDataPanel()
         self.__setupAccountsPanel()
+        saveButton = QtGui.QPushButton("Save")
+        saveButton.clicked.connect(self.__finishConfig)
         self.baseLayout.addStretch()
         self.setLayout(self.baseLayout)
         self.setStyleSheet(
@@ -156,4 +158,6 @@ class FirstConfigPanel(QtGui.QWidget):
     def __removeAccount(self):
         del self.accounts[self.selectedAccountIndex]
         self.accountListWidget.takeItem(self.selectedAccountIndex)
-        
+    
+    def __finishConfig(self):
+        pass

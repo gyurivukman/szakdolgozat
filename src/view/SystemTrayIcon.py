@@ -1,12 +1,15 @@
 from PyQt4 import QtGui, QtCore
-from src.controller.settings import Settings
 from AboutDialog import AboutDialog
+
 
 class SystemTrayIcon(QtGui.QSystemTrayIcon):
 
     def __init__(self, icon, parent=None):
         super(SystemTrayIcon, self).__init__(icon, parent)
         self.__setup()
+
+    def __miez(self):
+        print "Szia"
 
     def __setup(self):
         self.__createAboutDialog()
