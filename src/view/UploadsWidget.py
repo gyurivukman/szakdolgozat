@@ -1,12 +1,16 @@
-from PyQt4 import QtGui, QtCore
-from ItemSheet import ItemSheet
 import os
+from PyQt4 import QtGui, QtCore
+
+from ItemSheet import ItemSheet
+from src.controller.ContextManager import ContextManager
+from src.controller.NetworkManager import NetworkManager
 
 
 class UploadsWidget(QtGui.QWidget):
 
     def __init__(self, *args, **kwargs):
         super(UploadsWidget, self).__init__(*args, **kwargs)
+        self.fileManager = (ContextManager()).getFileManager()
         self.__setupOwnLayout()
         self.setFixedSize(400, 400)
         self.setAcceptDrops(True)
@@ -14,7 +18,7 @@ class UploadsWidget(QtGui.QWidget):
         self.__setupScrollArea()
         self.__setupScrollContentContainer()
         self.__addItems()
-    
+
     def __setupOwnLayout(self):
         self.ownLayout = QtGui.QVBoxLayout(self)
         self.setLayout(self.ownLayout)
@@ -36,7 +40,7 @@ class UploadsWidget(QtGui.QWidget):
             self.scrollLayout.addWidget(
                 ItemSheet(self.scrollContentContainer, QtCore.Qt.WindowFlags(0), str(item),0)
             )
-        self.scrollLayout.setContentsMargins(0,0,0,0)
+        self.scrollLayout.setContentsMargins(0, 0, 0, 0)
         self.scrollLayout.setSpacing(0)
         self.scrollLayout.addItem(self.spacer)
 

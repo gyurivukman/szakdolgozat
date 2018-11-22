@@ -2,7 +2,6 @@ from PyQt4 import QtCore, QtGui
 import paramiko
 
 from AccountDialog import AccountDialog
-from src.controller.ContextManager import ContextManager
 
 
 class FirstConfigPanel(QtGui.QWidget):
@@ -75,13 +74,13 @@ class FirstConfigPanel(QtGui.QWidget):
     def __setupRemoteDataPanel(self):
         addressPanel = QtGui.QHBoxLayout()
         self.addressInputField = QtGui.QLineEdit()
-        addressPanel.addWidget(QtGui.QLabel("Remote host address:"))
+        addressPanel.addWidget(QtGui.QLabel("SSH host address:"))
         addressPanel.addWidget(self.addressInputField)
         self.baseLayout.addLayout(addressPanel)
 
         portPanel = QtGui.QHBoxLayout()
         self.portInputField = QtGui.QLineEdit()
-        portPanel.addWidget(QtGui.QLabel("Remote host port:"))
+        portPanel.addWidget(QtGui.QLabel("SSH port:"))
         portPanel.addWidget(self.portInputField)
         self.baseLayout.addLayout(portPanel)
 
@@ -207,4 +206,17 @@ class FirstConfigPanel(QtGui.QWidget):
         self.accountListWidget.takeItem(self.selectedAccountIndex+1)
 
     def __finishConfig(self):
-        pass
+        configs = {}
+        configs["syncDir"] = unicode(self.directoryInputField.text()).encode("utf8")
+        configs["SSH_Address"] = unicode(self.addressInputField.text()).encode("utf8")
+        configs["SSH_Port"] = unicode(self.portInputField.text()).encode("utf8")
+        configs["SSH_username"] = unicode(self.remoteUsernameField.text()).encode("utf8")
+        configs["SSH_password"] = unicode(self.remotePasswordField.text()).encode("utf8")
+        self.__setConfigs(configs)
+        self.firstConfigFinished.emit()
+    
+    def __setConfigs(self, configs):
+        for key, value in configs.iteritems():
+            self.settings.setValue(key, value)
+        self.settings.setValue('is_first_start', False)
+        self.settings.sync()

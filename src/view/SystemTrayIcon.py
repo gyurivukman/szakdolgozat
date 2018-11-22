@@ -8,13 +8,10 @@ class SystemTrayIcon(QtGui.QSystemTrayIcon):
         super(SystemTrayIcon, self).__init__(icon, parent)
         self.__setup()
 
-    def __miez(self):
-        print "Szia"
-
     def __setup(self):
         self.__createAboutDialog()
         self.__setupMenu()
-        self.setToolTip ("CryptStorePi")
+        self.setToolTip("CryptStorePi")
         self.activated.connect(self.__activationHandler)
 
     def __setupMenu(self):
@@ -45,11 +42,12 @@ class SystemTrayIcon(QtGui.QSystemTrayIcon):
 
     def __exitAction(self):
         QtCore.QCoreApplication.quit()
-    
+
     def __activationHandler(self, reason):
+        print "Activated: "+ str(reason)
         if(reason == QtGui.QSystemTrayIcon.DoubleClick):
             self.parent().show()
-    
+
     def __createAboutDialog(self):
-        flags=QtCore.Qt.CustomizeWindowHint|QtCore.Qt.WindowTitleHint|QtCore.Qt.WindowCloseButtonHint
+        flags = QtCore.Qt.CustomizeWindowHint | QtCore.Qt.WindowTitleHint | QtCore.Qt.WindowCloseButtonHint
         self.aboutDialog = AboutDialog(self.parent().parent(), flags=flags)
