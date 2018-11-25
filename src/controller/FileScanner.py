@@ -34,9 +34,9 @@ class FileScanner(QtCore.QObject):
         for entry in self.__scanFileTree(self.syncDir):
             relativePath = entry['fullPath'][self.__pathCutLength:]
             if relativePath not in self.files:
+                print "[INFO] Filescanner: New file found: {}".format(relativePath)
                 self.files[relativePath] = True
                 self.newFileChannel.emit(FileTask(FileTaskType.EXISTENCE_CHECK, entry['dir'], entry['fullPath'], entry['filename']))
-                # self.networkManager.enqueuTask(FileTask(TaskType.EXISTENCE_CHECK, entry['dir'],entry['fullPath'], entry['filename']))
 
     def __scanFileTree(self, baseDir):
         for entry in scandir.scandir(baseDir):
