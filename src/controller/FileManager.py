@@ -1,44 +1,46 @@
 from PyQt4 import QtCore
-import scandir
+import Queue
 import shutil
 import os
+import time
 
 from src.model.FileTask import FileTask, TaskType
 
 
 class FileManager(QtCore.QObject):
 
-    def __init__(self, networkManager):
+    def __init__(self, networkManager, fileScanner):
         super(FileManager, self).__init__()
         self.shouldRun = True
+        self.__readyForNextTask = True
         self.networkManager = networkManager
         self.networkManager.taskReportChannel.connect(self.__taskReportHandler)
-        self.fileList = []
+
+        self.fileScanner = fileScanner
+        self.fileScanner.newFileChannel.connect(self.__newFileHandler)
+        self.eventQueue = Queue.Queue()
 
     def start(self):
         while(self.shouldRun):
-            if not self.fileList:
-                self.__initFileList()
-            self.shouldRun = False
+            if not self.eventQueue.empty() and self.__readyForNextTask:
+                self.__currentTask = self.eventQueue.get()
+                self.__readyForNextTask = False
+                self.__handleCurrentTask()
+            else:
+                time.sleep(4)
 
-    def __initFileList(self):
-        settings = QtCore.QSettings()
-        self.syncDir = unicode(settings.value("syncDir").toString()).encode("utf8")
-        self.__pathCutLength = len(self.syncDir) + 1
-
-        for entry in self.__scanFileTree(self.syncDir):
-            self.networkManager.enqueuTask(FileTask(TaskType.EXISTENCE_CHECK, entry['dir'],entry['fullPath'], entry['filename']))
+    def __handleCurrentTask(self):
+        print "handling current task..."
+        time.sleep(5)
+        self.__currentTask = None
+        self.__readyForNextTask = True
 
     def __taskReportHandler(self, taskReport):
         print taskReport
 
-    def __scanFileTree(self, baseDir):
-        for entry in scandir.scandir(baseDir):
-            if entry.is_file():
-                yield {"dir": os.path.dirname(entry.path[self.__pathCutLength:]), "fullPath": entry.path, "filename": entry.name}
-            else:
-                for subEntry in self.__scanFileTree(entry.path):
-                    yield subEntry
+    def __newFileHandler(self, report):
+        print "new file handler"
+        print report
 
     def stop(self):
         self.shouldRun = False

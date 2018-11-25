@@ -26,7 +26,7 @@ class MainWindow(QtGui.QMainWindow):
         self.settings = QtCore.QSettings()
         if self.__isFirstStart():
             self.settings.setValue('is_first_start', True)
-            self.setFixedSize(400, 500)
+            self.setFixedSize(400, 550)
             self.settings.sync()
             firstConfigPanel = FirstConfigPanel()
             firstConfigPanel.firstConfigFinished.connect(self.__onFinishedFirstConfig)

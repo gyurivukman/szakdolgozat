@@ -1,3 +1,5 @@
+import socket
+
 from PyQt4 import QtCore, QtGui
 import paramiko
 
@@ -29,8 +31,9 @@ class FirstConfigPanel(QtGui.QWidget):
                     width:250px;
                     max-width:250px;
                 }
-                .QPushButton#testConnectionButton{
+                .QPushButton#testConnectionButton, .QPushButton#testCommPortButton{
                     height:25px;
+                    width:100px;
                 }
                 .QLabel#testResultMessage{
                     margin-left:20px;
@@ -79,9 +82,20 @@ class FirstConfigPanel(QtGui.QWidget):
         self.baseLayout.addLayout(addressPanel)
 
         portPanel = QtGui.QHBoxLayout()
-        self.portInputField = QtGui.QLineEdit()
-        portPanel.addWidget(QtGui.QLabel("SSH port:"))
-        portPanel.addWidget(self.portInputField)
+
+        sshPortPanel = QtGui.QVBoxLayout()
+        sshPortPanel.addWidget(QtGui.QLabel("SSH port:"))
+        self.sshPortInputField = QtGui.QLineEdit()
+        sshPortPanel.addWidget(self.sshPortInputField)
+
+        commPortPanel = QtGui.QVBoxLayout()
+        commPortPanel.addWidget(QtGui.QLabel("Communications port:"))
+        self.commPortInputField = QtGui.QLineEdit()
+        commPortPanel.addWidget(self.commPortInputField)
+
+        portPanel.addLayout(sshPortPanel)
+        portPanel.addLayout(commPortPanel)
+
         self.baseLayout.addLayout(portPanel)
 
         remoteUsernamePanel = QtGui.QHBoxLayout()
@@ -92,14 +106,24 @@ class FirstConfigPanel(QtGui.QWidget):
 
         remotePasswordPanel = QtGui.QHBoxLayout()
         self.remotePasswordField = QtGui.QLineEdit()
+        self.remotePasswordField.setEchoMode(QtGui.QLineEdit.Password)
         remotePasswordPanel.addWidget(QtGui.QLabel("SSH password:"))
         remotePasswordPanel.addWidget(self.remotePasswordField)
         self.baseLayout.addLayout(remotePasswordPanel)
-        
-        testConnectionButton = QtGui.QPushButton("Test connection")
-        testConnectionButton.setObjectName("testConnectionButton")
-        testConnectionButton.clicked.connect(self.__testConnection)
-        self.baseLayout.addWidget(testConnectionButton)
+
+        testButtonsPanel = QtGui.QHBoxLayout()
+
+        testSSHConnectionButton = QtGui.QPushButton("Test SSH")
+        testSSHConnectionButton.setObjectName("testSSHConnectionButton")
+        testSSHConnectionButton.clicked.connect(self.__testSSHConnection)
+
+        testCommunicationPortButton = QtGui.QPushButton("Test Comm. Port")
+        testCommunicationPortButton.setObjectName("testCommPortButton")
+        testCommunicationPortButton.clicked.connect(self.__testCommPort)
+
+        testButtonsPanel.addWidget(testSSHConnectionButton)
+        testButtonsPanel.addWidget(testCommunicationPortButton)
+        self.baseLayout.addLayout(testButtonsPanel)
 
     def __setupAccountsPanel(self):
         accountsPanel = QtGui.QVBoxLayout()
@@ -150,30 +174,40 @@ class FirstConfigPanel(QtGui.QWidget):
         selectedDir = QtGui.QFileDialog().getExistingDirectory(self, "Choose the synchronization directory",options=QtGui.QFileDialog.DontUseNativeDialog|QtGui.QFileDialog.ShowDirsOnly)
         self.directoryInputField.setText(selectedDir)
 
-    def __testConnection(self):
+    def __testSSHConnection(self):
         try:
             client = paramiko.SSHClient()
             client.load_system_host_keys()
             client.set_missing_host_key_policy(paramiko.WarningPolicy)
             client.connect(str(self.addressInputField.text()), port=22, username=str(self.remoteUsernameField.text()), password=str(self.remotePasswordField.text()))
-            msg = QtGui.QMessageBox(self)
-            msg.setWindowTitle("Connection Test")
-            msg.setText("Connected successfully!")
-            msg.exec_()
+            self.__showTestResultDialog("SSH Connection successful!")
         except Exception as e:
-            msg = QtGui.QMessageBox(self)
-            msg.setWindowTitle("Connection Test")
-            msg.setText("Connection failed! reason:\n{}".format(e))
-            msg.exec_()
+            self.__showTestResultDialog("SSH Connection failed! reason:\n{}".format(e))
         finally:
             client.close()
-    
+
+    def __testCommPort(self):
+        try:
+            commConnection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            remoteAddress = (unicode(self.addressInputField.text()).encode("utf8"), self.commPortInputField.text().toInt()[0])
+            commConnection.settimeout(4)
+            commConnection.connect(remoteAddress)
+            self.__showTestResultDialog("Communications port works!")
+        except Exception as e:
+            self.__showTestResultDialog("Communnications port test failed:\n {}".format(e))
+
+    def __showTestResultDialog(self, msg):
+        dialog = QtGui.QMessageBox(self)
+        dialog.setWindowTitle("Connection Test Result")
+        dialog.setText(msg)
+        dialog.exec_()
+
     def __selectAccount(self, index):
         if not self.editAccountButton.isEnabled():
             self.editAccountButton.setEnabled(True)
             self.removeAccountButton.setEnabled(True)
         self.selectedAccountIndex = index 
-    
+
     def __addAccount(self):
         self.accountDialog = AccountDialog(self)
         self.accountDialog.dataEmitter.connect(self.__onSaveAccount)
@@ -209,12 +243,13 @@ class FirstConfigPanel(QtGui.QWidget):
         configs = {}
         configs["syncDir"] = unicode(self.directoryInputField.text()).encode("utf8")
         configs["SSH_Address"] = unicode(self.addressInputField.text()).encode("utf8")
-        configs["SSH_Port"] = unicode(self.portInputField.text()).encode("utf8")
+        configs["SSH_Port"] = unicode(self.sshPortInputField.text()).encode("utf8")
         configs["SSH_username"] = unicode(self.remoteUsernameField.text()).encode("utf8")
         configs["SSH_password"] = unicode(self.remotePasswordField.text()).encode("utf8")
+        configs["commPort"] = unicode(self.commPortInputField.text()).encode("utf8")
         self.__setConfigs(configs)
         self.firstConfigFinished.emit()
-    
+
     def __setConfigs(self, configs):
         for key, value in configs.iteritems():
             self.settings.setValue(key, value)
