@@ -3,7 +3,6 @@ from PyQt4 import QtGui, QtCore
 
 from ItemSheet import ItemSheet
 from src.controller.ContextManager import ContextManager
-from src.controller.NetworkManager import NetworkManager
 
 
 class UploadsWidget(QtGui.QWidget):

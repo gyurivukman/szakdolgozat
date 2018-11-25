@@ -4,43 +4,59 @@ import shutil
 import os
 import time
 
-from src.model.FileTask import FileTask, TaskType
+from src.model.FileTask import FileTask, FileTaskType
 
 
 class FileManager(QtCore.QObject):
+    fileStatusChannel = QtCore.pyqtSignal(object)
 
-    def __init__(self, networkManager, fileScanner):
+    def __init__(self, sshManager, fileScanner, commService):
         super(FileManager, self).__init__()
         self.shouldRun = True
+        self.__taskQueue = Queue.Queue()
         self.__readyForNextTask = True
-        self.networkManager = networkManager
-        self.networkManager.taskReportChannel.connect(self.__taskReportHandler)
-
-        self.fileScanner = fileScanner
-        self.fileScanner.newFileChannel.connect(self.__newFileHandler)
-        self.eventQueue = Queue.Queue()
+        self.__setupServices(sshManager, fileScanner, commService)
+        self.__initTaskHandlers()
 
     def start(self):
         while(self.shouldRun):
-            if not self.eventQueue.empty() and self.__readyForNextTask:
-                self.__currentTask = self.eventQueue.get()
+            if not self.__taskQueue.empty() and self.__readyForNextTask:
+                self.__currentTask = self.__taskQueue.get()
                 self.__readyForNextTask = False
                 self.__handleCurrentTask()
             else:
                 time.sleep(4)
 
+    def __setupServices(self, sshManager, fileScanner, commService):
+        self.sshManager = sshManager
+        self.commService = commService
+
+        self.fileScanner = fileScanner
+        self.fileScanner.newFileChannel.connect(self.__newFileFoundHandler)
+
+    def __initTaskHandlers(self):
+        self.__taskHandlers = {}
+        self.__taskHandlers[FileTaskType.EXISTENCE_CHECK] = self.__checkForFile
+        self.__taskHandlers[FileTaskType.DELETE] = self.__deleteRemoteFile
+
     def __handleCurrentTask(self):
-        print "handling current task..."
-        time.sleep(5)
-        self.__currentTask = None
+        (self.__taskHandlers[self.__currentTask.getType()])()
         self.__readyForNextTask = True
 
-    def __taskReportHandler(self, taskReport):
-        print taskReport
+    def __newFileFoundHandler(self, task):
+        self.__taskQueue.put(task)
 
-    def __newFileHandler(self, report):
-        print "new file handler"
-        print report
+    def __checkForFile(self):
+        relativePath = self.__currentTask.getTargetDir() + '/' + self.__currentTask.getFileName()
+        filestatus = self.commService.getFileStatus(relativePath)
+
+        if filestatus == FileTaskType.UPLOAD or filestatus == FileTaskType.DOWNLOAD:
+            sshTask = FileTask(filestatus, self.__currentTask.getTargetDir(), self.__currentTask.getFullPath(), self.__currentTask.getFileName())
+            self.sshManager.enqueuTask(sshTask)
+
+    def __deleteRemoteFile(self):
+        print "I SHOULD DELETE REMOTE FILE"
+        pass
 
     def stop(self):
         self.shouldRun = False

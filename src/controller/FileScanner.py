@@ -1,11 +1,15 @@
-from PyQt4 import QtCore
 import scandir
 import os
 import time
 
+from PyQt4 import QtCore
+
+from src.model.FileTask import FileTask
+from src.model.FileTask import FileTaskType
+
 
 class FileScanner(QtCore.QObject):
-    newFileChannel = QtCore.pyqtSignal(str)
+    newFileChannel = QtCore.pyqtSignal(object)
 
     def __init__(self):
         super(FileScanner, self).__init__()
@@ -31,7 +35,7 @@ class FileScanner(QtCore.QObject):
             relativePath = entry['fullPath'][self.__pathCutLength:]
             if relativePath not in self.files:
                 self.files[relativePath] = True
-                self.newFileChannel.emit(relativePath)
+                self.newFileChannel.emit(FileTask(FileTaskType.EXISTENCE_CHECK, entry['dir'], entry['fullPath'], entry['filename']))
                 # self.networkManager.enqueuTask(FileTask(TaskType.EXISTENCE_CHECK, entry['dir'],entry['fullPath'], entry['filename']))
 
     def __scanFileTree(self, baseDir):

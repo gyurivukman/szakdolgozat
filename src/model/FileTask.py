@@ -8,6 +8,7 @@ class FileTask(object):
         self.__targetDir = targetDir
         self.__fileName = fileName
         self.__fullPath = fullPath
+        self.__status = FileTaskStatus.INIT
 
     def getType(self):
         return self.__taskType
@@ -17,13 +18,29 @@ class FileTask(object):
 
     def getFileName(self):
         return self.__fileName
-    
+
     def getFullPath(self):
         return self.__fullPath
 
+    def setStatus(self, status):
+        self.__status = status
 
-class TaskType(Enum):
+    def setType(self, taskType):
+        self.__taskType = taskType
+
+    def __repr__(self):
+        return unicode({"taskType": self.__taskType, "targetDir": self.__targetDir, "fileName": self.__fileName, "fullPath": self.__fullPath}).encode("utf8")
+
+
+class FileTaskType(Enum):
     UPLOAD = 1
     DOWNLOAD = 2
     EXISTENCE_CHECK = 3
     DELETE = 4
+    IGNORE = 5
+
+
+class FileTaskStatus(Enum):
+    INIT = 0
+    IN_PROGRESS = 1
+    DONE = 2

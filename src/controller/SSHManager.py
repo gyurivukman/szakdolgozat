@@ -4,7 +4,7 @@ import time
 import paramiko
 from PyQt4 import QtCore
 
-from src.model.FileTask import TaskType
+from src.model.FileTask import FileTaskType
 
 
 class SSHManager(QtCore.QObject):
@@ -18,14 +18,14 @@ class SSHManager(QtCore.QObject):
 
     def __setup(self):
         self.shouldRun = True
-        self.queue = Queue.Queue()
+        self.__queue = Queue.Queue()
         self.__currentTask = None
         self.settings = QtCore.QSettings()
 
     def __initTaskHandlers(self):
         self.taskHandlers = {
-            TaskType.UPLOAD: self.__uploadHandler,
-            TaskType.DOWNLOAD: self.__downloadHandler,
+            FileTaskType.UPLOAD: self.__uploadHandler,
+            FileTaskType.DOWNLOAD: self.__downloadHandler,
         }
 
     def __initSFTP(self):
@@ -50,8 +50,8 @@ class SSHManager(QtCore.QObject):
 
     def start(self):
         while(self.shouldRun):
-            if not self.queue.empty():
-                self.__currentTask = self.queue.get()
+            if not self.__queue.empty():
+                self.__currentTask = self.__queue.get()
                 self.__handleCurrentTask()
             else:
                 time.sleep(5)
@@ -65,28 +65,32 @@ class SSHManager(QtCore.QObject):
         return self.__currentTask
 
     def enqueuTask(self, task):
-        self.queue.put(task)
+        self.__queue.put(task)
 
     def __handleCurrentTask(self):
         self.taskHandlers[self.__currentTask.getType()]()
 
     def __uploadHandler(self):
-        print "UPLOAD"
+        self.__navigateToTargetDirectoryRemoteHost()
+        self.__uploadFile()
 
     def __downloadHandler(self):
         print "DOWNLOADHANDLER"
 
-    def __createDirectoriesOnRemoteHost(self, targetPath):
-        if targetPath:
-            syncDirRoot = self.__sftpClient.getcwd()
-            splittedPath = targetPath.split('/')
+    def __navigateToTargetDirectoryRemoteHost(self):
+        if self.__currentTask.getTargetDir() != "/":
+            splittedPath = (self.__currentTask.getTargetDir().lstrip("/").split('/'))
             for directory in splittedPath:
-                self.__createDirectory(directory)
-            self.__sftpClient.chdir(syncDirRoot)
+                self.__navigateToDirectory(directory)
 
-    def __createDirectory(self, directory):
+    def __uploadFile(self):
+        print "uploading: "+self.__currentTask.getFullPath()
+        self.__sftpClient.put(self.__currentTask.getFullPath(), self.__currentTask.getFileName())
+        self.__sftpClient.chdir(self.remoteSyncBaseDir)
+
+    def __navigateToDirectory(self, directory):
         try:
-            self.__sftpClient.stat(directory)
+            self.__sftpClient.chdir(directory)
         except IOError:
             self.__sftpClient.mkdir(directory)
             self.__sftpClient.chdir(directory)
