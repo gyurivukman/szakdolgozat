@@ -85,8 +85,12 @@ class SSHManager(QtCore.QObject):
 
     def __uploadFile(self):
         print "uploading: "+self.__currentTask.getFullPath()
-        self.__sftpClient.put(self.__currentTask.getFullPath(), self.__currentTask.getFileName())
+        self.__sftpClient.put(self.__currentTask.getFullPath(), self.__currentTask.getFileName(), callback=self.__reportProgress)
+        print "Upload finished!"
         self.__sftpClient.chdir(self.remoteSyncBaseDir)
+
+    def __reportProgress(self, transferred, remaining):
+        print self.__currentTask.getFullPath() + " {} / {}".format(transferred, remaining)
 
     def __navigateToDirectory(self, directory):
         try:
