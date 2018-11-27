@@ -1,4 +1,5 @@
 from PyQt4 import QtGui, QtCore
+
 from AboutDialog import AboutDialog
 
 

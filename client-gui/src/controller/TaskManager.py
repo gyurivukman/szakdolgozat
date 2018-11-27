@@ -1,17 +1,18 @@
-from PyQt4 import QtCore
 import Queue
 import shutil
 import os
 import time
 
+from PyQt4 import QtCore
+
 from src.model.FileTask import FileTask, FileTaskType
 
 
-class FileManager(QtCore.QObject):
+class TaskManager(QtCore.QObject):
     fileStatusChannel = QtCore.pyqtSignal(object)
 
     def __init__(self, sshManager, fileScanner, commService):
-        super(FileManager, self).__init__()
+        super(TaskManager, self).__init__()
         self.shouldRun = True
         self.__taskQueue = Queue.Queue()
         self.__readyForNextTask = True

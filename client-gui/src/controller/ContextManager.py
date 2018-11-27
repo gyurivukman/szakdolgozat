@@ -1,10 +1,11 @@
+from PyQt4 import QtCore
+
 from SSHManager import SSHManager
-from FileManager import FileManager
+from TaskManager import TaskManager
 from FileScanner import FileScanner
 from CommunicationService import CommunicationService
 
 
-from PyQt4 import QtCore
 
 
 class ContextManagerWrapper(type):
@@ -23,8 +24,8 @@ class ContextManager(object):
         self.__managers = {}
         self.__threadPool = {}
         self.__setupSSHManager()
-        self.__setupFileScanner()
         self.__setupCommService()
+        self.__setupFileScanner()
         self.__setupFileManager()
 
     def __setupSSHManager(self):
@@ -36,26 +37,25 @@ class ContextManager(object):
 
     def __setupFileScanner(self):
         self.__managers['filescanner'] = FileScanner()
-        self.__threadPool['filescanner_thread'] = QtCore.QThread()
-        self.__managers['filescanner'].moveToThread(self.__threadPool['filescanner_thread'])
-        self.__threadPool['filescanner_thread'].started.connect((self.__managers['filescanner']).start)
+        self.__threadPool['filescanner'] = QtCore.QThread()
+        self.__managers['filescanner'].moveToThread(self.__threadPool['filescanner'])
+        self.__threadPool['filescanner'].started.connect((self.__managers['filescanner']).start)
 
     def __setupCommService(self):
         self.__managers['comm_service'] = CommunicationService()
-        self.__threadPool['comm_service_thread'] = QtCore.QThread()
-        self.__managers['comm_service'].moveToThread(self.__threadPool['comm_service_thread'])
-        # self.__threadPool['comm_service_thread'].started.connect((self.__managers['comm_service']).start)
+        self.__threadPool['comm_service'] = QtCore.QThread()
+        self.__managers['comm_service'].moveToThread(self.__threadPool['comm_service'])
+        (self.__threadPool['comm_service']).start()
 
     def __setupFileManager(self):
-        self.__managers['file_manager'] = FileManager(self.__getsshManager(), self.__getFileScanner(), self.__getCommService())
-        self.__threadPool['file_manager'] = QtCore.QThread()
+        self.__managers['task_manager'] = TaskManager(self.__getsshManager(), self.__getFileScanner(), self.__getCommService())
+        self.__threadPool['task_manager'] = QtCore.QThread()
 
-        self.__managers['file_manager'].moveToThread(self.__threadPool['file_manager'])
-        self.__threadPool['file_manager'].started.connect((self.__managers['file_manager']).start)
-        (self.__threadPool['file_manager']).start()
-        (self.__threadPool['filescanner_thread']).start()
-        (self.__threadPool['comm_service_thread']).start()
-
+        self.__managers['task_manager'].moveToThread(self.__threadPool['task_manager'])
+        self.__threadPool['task_manager'].started.connect((self.__managers['task_manager']).start)
+        (self.__threadPool['task_manager']).start()
+        (self.__threadPool['filescanner']).start()
+        
     def __getsshManager(self):
         return self.__managers['ssh_manager']
 
@@ -65,13 +65,18 @@ class ContextManager(object):
     def __getCommService(self):
         return self.__managers['comm_service']
 
-    def getFileManager(self):
-        return self.__managers['file_manager']
+    def getTaskManager(self):
+        return self.__managers['task_manager']
 
     def shutDown(self):
         (self.__managers['ssh_manager']).stop()
         (self.__threadPool['ssh_manager']).stop()
-        (self.__managers['file_manager']).stop()
-        (self.__threadPool['file_manager']).stop()
+
+        (self.__managers['task_manager']).stop()
+        (self.__threadPool['task_manager']).stop()
+
+        (self.__managers['filescanner']).stop()
+        (self.__threadPool['filescanner']).stop()
+
         (self.__managers['comm_service']).stop()
-        (self.__threadPool['comm_service_thread']).stop()
+        (self.__threadPool['comm_service']).stop()

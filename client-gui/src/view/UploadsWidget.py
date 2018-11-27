@@ -1,4 +1,5 @@
 import os
+
 from PyQt4 import QtGui, QtCore
 
 from ItemSheet import ItemSheet
@@ -9,7 +10,7 @@ class UploadsWidget(QtGui.QWidget):
 
     def __init__(self, *args, **kwargs):
         super(UploadsWidget, self).__init__(*args, **kwargs)
-        self.fileManager = (ContextManager()).getFileManager()
+        self.taskManager = (ContextManager()).getTaskManager()
         self.__setupOwnLayout()
         self.setFixedSize(400, 400)
         self.setAcceptDrops(True)
@@ -37,7 +38,7 @@ class UploadsWidget(QtGui.QWidget):
     def __addItems(self):
         for item in range(15):
             self.scrollLayout.addWidget(
-                ItemSheet(self.scrollContentContainer, QtCore.Qt.WindowFlags(0), str(item),0)
+                ItemSheet(self.scrollContentContainer, QtCore.Qt.WindowFlags(0), str(item), 0)
             )
         self.scrollLayout.setContentsMargins(0, 0, 0, 0)
         self.scrollLayout.setSpacing(0)

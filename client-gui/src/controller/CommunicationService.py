@@ -1,7 +1,8 @@
-from PyQt4 import QtCore
 import socket
 import Queue
 import time
+
+from PyQt4 import QtCore
 
 from src.model.FileTask import FileTaskType
 
@@ -14,6 +15,7 @@ class CommunicationService(QtCore.QObject):
 
     def __setup(self):
         self.settings = QtCore.QSettings()
+        self.buffer = []
         # self.__setupServerConnection()
 
     def getFileStatus(self, relativeFilePath):
@@ -21,6 +23,9 @@ class CommunicationService(QtCore.QObject):
         return FileTaskType.UPLOAD
 
     def __deleteRemoteFile(self):
+        pass
+
+    def getInitialFileList(self):
         pass
 
     def __setupServerConnection(self):

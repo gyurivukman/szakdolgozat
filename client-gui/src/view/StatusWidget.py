@@ -1,5 +1,6 @@
 from PyQt4 import QtGui
 
+
 class StatusWidget(QtGui.QWidget):
     def __init__(self, *args, **kwargs):
         super(StatusWidget, self).__init__(*args, **kwargs)

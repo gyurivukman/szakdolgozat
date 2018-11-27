@@ -1,4 +1,5 @@
 from PyQt4 import QtGui, QtCore
+
 from src.controller.settings import Settings
 from UploadsWidget import UploadsWidget
 from FirstConfigPanel import FirstConfigPanel

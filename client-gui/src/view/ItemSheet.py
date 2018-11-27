@@ -1,5 +1,7 @@
 from PyQt4 import QtCore, QtGui
+
 from StatusWidget import StatusWidget
+
 
 class ItemSheet(QtGui.QWidget):
     def __init__(self, *args, **kwargs):

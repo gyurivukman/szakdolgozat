@@ -1,4 +1,5 @@
 from PyQt4 import QtGui, QtCore
+
 import src.model.AccountSchemas as AccountSchemas
 from src.controller.AccountPanelBuilder import AccountPanelBuilder
 
