@@ -11,10 +11,9 @@ class CryptStorePiServer(object):
     def __init__(self, port, encryptionKey):
         self.port = port
         self.client = None
-        self.encryptionKey = encryptionKey
         self.buffer = []
         self.shouldRun = True
-        self.messageEncoder = MessageEncoder()
+        self.messageEncoder = MessageEncoder(encryptionKey)
 
     def start(self):
         self.__setup()
