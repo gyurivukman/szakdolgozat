@@ -31,10 +31,17 @@ class FirstConfigPanel(QtGui.QWidget):
                     width:250px;
                     max-width:250px;
                 }
-                .QPushButton#testConnectionButton, .QPushButton#testCommPortButton{
+
+                .QPushButton#testConnectionButton {
                     height:25px;
                     width:100px;
                 }
+
+                .QPushButton#testCommPortButton{
+                    height: 25px;
+                    width: 100px;
+                }
+
                 .QLabel#testResultMessage{
                     margin-left:20px;
                 }
@@ -43,9 +50,7 @@ class FirstConfigPanel(QtGui.QWidget):
                     border:2px solid red;
                 }
                 .QPushButton#finishButton{
-                    width:100px;
-                    max-width:100px;
-                    height:35px;
+                    height:25px;
                 }
             """
         )
@@ -77,7 +82,7 @@ class FirstConfigPanel(QtGui.QWidget):
     def __setupRemoteDataPanel(self):
         addressPanel = QtGui.QHBoxLayout()
         self.addressInputField = QtGui.QLineEdit()
-        addressPanel.addWidget(QtGui.QLabel("SSH host address:"))
+        addressPanel.addWidget(QtGui.QLabel("Remote host address:"))
         addressPanel.addWidget(self.addressInputField)
         self.baseLayout.addLayout(addressPanel)
 
@@ -112,6 +117,13 @@ class FirstConfigPanel(QtGui.QWidget):
         self.baseLayout.addLayout(remotePasswordPanel)
 
         testButtonsPanel = QtGui.QHBoxLayout()
+
+        communicationsKeyPanel = QtGui.QHBoxLayout()
+        self.commKeyField = QtGui.QLineEdit()
+        self.commKeyField.setObjectName("commKeyInput")
+        communicationsKeyPanel.addWidget(QtGui.QLabel("Comm. Encryption Key:"))
+        communicationsKeyPanel.addWidget(self.commKeyField)
+        self.baseLayout.addLayout(communicationsKeyPanel)
 
         testSSHConnectionButton = QtGui.QPushButton("Test SSH")
         testSSHConnectionButton.setObjectName("testSSHConnectionButton")
@@ -193,6 +205,7 @@ class FirstConfigPanel(QtGui.QWidget):
             commConnection.settimeout(4)
             commConnection.connect(remoteAddress)
             self.__showTestResultDialog("Communications port works!")
+            commConnection.close()
         except Exception as e:
             self.__showTestResultDialog("Communnications port test failed:\n {}".format(e))
 
@@ -247,6 +260,7 @@ class FirstConfigPanel(QtGui.QWidget):
         configs["SSH_username"] = unicode(self.remoteUsernameField.text()).encode("utf8")
         configs["SSH_password"] = unicode(self.remotePasswordField.text()).encode("utf8")
         configs["commPort"] = unicode(self.commPortInputField.text()).encode("utf8")
+        configs["commKey"] = unicode(self.commKeyField.text()).encode("utf8")
         self.__setConfigs(configs)
         self.firstConfigFinished.emit()
 
