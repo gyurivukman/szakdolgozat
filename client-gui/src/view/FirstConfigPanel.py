@@ -255,7 +255,7 @@ class FirstConfigPanel(QtGui.QWidget):
     def __finishConfig(self):
         configs = {}
         configs["syncDir"] = unicode(self.directoryInputField.text()).encode("utf8")
-        configs["SSH_Address"] = unicode(self.addressInputField.text()).encode("utf8")
+        configs["remoteAddress"] = unicode(self.addressInputField.text()).encode("utf8")
         configs["SSH_Port"] = unicode(self.sshPortInputField.text()).encode("utf8")
         configs["SSH_username"] = unicode(self.remoteUsernameField.text()).encode("utf8")
         configs["SSH_password"] = unicode(self.remotePasswordField.text()).encode("utf8")

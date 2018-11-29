@@ -33,7 +33,7 @@ class SSHManager(QtCore.QObject):
         ssh.load_system_host_keys()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy)
         ssh.connect(
-            unicode(self.settings.value("SSH_Address").toString()),
+            unicode(self.settings.value("remoteAddress").toString()),
             self.settings.value("SSH_Port").toInt()[0],
             username=unicode(self.settings.value("SSH_username").toString()),
             password=unicode(self.settings.value("SSH_password").toString())

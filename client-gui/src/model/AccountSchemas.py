@@ -11,6 +11,11 @@ accountSchemas = [
                 "display_name": "Password",
                 "model_name": "password",
                 "type": "password"
+            },
+            {
+                "display_name": "API Token",
+                "model_name": "token",
+                "type": "text"
             }
         ]
     },

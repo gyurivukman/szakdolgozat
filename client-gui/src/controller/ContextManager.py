@@ -6,8 +6,6 @@ from FileScanner import FileScanner
 from CommunicationService import CommunicationService
 
 
-
-
 class ContextManagerWrapper(type):
     _instances = {}
 
@@ -45,7 +43,7 @@ class ContextManager(object):
         self.__managers['comm_service'] = CommunicationService()
         self.__threadPool['comm_service'] = QtCore.QThread()
         self.__managers['comm_service'].moveToThread(self.__threadPool['comm_service'])
-        (self.__threadPool['comm_service']).start()
+        self.__threadPool['comm_service'].started.connect((self.__managers['comm_service']).start)
 
     def __setupFileManager(self):
         self.__managers['task_manager'] = TaskManager(self.__getsshManager(), self.__getFileScanner(), self.__getCommService())
@@ -55,7 +53,8 @@ class ContextManager(object):
         self.__threadPool['task_manager'].started.connect((self.__managers['task_manager']).start)
         (self.__threadPool['task_manager']).start()
         (self.__threadPool['filescanner']).start()
-        
+        (self.__threadPool['comm_service']).start()
+
     def __getsshManager(self):
         return self.__managers['ssh_manager']
 

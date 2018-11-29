@@ -30,21 +30,20 @@ class CryptStorePiServer(object):
 
     def __setup(self):
         self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.serverSocket.setsockopt()
+        self.serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_address = ('localhost', self.port)
         self.serverSocket.bind(server_address)
         self.serverSocket.listen(1)
-
-        print self.client
 
     def __waitForConnection(self):
         self.client, self.client_address = self.serverSocket.accept()
 
     def __handleMessageFragment(self, messageFragment):
+        self.buffer.append(messageFragment)
         if ";" in messageFragment:
-            message = self.messageEncoder.decryptMessage(self.__sliceMessageBuffer())
-        else:
-            self.buffer.append
+            message = self.__sliceMessageBuffer()
+            decrypted = self.messageEncoder.decryptMessage(encrypted)
+            print decrypted
 
     def __sliceMessageBuffer(self):
         unsliced = "".join(self.buffer)

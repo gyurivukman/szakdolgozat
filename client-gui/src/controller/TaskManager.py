@@ -31,6 +31,7 @@ class TaskManager(QtCore.QObject):
     def __setupServices(self, sshManager, fileScanner, commService):
         self.sshManager = sshManager
         self.commService = commService
+        self.commService.taskReportChannel.connect(self.__commReportHandler)
 
         self.fileScanner = fileScanner
         self.fileScanner.newFileChannel.connect(self.__newFileFoundHandler)
@@ -46,14 +47,14 @@ class TaskManager(QtCore.QObject):
 
     def __newFileFoundHandler(self, task):
         self.__taskQueue.put(task)
+    
+    def __commReportHandler(self, report):
+        if report["todo"] == FileTaskType.UPLOAD or filestatus == FileTaskType.DOWNLOAD:
+            sshTask = FileTask(report["todo"], report["data"].getTargetDir(), report["data"].getFullPath(), report["data"].getFileName())
+            self.sshManager.enqueuTask(sshTask)
 
     def __checkForFile(self):
-        relativePath = self.__currentTask.getTargetDir() + '/' + self.__currentTask.getFileName()
-        filestatus = self.commService.getFileStatus(relativePath)
-
-        if filestatus == FileTaskType.UPLOAD or filestatus == FileTaskType.DOWNLOAD:
-            sshTask = FileTask(filestatus, self.__currentTask.getTargetDir(), self.__currentTask.getFullPath(), self.__currentTask.getFileName())
-            self.sshManager.enqueuTask(sshTask)
+        self.commService.enqueuFileStatusTask(self.__currentTask)
 
     def __deleteRemoteFile(self):
         print "I SHOULD DELETE REMOTE FILE"
