@@ -34,17 +34,14 @@ class MainWindow(QtGui.QMainWindow):
             "SSH": False,
             "Comm": False
         }
-        self.__connectingMessage = QtGui.QLabel("Connecting...")
 
     def __handleConnectionChangeEvent(self, event):
             self.__connectionStates[event.subject] = True if event.eventType == ConnectionEventTypes.CONNECTED else False
             if self.__connectionStates["SSH"] and self.__connectionStates["Comm"]:
-                self.setCentralWidget(self.__uploadsWidget)
-                self.__uploadsWidget.show()
+                self.__setupUploadsWidget()
                 self.repaint()
             else:
-                self.__uploadsWidget.hide()
-                self.setCentralWidget(self.__connectingMessage)
+                self.setCentralWidget(QtGui.QLabel("Connecting..."))
                 self.repaint()
 
     def __setupWidgets(self):
@@ -58,11 +55,11 @@ class MainWindow(QtGui.QMainWindow):
             self.setCentralWidget(firstConfigPanel)
         else:
             self.__setupUploadsWidget()
-            self.setCentralWidget(self.__connectingMessage)
+            self.setCentralWidget(QtGui.QLabel("Connecting..."))
 
     def __setupUploadsWidget(self):
         self.__uploadsWidget = UploadsWidget(self)
-        self.__uploadsWidget.hide()
+        self.setCentralWidget(self.__uploadsWidget)
         self.setFixedSize(400, 400)
 
     def __isFirstStart(self):

@@ -2,7 +2,7 @@ import socket
 import select
 import time
 import sys
-
+import json
 from MessageEncoder import MessageEncoder
 
 
@@ -13,7 +13,7 @@ class CryptStorePiServer(object):
         self.client = None
         self.buffer = []
         self.shouldRun = True
-        self.messageEncoder = MessageEncoder(encryptionKey)
+        self.__messageEncoder = MessageEncoder(encryptionKey)
 
     def start(self):
         self.__setup()
@@ -41,9 +41,17 @@ class CryptStorePiServer(object):
     def __handleMessageFragment(self, messageFragment):
         self.buffer.append(messageFragment)
         if ";" in messageFragment:
-            message = self.__sliceMessageBuffer()
-            decrypted = self.messageEncoder.decryptMessage(encrypted)
+            encrypted = self.__sliceMessageBuffer()
+            decrypted = json.loads(self.__messageEncoder.decryptMessage(encrypted))
             print decrypted
+            self.__handleMessage(decrypted)
+    
+    def __handleMessage(self, message):
+        if message["type"] == "keepalive":
+            print "got keepalive message!"
+            res = self.__messageEncoder.encryptMessage('{"type":"keepalive"}')
+            print "sending ack!"
+            self.client.sendall(res)
 
     def __sliceMessageBuffer(self):
         unsliced = "".join(self.buffer)

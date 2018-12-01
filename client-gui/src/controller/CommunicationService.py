@@ -25,8 +25,8 @@ class CommunicationService(QtCore.QObject):
         self.__settings = QtCore.QSettings()
         self.__buffer = []
         self.__messageEncoder = MessageEncoder()
-        self.__setupServerConnection()
         self.__taskQueue = Queue.Queue()
+        self.__setupServerConnection()
 
     def enqueuFileStatusTask(self, statusTask):
         #TODO: Check if file exists on remote/check its last modified date.
@@ -51,7 +51,7 @@ class CommunicationService(QtCore.QObject):
                 self.__currentTask = self.__taskQueue.get()
                 self.__handleCurrentTask()
             else:
-                #self.__sendKeepAlive()
+                self.__sendKeepAlive()
                 time.sleep(5)
 
     def __connect(self):
@@ -61,7 +61,7 @@ class CommunicationService(QtCore.QObject):
                 self.__serverConnection.connect(self.__remoteAddress)
                 self.__connected = True
                 self.connectionStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.CONNECTED, "Comm"))
-            except Exception as e:
+            except socket.error as e:
                 print "failed to connect to {}:{} ,retrying in 5 seconds".format(self.__remoteAddress[0], self.__remoteAddress[1])
                 time.sleep(5)
 
@@ -69,9 +69,20 @@ class CommunicationService(QtCore.QObject):
         #TODO proper handlers, only does filecheck now!
         self.taskReportChannel.emit({"todo": FileTaskType.UPLOAD, "data": self.__currentTask})
 
+    def __sendKeepAlive(self):
+        try:
+            message = self.__messageEncoder.encryptMessage('{"type":"keepalive"}')
+            self.__serverConnection.sendall(message)
+            encrypted = self.__serverConnection.recv(100)
+        except socket.error:
+            self.connectionStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.DISCONNECTED, "Comm"))
+            self.__connected = False
+            self.__setupServerConnection()
+            self.__connect()
+
     def close(self):
         self.shouldRun = False
         try:
-            self.serverConnection.close()
+            self.__serverConnection.close()
         except Exception as unhandled:
             pass

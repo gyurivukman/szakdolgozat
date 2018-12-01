@@ -14,14 +14,14 @@ class TaskManager(QtCore.QObject):
 
     def __init__(self, sshManager, fileScanner, commService):
         super(TaskManager, self).__init__()
-        self.shouldRun = True
+        self.__shouldRun = True
         self.__taskQueue = Queue.Queue()
         self.__readyForNextTask = True
         self.__setupServices(sshManager, fileScanner, commService)
         self.__initTaskHandlers()
 
     def start(self):
-        while(self.shouldRun):
+        while(self.__shouldRun):
             if not self.__taskQueue.empty() and self.__readyForNextTask:
                 self.__currentTask = self.__taskQueue.get()
                 self.__readyForNextTask = False
@@ -32,16 +32,18 @@ class TaskManager(QtCore.QObject):
     def __setupServices(self, sshManager, fileScanner, commService):
         self.sshManager = sshManager
         self.sshManager.connectionStatusChannel.connect(self.__connectionStatusHandler)
+        #TODO reportChannelSub for SSH status!
 
         self.commService = commService
         self.commService.taskReportChannel.connect(self.__commReportHandler)
         self.commService.connectionStatusChannel.connect(self.__connectionStatusHandler)
 
         self.fileScanner = fileScanner
-        self.fileScanner.newFileChannel.connect(self.__newFileFoundHandler)
+        self.fileScanner.newFileChannel.connect(self.__newFileEventHandler)
 
     def __initTaskHandlers(self):
         self.__taskHandlers = {}
+        self.__taskHandlers[FileTaskType.UPLOAD] = self.__uploadFile
         self.__taskHandlers[FileTaskType.EXISTENCE_CHECK] = self.__checkForFile
         self.__taskHandlers[FileTaskType.DELETE] = self.__deleteRemoteFile
 
@@ -49,11 +51,11 @@ class TaskManager(QtCore.QObject):
         (self.__taskHandlers[self.__currentTask.getType()])()
         self.__readyForNextTask = True
 
-    def __newFileFoundHandler(self, task):
+    def __newFileEventHandler(self, task):
         self.__taskQueue.put(task)
-    
+
     def __commReportHandler(self, report):
-        if report["todo"] == FileTaskType.UPLOAD or filestatus == FileTaskType.DOWNLOAD:
+        if report["todo"] == FileTaskType.UPLOAD or report["todo"] == FileTaskType.DOWNLOAD:
             sshTask = FileTask(report["todo"], report["data"].getTargetDir(), report["data"].getFullPath(), report["data"].getFileName())
             self.sshManager.enqueuTask(sshTask)
 
@@ -64,8 +66,11 @@ class TaskManager(QtCore.QObject):
         print "I SHOULD DELETE REMOTE FILE"
         pass
 
+    def __uploadFile(self, task):
+        self.sshManager.enqueuTask(task)
+
     def __connectionStatusHandler(self, report):
         self.connectionStatusChannel.emit(report)
 
     def stop(self):
-        self.shouldRun = False
+        self.__shouldRun = False

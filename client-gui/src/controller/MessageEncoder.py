@@ -25,7 +25,7 @@ class MessageEncoder(object):
         cipher = AES.new(self.__encryptionKey)
         paddedMessage = self.__padMessage(message)
         encryptedMessage = cipher.encrypt(paddedMessage)
-        return base64.b64encode(encryptedMessage)
+        return base64.b64encode(encryptedMessage)+";"
 
     def __padMessage(self, message):
         return message + (self.__paddingChar * ((16-len(message)) % 16))

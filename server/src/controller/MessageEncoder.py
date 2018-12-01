@@ -12,7 +12,6 @@ class MessageEncoder(object):
     def decryptMessage(self, message):
         cipher = AES.new(self.encryptionKey)
         decryptedMessage = base64.b64decode(message)
-        print "base64 decrypted: " + decryptedMessage
         decryptedMessage = cipher.decrypt(decryptedMessage)
         decryptedMessage = self.__unPadMessage(decryptedMessage)
         return decryptedMessage
@@ -24,7 +23,7 @@ class MessageEncoder(object):
         cipher = AES.new(self.encryptionKey)
         paddedMessage = self.__padMessage(message)
         encryptedMessage = cipher.encrypt(paddedMessage)
-        return base64.b64encode(encryptedMessage)
+        return base64.b64encode(encryptedMessage)+";"
 
     def __padMessage(self, message):
         return message + (self.paddingChar * ((16-len(message)) % 16))
