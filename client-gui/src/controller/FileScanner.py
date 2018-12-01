@@ -7,6 +7,7 @@ from PyQt4 import QtCore
 
 from src.model.FileTask import FileTask
 from src.model.FileTask import FileTaskType
+from ContextManager import ContextManager
 
 
 class FileScanner(QtCore.QObject):
@@ -27,9 +28,13 @@ class FileScanner(QtCore.QObject):
         self.__pathCutLength = len(self.syncDir)
 
     def start(self):
+        self.__initFileList()
         while self.shouldRun:
             self.__scanFiles()
             time.sleep(5)
+
+    def __initFileList(self):
+        pass
 
     def __scanFiles(self):
         currentTime = calendar.timegm(time.gmtime())

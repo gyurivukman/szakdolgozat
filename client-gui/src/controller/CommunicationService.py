@@ -29,7 +29,7 @@ class CommunicationService(QtCore.QObject):
         self.__setupServerConnection()
 
     def enqueuFileStatusTask(self, statusTask):
-        #TODO: Check if file exists on remote/check its last modified date.
+        #TODO: Check if file exists on remote/check its last modified date
         self.__taskQueue.put(statusTask)
 
     def __deleteRemoteFile(self):
@@ -66,7 +66,6 @@ class CommunicationService(QtCore.QObject):
                 time.sleep(5)
 
     def __handleCurrentTask(self):
-        #TODO proper handlers, only does filecheck now!
         self.taskReportChannel.emit({"todo": FileTaskType.UPLOAD, "data": self.__currentTask})
 
     def __sendKeepAlive(self):

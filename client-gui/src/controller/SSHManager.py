@@ -58,7 +58,7 @@ class SSHManager(QtCore.QObject):
                 self.__currentTask = self.__queue.get()
                 self.__handleCurrentTask()
             else:
-                print "Sending keepalive packet..."
+                print "Sending SSH keepalive packet..."
                 self.__sshTransport.send_ignore(10)                
                 time.sleep(5)
 

@@ -14,9 +14,9 @@ class CryptStorePiServer(object):
         self.buffer = []
         self.shouldRun = True
         self.__messageEncoder = MessageEncoder(encryptionKey)
+        self.__setupServerConnection()
 
     def start(self):
-        self.__setup()
         while self.shouldRun:
             if not self.client:
                 self.__waitForConnection()
@@ -25,16 +25,15 @@ class CryptStorePiServer(object):
                 if(messageFragment):
                     self.__handleMessageFragment(messageFragment)
                 else:
-                    print "Disconnected."
                     self.client = None
-
-    def __setup(self):
+    
+    def __setupServerConnection(self):
         self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_address = ('localhost', self.port)
         self.serverSocket.bind(server_address)
         self.serverSocket.listen(1)
-
+        
     def __waitForConnection(self):
         self.client, self.client_address = self.serverSocket.accept()
 
@@ -48,9 +47,7 @@ class CryptStorePiServer(object):
     
     def __handleMessage(self, message):
         if message["type"] == "keepalive":
-            print "got keepalive message!"
             res = self.__messageEncoder.encryptMessage('{"type":"keepalive"}')
-            print "sending ack!"
             self.client.sendall(res)
 
     def __sliceMessageBuffer(self):
