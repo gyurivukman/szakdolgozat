@@ -6,12 +6,14 @@ import json
 from PyQt4 import QtCore
 
 from src.model.FileTask import FileTaskType
+from src.model.ConnectionEvent import ConnectionEvent
+from src.model.ConnectionEventTypes import ConnectionEventTypes
 from MessageEncoder import MessageEncoder
 
 
 class CommunicationService(QtCore.QObject):
-    ready = QtCore.pyqtSignal(bool)
     taskReportChannel = QtCore.pyqtSignal(object)
+    connectionStatusChannel = QtCore.pyqtSignal(object)
 
     def __init__(self):
         super(CommunicationService, self).__init__()
@@ -43,26 +45,22 @@ class CommunicationService(QtCore.QObject):
 
     def start(self):
         while self.__shouldRun:
-            try:
-                if not self.__connected:
-                    self.__connect()
-                elif not self.__taskQueue.empty():
-                    self.__currentTask = self.__taskQueue.get()
-                    self.__handleCurrentTask()
-                else:
-                    time.sleep(5)
-            except:
-                print "Communications connection dropped!"
+            if not self.__connected:
                 self.__connect()
+            elif not self.__taskQueue.empty():
+                self.__currentTask = self.__taskQueue.get()
+                self.__handleCurrentTask()
+            else:
+                #self.__sendKeepAlive()
+                time.sleep(5)
 
     def __connect(self):
         while not self.__connected:
             try:
                 print "Attempting to connect to {}:{}".format(self.__remoteAddress[0], self.__remoteAddress[1])
                 self.__serverConnection.connect(self.__remoteAddress)
-                print "Connected!"
                 self.__connected = True
-                self.ready.emit(True)
+                self.connectionStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.CONNECTED, "Comm"))
             except Exception as e:
                 print "failed to connect to {}:{} ,retrying in 5 seconds".format(self.__remoteAddress[0], self.__remoteAddress[1])
                 time.sleep(5)

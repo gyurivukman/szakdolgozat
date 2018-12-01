@@ -10,7 +10,7 @@ class UploadsWidget(QtGui.QWidget):
 
     def __init__(self, *args, **kwargs):
         super(UploadsWidget, self).__init__(*args, **kwargs)
-        self.taskManager = (ContextManager()).getTaskManager()
+        self.__taskManager = (ContextManager()).getTaskManager()
         self.__setupOwnLayout()
         self.setFixedSize(400, 400)
         self.setAcceptDrops(True)

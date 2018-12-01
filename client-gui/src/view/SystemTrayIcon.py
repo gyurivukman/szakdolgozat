@@ -39,7 +39,7 @@ class SystemTrayIcon(QtGui.QSystemTrayIcon):
         print 'SETTINGS'
 
     def __aboutAction(self):
-        self.aboutDialog.show()
+        self.__aboutDialog.show()
 
     def __exitAction(self):
         QtCore.QCoreApplication.quit()
@@ -51,4 +51,4 @@ class SystemTrayIcon(QtGui.QSystemTrayIcon):
 
     def __createAboutDialog(self):
         flags = QtCore.Qt.CustomizeWindowHint | QtCore.Qt.WindowTitleHint | QtCore.Qt.WindowCloseButtonHint
-        self.aboutDialog = AboutDialog(self.parent().parent(), flags=flags)
+        self.__aboutDialog = AboutDialog(self.parent().parent(), flags=flags)

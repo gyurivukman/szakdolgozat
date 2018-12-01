@@ -31,7 +31,6 @@ class ContextManager(object):
         self.__threadPool['ssh_thread'] = QtCore.QThread()
         self.__managers['ssh_manager'].moveToThread(self.__threadPool['ssh_thread'])
         self.__threadPool['ssh_thread'].started.connect((self.__managers['ssh_manager']).start)
-        (self.__threadPool['ssh_thread']).start()
 
     def __setupFileScanner(self):
         self.__managers['filescanner'] = FileScanner()
@@ -50,9 +49,12 @@ class ContextManager(object):
         self.__threadPool['task_manager'] = QtCore.QThread()
 
         self.__managers['task_manager'].moveToThread(self.__threadPool['task_manager'])
-        self.__threadPool['task_manager'].started.connect((self.__managers['task_manager']).start)
+        self.__threadPool['task_manager'].started.connect(self.__startDependentServices)
         (self.__threadPool['task_manager']).start()
+
+    def __startDependentServices(self):
         (self.__threadPool['filescanner']).start()
+        (self.__threadPool['ssh_thread']).start()
         (self.__threadPool['comm_service']).start()
 
     def __getsshManager(self):

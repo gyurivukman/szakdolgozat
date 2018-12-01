@@ -10,6 +10,7 @@ from src.model.FileTask import FileTask, FileTaskType
 
 class TaskManager(QtCore.QObject):
     fileStatusChannel = QtCore.pyqtSignal(object)
+    connectionStatusChannel = QtCore.pyqtSignal(object)
 
     def __init__(self, sshManager, fileScanner, commService):
         super(TaskManager, self).__init__()
@@ -30,8 +31,11 @@ class TaskManager(QtCore.QObject):
 
     def __setupServices(self, sshManager, fileScanner, commService):
         self.sshManager = sshManager
+        self.sshManager.connectionStatusChannel.connect(self.__connectionStatusHandler)
+
         self.commService = commService
         self.commService.taskReportChannel.connect(self.__commReportHandler)
+        self.commService.connectionStatusChannel.connect(self.__connectionStatusHandler)
 
         self.fileScanner = fileScanner
         self.fileScanner.newFileChannel.connect(self.__newFileFoundHandler)
@@ -59,6 +63,9 @@ class TaskManager(QtCore.QObject):
     def __deleteRemoteFile(self):
         print "I SHOULD DELETE REMOTE FILE"
         pass
+
+    def __connectionStatusHandler(self, report):
+        self.connectionStatusChannel.emit(report)
 
     def stop(self):
         self.shouldRun = False

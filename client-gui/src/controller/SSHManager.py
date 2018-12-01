@@ -5,16 +5,18 @@ import paramiko
 from PyQt4 import QtCore
 
 from src.model.FileTask import FileTaskType
+from src.model.ConnectionEvent import ConnectionEvent
+from src.model.ConnectionEventTypes import ConnectionEventTypes
 
 
 class SSHManager(QtCore.QObject):
-    taskReportChannel = QtCore.pyqtSignal()
+    taskReportChannel = QtCore.pyqtSignal(object)
+    connectionStatusChannel = QtCore.pyqtSignal(object)
 
     def __init__(self):
         super(SSHManager, self).__init__()
         self.__setup()
         self.__initTaskHandlers()
-        self.__initSFTP()
 
     def __setup(self):
         self.shouldRun = True
@@ -40,6 +42,7 @@ class SSHManager(QtCore.QObject):
         )
         self.__sshTransport = ssh.get_transport()
         self.__sftpClient = ssh.open_sftp()
+        self.connectionStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.CONNECTED, "SSH"))
         try:
             self.__sftpClient.chdir('remoteSyncDir')
         except IOError:
@@ -49,14 +52,15 @@ class SSHManager(QtCore.QObject):
             self.remoteSyncBaseDir = self.__sftpClient.getcwd()
 
     def start(self):
+        self.__initSFTP()
         while(self.shouldRun):
             if not self.__queue.empty():
                 self.__currentTask = self.__queue.get()
                 self.__handleCurrentTask()
             else:
-                time.sleep(5)
                 print "Sending keepalive packet..."
-                self.__sshTransport.send_ignore(10)
+                self.__sshTransport.send_ignore(10)                
+                time.sleep(5)
 
     def stop(self):
         self.shouldRun = False
