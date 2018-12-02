@@ -1,5 +1,6 @@
 from PyQt4 import QtGui
 
+
 class AccountPanelBuilder(object):
 
     def buildFromSchema(self, schema):

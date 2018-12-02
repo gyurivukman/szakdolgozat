@@ -1,4 +1,5 @@
 import base64
+import json
 
 from Crypto.Cipher import AES
 
@@ -14,13 +15,14 @@ class MessageEncoder(object):
         decryptedMessage = base64.b64decode(message)
         decryptedMessage = cipher.decrypt(decryptedMessage)
         decryptedMessage = self.__unPadMessage(decryptedMessage)
-        return decryptedMessage
+        return json.loads(decryptedMessage)
 
     def __unPadMessage(self, message):
         return message.rstrip(self.paddingChar)
 
     def encryptMessage(self, message):
         cipher = AES.new(self.encryptionKey)
+        message = json.dumps(message)
         paddedMessage = self.__padMessage(message)
         encryptedMessage = cipher.encrypt(paddedMessage)
         return base64.b64encode(encryptedMessage)+";"

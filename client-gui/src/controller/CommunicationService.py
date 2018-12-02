@@ -88,7 +88,7 @@ class CommunicationService(QtCore.QObject):
 
     def __sendKeepAlive(self):
         try:
-            message = self.__messageEncoder.encryptMessage('{"type":"keepalive"}')
+            message = self.__messageEncoder.encryptMessage('{"type":"keep_alive"}')
             self.__serverConnection.sendall(message)
             encrypted = self.__serverConnection.recv(100)
         except socket.error:

@@ -3,7 +3,16 @@ import select
 import time
 import sys
 import json
+
 from MessageEncoder import MessageEncoder
+from messagehandlers.KeepAliveMessageHandler import KeepAliveMessageHandler
+from messagehandlers.GetFileListMessageHandler import GetFileListMessageHandler
+from messagehandlers.UploadFileMessageHandler import UploadFileMessageHandler
+from messagehandlers.DownloadFileMessageHandler import DownloadFileMessageHandler
+from messagehandlers.DeleteFileMessageHandler import DeleteFileMessageHandler
+from messagehandlers.CheckFileMessageHandler import CheckFileMessageHandler
+
+#TODO Upload,Download,Delete handlers, optionally rename handler
 
 
 class CryptStorePiServer(object):
@@ -15,6 +24,7 @@ class CryptStorePiServer(object):
         self.shouldRun = True
         self.__messageEncoder = MessageEncoder(encryptionKey)
         self.__setupServerConnection()
+        self.__initMessageHandlers()
 
     def start(self):
         while self.shouldRun:
@@ -26,14 +36,24 @@ class CryptStorePiServer(object):
                     self.__handleMessageFragment(messageFragment)
                 else:
                     self.client = None
-    
+
     def __setupServerConnection(self):
         self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_address = ('localhost', self.port)
         self.serverSocket.bind(server_address)
         self.serverSocket.listen(1)
-        
+
+    def __initMessageHandlers(self):
+        self.__messageHandlers = {
+            "keep_alive": KeepAliveMessageHandler(),
+            "get_file_list": GetFileListMessageHandler(),
+            "upload_file": UploadFileMessageHandler(),
+            "download_file": DownloadFileMessageHandler(),
+            "delete_file": DeleteFileMessageHandler(),
+            "check_file": CheckFileMessageHandler()
+        }
+
     def __waitForConnection(self):
         self.client, self.client_address = self.serverSocket.accept()
 
@@ -41,14 +61,13 @@ class CryptStorePiServer(object):
         self.buffer.append(messageFragment)
         if ";" in messageFragment:
             encrypted = self.__sliceMessageBuffer()
-            decrypted = json.loads(self.__messageEncoder.decryptMessage(encrypted))
-            print decrypted
+            decrypted = self.__messageEncoder.decryptMessage(encrypted)
             self.__handleMessage(decrypted)
-    
+
     def __handleMessage(self, message):
-        if message["type"] == "keepalive":
-            res = self.__messageEncoder.encryptMessage('{"type":"keepalive"}')
-            self.client.sendall(res)
+            result = (self.__messageHandlers[message["type"]]).handleMessage(message)
+            encryptedRes = self.__messageEncoder.encryptMessage(result)
+            self.client.sendall(encryptedRes)
 
     def __sliceMessageBuffer(self):
         unsliced = "".join(self.buffer)

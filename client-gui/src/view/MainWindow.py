@@ -38,18 +38,18 @@ class MainWindow(QtGui.QMainWindow):
 
     def __handleConnectionEvent(self, event):
             self.__connectionStates[event.subject] = event.value
+
             isSSHUp = self.__connectionStates["SSH"]
             isCommUp = self.__connectionStates["Comm"]
             isInSync = self.__connectionStates["Sync"]
 
             if isSSHUp and isCommUp and isInSync:
-                self.__setupUploadsWidget()
-                self.repaint()
+                self.__setupUploadsWidget()    
             elif isSSHUp and isCommUp and not isInSync:
                 self.setCentralWidget(QtGui.QLabel("Syncing filelist..."))
             else:
                 self.setCentralWidget(QtGui.QLabel("Connecting..."))
-                self.repaint()
+            self.repaint()
 
     def __setupWidgets(self):
         self.__settings = QtCore.QSettings()
