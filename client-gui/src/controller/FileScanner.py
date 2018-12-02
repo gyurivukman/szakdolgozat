@@ -7,7 +7,6 @@ from PyQt4 import QtCore
 
 from src.model.FileTask import FileTask
 from src.model.FileTask import FileTaskType
-from ContextManager import ContextManager
 
 
 class FileScanner(QtCore.QObject):
@@ -26,6 +25,9 @@ class FileScanner(QtCore.QObject):
     def setSyncDir(self, syncDir):
         self.syncDir = syncDir
         self.__pathCutLength = len(self.syncDir)
+    
+    def setInitialFileList(self, fileList)
+        pass
 
     def start(self):
         self.__initFileList()
