@@ -5,9 +5,8 @@ import json
 
 from PyQt4 import QtCore
 
-from src.model.FileTask import FileTaskType
 from src.model.ConnectionEvent import ConnectionEvent
-from src.model.ConnectionEventTypes import ConnectionEventTypes
+from src.model.Task import Task, TaskTypes
 from MessageEncoder import MessageEncoder
 
 
@@ -28,15 +27,34 @@ class CommunicationService(QtCore.QObject):
         self.__taskQueue = Queue.Queue()
         self.__setupServerConnection()
 
-    def enqueuFileStatusTask(self, statusTask):
-        #TODO: Check if file exists on remote/check its last modified date
-        self.__taskQueue.put(statusTask)
+    def enqueuTask(self, task):
+        self.__taskQueue.put(task)
 
     def __deleteRemoteFile(self):
         pass
 
     def getInitialFileList(self):
-        pass
+        time.sleep(5)
+        return None
+        # try:
+        #     message = self.__messageEncoder.encryptMessage('{"type":"get_file_list"}')
+        #     decrypted = None
+        #     self.__serverConnection.sendall(message)
+        #     receivedFullFileList = False
+        #     buffer = []
+        #     while not receivedFullFileList:
+        #         messageFragment = self.__serverConnection.recv(1024)
+        #         if(messageFragment):
+        #             self.buffer.append(messageFragment)
+        #             if ";" in messageFragment:
+        #                 encrypted = ("".join(self.buffer)).rstrip(";")
+        #                 decrypted = json.loads(self.__messageEncoder.decryptMessage(encrypted))
+        #     return decrypted
+        # except socket.error:
+        #     self.connectionStatusChannel.emit(ConnectionEvent("Comm", False))
+        #     self.__connected = False
+        #     self.__setupServerConnection()
+        #     self.__connect()
 
     def __setupServerConnection(self):
         self.__serverConnection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -60,13 +78,13 @@ class CommunicationService(QtCore.QObject):
                 print "Attempting to connect to {}:{}".format(self.__remoteAddress[0], self.__remoteAddress[1])
                 self.__serverConnection.connect(self.__remoteAddress)
                 self.__connected = True
-                self.connectionStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.CONNECTED, "Comm"))
+                self.connectionStatusChannel.emit(ConnectionEvent("Comm", True))
             except socket.error as e:
                 print "failed to connect to {}:{} ,retrying in 5 seconds".format(self.__remoteAddress[0], self.__remoteAddress[1])
                 time.sleep(5)
 
     def __handleCurrentTask(self):
-        self.taskReportChannel.emit({"todo": FileTaskType.UPLOAD, "data": self.__currentTask})
+        self.taskReportChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=self.__currentTask.subject))
 
     def __sendKeepAlive(self):
         try:
@@ -74,7 +92,7 @@ class CommunicationService(QtCore.QObject):
             self.__serverConnection.sendall(message)
             encrypted = self.__serverConnection.recv(100)
         except socket.error:
-            self.connectionStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.DISCONNECTED, "Comm"))
+            self.connectionStatusChannel.emit(ConnectionEvent("Comm", False))
             self.__connected = False
             self.__setupServerConnection()
             self.__connect()

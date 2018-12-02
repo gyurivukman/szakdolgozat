@@ -28,18 +28,25 @@ class MainWindow(QtGui.QMainWindow):
 
     def __setupTaskManager(self):
         self.__taskManager = (ContextManager()).getTaskManager()
-        self.__taskManager.connectionStatusChannel.connect(self.__handleConnectionChangeEvent)
+        self.__taskManager.connectionStatusChannel.connect(self.__handleConnectionEvent)
 
         self.__connectionStates = {
             "SSH": False,
-            "Comm": False
+            "Comm": False,
+            "Sync": False
         }
 
-    def __handleConnectionChangeEvent(self, event):
-            self.__connectionStates[event.subject] = True if event.eventType == ConnectionEventTypes.CONNECTED else False
-            if self.__connectionStates["SSH"] and self.__connectionStates["Comm"]:
+    def __handleConnectionEvent(self, event):
+            self.__connectionStates[event.subject] = event.value
+            isSSHUp = self.__connectionStates["SSH"]
+            isCommUp = self.__connectionStates["Comm"]
+            isInSync = self.__connectionStates["Sync"]
+
+            if isSSHUp and isCommUp and isInSync:
                 self.__setupUploadsWidget()
                 self.repaint()
+            elif isSSHUp and isCommUp and not isInSync:
+                self.setCentralWidget(QtGui.QLabel("Syncing filelist..."))
             else:
                 self.setCentralWidget(QtGui.QLabel("Connecting..."))
                 self.repaint()
@@ -68,8 +75,7 @@ class MainWindow(QtGui.QMainWindow):
 
     def __onFinishedFirstConfig(self):
         self.__setupUploadsWidget()
-        self.update()
-        self.repaint()
+        #TODO send acc data to server by queueing up a task for it.
 
     def show(self):
         screenSize = QtCore.QCoreApplication.instance().desktop().screenGeometry()

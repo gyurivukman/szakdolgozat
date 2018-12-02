@@ -4,9 +4,8 @@ import time
 import paramiko
 from PyQt4 import QtCore
 
-from src.model.FileTask import FileTaskType
 from src.model.ConnectionEvent import ConnectionEvent
-from src.model.ConnectionEventTypes import ConnectionEventTypes
+from src.model.Task import TaskTypes
 
 
 class SSHManager(QtCore.QObject):
@@ -26,8 +25,8 @@ class SSHManager(QtCore.QObject):
 
     def __initTaskHandlers(self):
         self.taskHandlers = {
-            FileTaskType.UPLOAD: self.__uploadHandler,
-            FileTaskType.DOWNLOAD: self.__downloadHandler,
+            TaskTypes.UPLOAD: self.__uploadHandler,
+            TaskTypes.DOWNLOAD: self.__downloadHandler,
         }
 
     def __initSFTP(self):
@@ -42,7 +41,7 @@ class SSHManager(QtCore.QObject):
         )
         self.__sshTransport = ssh.get_transport()
         self.__sftpClient = ssh.open_sftp()
-        self.connectionStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.CONNECTED, "SSH"))
+        self.connectionStatusChannel.emit(ConnectionEvent("SSH", True))
         try:
             self.__sftpClient.chdir('remoteSyncDir')
         except IOError:
@@ -72,7 +71,7 @@ class SSHManager(QtCore.QObject):
         self.__queue.put(task)
 
     def __handleCurrentTask(self):
-        self.taskHandlers[self.__currentTask.getType()]()
+        self.taskHandlers[self.__currentTask.taskType]()
 
     def __uploadHandler(self):
         self.__navigateToTargetDirectoryRemoteHost()
@@ -82,19 +81,19 @@ class SSHManager(QtCore.QObject):
         print "DOWNLOADHANDLER"
 
     def __navigateToTargetDirectoryRemoteHost(self):
-        if self.__currentTask.getTargetDir() != "/":
-            splittedPath = (self.__currentTask.getTargetDir().lstrip("/").split('/'))
+        if self.__currentTask.subject.targetDir != "/":
+            splittedPath = (self.__currentTask.subject.targetDir.lstrip("/").split('/'))
             for directory in splittedPath:
                 self.__navigateToDirectory(directory)
 
     def __uploadFile(self):
-        print "uploading: "+self.__currentTask.getFullPath()
-        self.__sftpClient.put(self.__currentTask.getFullPath(), self.__currentTask.getFileName(), callback=self.__reportProgress)
+        print "uploading: "+self.__currentTask.subject.fullPath
+        self.__sftpClient.put(self.__currentTask.subject.fullPath, self.__currentTask.subject.fileName, callback=self.__reportProgress)
         print "Upload finished!"
         self.__sftpClient.chdir(self.remoteSyncBaseDir)
 
     def __reportProgress(self, transferred, remaining):
-        print self.__currentTask.getFullPath() + " {} / {}".format(transferred, remaining)
+        print self.__currentTask.subject.fullPath + " {} / {}".format(transferred, remaining)
 
     def __navigateToDirectory(self, directory):
         try:

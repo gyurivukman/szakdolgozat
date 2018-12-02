@@ -2,6 +2,6 @@
 
 class ConnectionEvent(object):
 
-    def __init__(self, eventType, subject):
-        self.eventType = eventType
+    def __init__(self, subject, value):
         self.subject = subject
+        self.value = value

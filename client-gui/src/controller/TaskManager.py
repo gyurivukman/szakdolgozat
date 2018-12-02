@@ -5,7 +5,9 @@ import time
 
 from PyQt4 import QtCore
 
-from src.model.FileTask import FileTask, FileTaskType
+from src.model.FileDescription import FileDescription
+from src.model.ConnectionEvent import ConnectionEvent
+from src.model.Task import Task, TaskTypes
 from FileScanner import FileScanner
 
 
@@ -55,28 +57,32 @@ class TaskManager(QtCore.QObject):
 
     def __initTaskHandlers(self):
         self.__taskHandlers = {}
-        self.__taskHandlers[FileTaskType.UPLOAD] = self.__uploadFile
-        self.__taskHandlers[FileTaskType.EXISTENCE_CHECK] = self.__checkForFile
-        self.__taskHandlers[FileTaskType.DELETE] = self.__deleteRemoteFile
+        self.__taskHandlers[TaskTypes.UPLOAD] = self.__uploadFile
+        self.__taskHandlers[TaskTypes.EXISTENCE_CHECK] = self.__checkForFile
+        # self.__taskHandlers[TaskTypes.DELETE] = self.__deleteRemoteFile
 
     def __startFileScanner(self):
-        #TODO init file list here!
+        initialFileList = self.__commService.getInitialFileList()
+        print "received initialFileList"
+        #TODO: syncInitialFiles -> return the synced list to emit towards uploadswidget
+        syncedFileList = self.__fileScanner.syncInitialFileList(initialFileList)
+        self.connectionStatusChannel.emit(ConnectionEvent("Sync", True))
         self.__fileScannerThread.start()
 
     def __handleCurrentTask(self):
-        (self.__taskHandlers[self.__currentTask.getType()])()
+        (self.__taskHandlers[self.__currentTask.taskType])()
         self.__readyForNextTask = True
 
     def __newFileEventHandler(self, task):
         self.__taskQueue.put(task)
 
     def __commReportHandler(self, report):
-        if report["todo"] == FileTaskType.UPLOAD or report["todo"] == FileTaskType.DOWNLOAD:
-            sshTask = FileTask(report["todo"], report["data"].getTargetDir(), report["data"].getFullPath(), report["data"].getFileName())
-            self.sshManager.enqueuTask(sshTask)
+        taskType = report.taskType
+        if taskType == TaskTypes.UPLOAD:
+            self.sshManager.enqueuTask(report)
 
     def __checkForFile(self):
-        self.__commService.enqueuFileStatusTask(self.__currentTask)
+        self.__commService.enqueuTask(self.__currentTask)
 
     def __deleteRemoteFile(self):
         print "I SHOULD DELETE REMOTE FILE"

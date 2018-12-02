@@ -4,9 +4,8 @@ import time
 import calendar
 
 from PyQt4 import QtCore
-
-from src.model.FileTask import FileTask
-from src.model.FileTask import FileTaskType
+from src.model.Task import Task, TaskTypes
+from src.model.FileDescription import FileDescription
 
 
 class FileScanner(QtCore.QObject):
@@ -25,18 +24,18 @@ class FileScanner(QtCore.QObject):
     def setSyncDir(self, syncDir):
         self.syncDir = syncDir
         self.__pathCutLength = len(self.syncDir)
-    
-    def setInitialFileList(self, fileList)
-        pass
 
+    def syncInitialFileList(self, fileList):
+        print "Filescanner syncing files..."
+        time.sleep(4)
+        print "filescanner done syncing"
+
+        return []
+    
     def start(self):
-        self.__initFileList()
         while self.shouldRun:
             self.__scanFiles()
             time.sleep(5)
-
-    def __initFileList(self):
-        pass
 
     def __scanFiles(self):
         currentTime = calendar.timegm(time.gmtime())
@@ -49,13 +48,21 @@ class FileScanner(QtCore.QObject):
     def __scanFileTree(self, baseDir):
         for entry in scandir.scandir(baseDir):
             if entry.is_file():
-                yield {"dir": os.path.dirname(entry.path[self.__pathCutLength:]), "fullPath": entry.path, "filename": entry.name, "lastModified": entry.stat().st_mtime}
+                stats = entry.stat()
+                yield {
+                        "dir": os.path.dirname(entry.path[self.__pathCutLength:]),
+                        "fullPath": entry.path,
+                        "filename": entry.name, 
+                        "lastModified": stats.st_mtime,
+                        "size": stats.st_size
+                    }
             else:
                 for subEntry in self.__scanFileTree(entry.path):
                     yield subEntry
 
     def __reportNewFileTask(self, entry):
-        self.newFileChannel.emit(FileTask(FileTaskType.EXISTENCE_CHECK, entry['dir'], entry['fullPath'], entry['filename']))
+        fileDesc = FileDescription(targetDir=entry["dir"], fullPath=entry["fullPath"], fileName=entry["filename"], lastModified=entry["lastModified"], size=entry["size"])
+        self.newFileChannel.emit(Task(taskType=TaskTypes.EXISTENCE_CHECK, subject=fileDesc))
 
     def stop(self):
         self.shouldRun = False
