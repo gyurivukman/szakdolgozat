@@ -21,3 +21,4 @@ class TaskTypes(Enum):
     SYNCFILELIST = 2
     DELETEFILE = 3
     EXISTENCE_CHECK = 4
+    KEEP_ALIVE = 5

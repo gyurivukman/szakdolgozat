@@ -24,7 +24,7 @@ class TaskManager(QtCore.QObject):
         self.__initTaskHandlers()
 
     def start(self):
-        self.__startFileScanner()
+        self.__taskQueue.put(Task(taskType=TaskTypes.SYNCFILELIST, subject=None))
         while(self.__shouldRun):
             if not self.__taskQueue.empty() and self.__readyForNextTask:
                 self.__currentTask = self.__taskQueue.get()
@@ -42,8 +42,10 @@ class TaskManager(QtCore.QObject):
         self.__fileScanner = FileScanner()
         self.__fileScanner.newFileChannel.connect(self.__newFileEventHandler)
         self.__fileScannerThread = QtCore.QThread()
+        self.__fileScannerThread.setTerminationEnabled(True)
         self.__fileScanner.moveToThread(self.__fileScannerThread)
         self.__fileScannerThread.started.connect((self.__fileScanner).start)
+        self.__fileScannerThread.finished.connect(self.__resetFileScanner)
 
     def __setupSSHManager(self, sshManager):
         self.sshManager = sshManager
@@ -59,15 +61,7 @@ class TaskManager(QtCore.QObject):
         self.__taskHandlers = {}
         self.__taskHandlers[TaskTypes.UPLOAD] = self.__uploadFile
         self.__taskHandlers[TaskTypes.EXISTENCE_CHECK] = self.__checkForFile
-        # self.__taskHandlers[TaskTypes.DELETE] = self.__deleteRemoteFile
-
-    def __startFileScanner(self):
-        initialFileList = self.__commService.getInitialFileList()
-        print "received initialFileList"
-        #TODO: syncInitialFiles -> return the synced list to emit towards uploadswidget
-        syncedFileList = self.__fileScanner.syncInitialFileList(initialFileList)
-        self.connectionStatusChannel.emit(ConnectionEvent("Sync", True))
-        self.__fileScannerThread.start()
+        self.__taskHandlers[TaskTypes.SYNCFILELIST] = self.__syncFiles
 
     def __handleCurrentTask(self):
         (self.__taskHandlers[self.__currentTask.taskType])()
@@ -80,6 +74,11 @@ class TaskManager(QtCore.QObject):
         taskType = report.taskType
         if taskType == TaskTypes.UPLOAD:
             self.sshManager.enqueuTask(report)
+        elif taskType == TaskTypes.SYNCFILELIST:
+            syncedFilelist = self.__fileScanner.syncInitialFileList(report.subject) #TODO maybe data instead of subject?
+            self.__fileScannerThread.start()
+            self.connectionStatusChannel.emit(ConnectionEvent("Sync", True))
+            #TODO EMIT THIS TO UPLOADS COMP. TOO
 
     def __checkForFile(self):
         self.__commService.enqueuTask(self.__currentTask)
@@ -88,13 +87,25 @@ class TaskManager(QtCore.QObject):
         print "I SHOULD DELETE REMOTE FILE"
         pass
 
+    def __syncFiles(self):
+        self.__commService.enqueuTask(self.__currentTask)
+        self.__readyForNextTask = True
+
     def __uploadFile(self, task):
         self.sshManager.enqueuTask(task)
 
     def __connectionStatusHandler(self, report):
         self.connectionStatusChannel.emit(report)
+        if report.value == False:
+            self.connectionStatusChannel.emit(ConnectionEvent("Sync", False))
+            self.__fileScanner.stop()
+            self.__fileScannerThread.terminate()
+            # self.__resetFileScanner()
+
+    def __resetFileScanner(self):
+        self.__setupFileScanner()
+        self.__taskQueue.put(Task(taskType=TaskTypes.SYNCFILELIST, subject=None))
 
     def stop(self):
         self.__shouldRun = False
         self.__fileScanner.stop()
-        self.__fileScannerThread.quit()

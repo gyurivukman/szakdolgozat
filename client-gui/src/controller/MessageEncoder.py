@@ -1,4 +1,5 @@
 import base64
+import json
 
 from Crypto.Cipher import AES
 from PyQt4 import QtCore
@@ -23,6 +24,7 @@ class MessageEncoder(object):
 
     def encryptMessage(self, message):
         cipher = AES.new(self.__encryptionKey)
+        message = json.dumps(message)
         paddedMessage = self.__padMessage(message)
         encryptedMessage = cipher.encrypt(paddedMessage)
         return base64.b64encode(encryptedMessage)+";"

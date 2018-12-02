@@ -22,9 +22,9 @@ class CommunicationService(QtCore.QObject):
 
     def __setup(self):
         self.__settings = QtCore.QSettings()
-        self.__buffer = []
         self.__messageEncoder = MessageEncoder()
         self.__taskQueue = Queue.Queue()
+        self.__setupTaskHandlers()
         self.__setupServerConnection()
 
     def enqueuTask(self, task):
@@ -33,28 +33,39 @@ class CommunicationService(QtCore.QObject):
     def __deleteRemoteFile(self):
         pass
 
-    def getInitialFileList(self):
-        time.sleep(5)
-        return None
-        # try:
-        #     message = self.__messageEncoder.encryptMessage('{"type":"get_file_list"}')
-        #     decrypted = None
-        #     self.__serverConnection.sendall(message)
-        #     receivedFullFileList = False
-        #     buffer = []
-        #     while not receivedFullFileList:
-        #         messageFragment = self.__serverConnection.recv(1024)
-        #         if(messageFragment):
-        #             self.buffer.append(messageFragment)
-        #             if ";" in messageFragment:
-        #                 encrypted = ("".join(self.buffer)).rstrip(";")
-        #                 decrypted = json.loads(self.__messageEncoder.decryptMessage(encrypted))
-        #     return decrypted
-        # except socket.error:
-        #     self.connectionStatusChannel.emit(ConnectionEvent("Comm", False))
-        #     self.__connected = False
-        #     self.__setupServerConnection()
-        #     self.__connect()
+    def retrieveResponse(self, message):
+        message = self.__messageEncoder.encryptMessage(message)
+        decrypted = None
+        self.__serverConnection.sendall(message)
+        receivedFullMessage = False
+        buffer = []
+        try:
+            while not receivedFullMessage:
+                messageFragment = self.__serverConnection.recv(1024)
+                if(messageFragment):
+                    buffer.append(messageFragment)
+                    if ";" in messageFragment:
+                        encrypted = ("".join(buffer)).rstrip(";")
+                        decrypted = json.loads(self.__messageEncoder.decryptMessage(encrypted))
+                        receivedFullMessage = True
+                else:
+                    raise Exception()
+        except:
+            self.__handleSocketError()
+        return decrypted
+
+    def __handleSocketError(self):
+            self.connectionStatusChannel.emit(ConnectionEvent("Comm", False))
+            self.__connected = False
+            self.__setupServerConnection()
+            self.__connect()
+
+    def __setupTaskHandlers(self):
+        self.__taskHandlers = {
+            TaskTypes.SYNCFILELIST: self.__handleSyncFileListTask,
+            TaskTypes.KEEP_ALIVE: self.__sendKeepAlive,
+            TaskTypes.EXISTENCE_CHECK: self.__handleExistenceCheckTask
+        }
 
     def __setupServerConnection(self):
         self.__serverConnection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -79,23 +90,25 @@ class CommunicationService(QtCore.QObject):
                 self.__serverConnection.connect(self.__remoteAddress)
                 self.__connected = True
                 self.connectionStatusChannel.emit(ConnectionEvent("Comm", True))
-            except socket.error as e:
+            except socket.error:
                 print "failed to connect to {}:{} ,retrying in 5 seconds".format(self.__remoteAddress[0], self.__remoteAddress[1])
                 time.sleep(5)
 
     def __handleCurrentTask(self):
+        (self.__taskHandlers[self.__currentTask.taskType])()
+
+    def __handleSyncFileListTask(self):
+        message = {"type": "get_file_list"}
+        response = self.retrieveResponse(message)
+        self.taskReportChannel.emit(Task(taskType=TaskTypes.SYNCFILELIST, subject=response))
+    
+    def __handleExistenceCheckTask(self):
         self.taskReportChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=self.__currentTask.subject))
 
     def __sendKeepAlive(self):
-        try:
-            message = self.__messageEncoder.encryptMessage('{"type":"keep_alive"}')
-            self.__serverConnection.sendall(message)
-            encrypted = self.__serverConnection.recv(100)
-        except socket.error:
-            self.connectionStatusChannel.emit(ConnectionEvent("Comm", False))
-            self.__connected = False
-            self.__setupServerConnection()
-            self.__connect()
+        print "sending Comm keepalive"
+        message = {"type": "keep_alive"}
+        res = self.retrieveResponse(message)
 
     def close(self):
         self.shouldRun = False

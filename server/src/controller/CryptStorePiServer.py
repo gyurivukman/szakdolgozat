@@ -66,6 +66,7 @@ class CryptStorePiServer(object):
 
     def __handleMessage(self, message):
             result = (self.__messageHandlers[message["type"]]).handleMessage(message)
+            print "message handling result: "+str(result)
             encryptedRes = self.__messageEncoder.encryptMessage(result)
             self.client.sendall(encryptedRes)
 

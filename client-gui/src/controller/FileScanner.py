@@ -16,33 +16,32 @@ class FileScanner(QtCore.QObject):
         self.__setup()
 
     def __setup(self):
-        self.settings = QtCore.QSettings()
-        self.shouldRun = True
-        self.files = {}
-        self.setSyncDir(unicode(self.settings.value('syncDir').toString()).encode("utf8"))
+        self.__settings = QtCore.QSettings()
+        self.__shouldRun = True
+        self.__files = {}
+        self.setSyncDir(unicode(self.__settings.value('syncDir').toString()).encode("utf8"))
 
     def setSyncDir(self, syncDir):
-        self.syncDir = syncDir
-        self.__pathCutLength = len(self.syncDir)
+        self.__syncdir = syncDir
+        self.__pathCutLength = len(self.__syncdir)
 
     def syncInitialFileList(self, fileList):
-        print "Filescanner syncing files..."
-        time.sleep(4)
-        print "filescanner done syncing"
-
+        self.__files = {}
+        time.sleep(2)
+        print "filescanner initial filelist SET!"
         return []
     
     def start(self):
-        while self.shouldRun:
+        while self.__shouldRun:
             self.__scanFiles()
             time.sleep(5)
 
     def __scanFiles(self):
         currentTime = calendar.timegm(time.gmtime())
-        for entry in self.__scanFileTree(self.syncDir):
+        for entry in self.__scanFileTree(self.__syncdir):
             relativePath = entry['fullPath'][self.__pathCutLength:]
-            if relativePath not in self.files and (currentTime - entry["lastModified"]) > 5:
-                self.files[relativePath] = True
+            if relativePath not in self.__files and (currentTime - entry["lastModified"]) > 5:
+                self.__files[relativePath] = True
                 self.__reportNewFileTask(entry)
 
     def __scanFileTree(self, baseDir):
@@ -65,4 +64,4 @@ class FileScanner(QtCore.QObject):
         self.newFileChannel.emit(Task(taskType=TaskTypes.EXISTENCE_CHECK, subject=fileDesc))
 
     def stop(self):
-        self.shouldRun = False
+        self.__shouldRun = False
