@@ -60,8 +60,12 @@ class TaskManager(QtCore.QObject):
     def __initTaskHandlers(self):
         self.__taskHandlers = {}
         self.__taskHandlers[TaskTypes.UPLOAD] = self.__uploadFile
+        self.__taskHandlers[TaskTypes.DOWNLOAD] = self.__downloadFile
         self.__taskHandlers[TaskTypes.EXISTENCE_CHECK] = self.__checkForFile
         self.__taskHandlers[TaskTypes.SYNCFILELIST] = self.__syncFiles
+        self.__taskHandlers[TaskTypes.DELETEFILE] = self.__deleteRemoteFile
+        self.__taskHandlers[TaskTypes.PROGRESS_CHECK] = self.__progressCheck
+        self.__taskHandlers[TaskTypes.UPLOAD_ACCOUNTS] = self.__uploadAccounts
 
     def __handleCurrentTask(self):
         (self.__taskHandlers[self.__currentTask.taskType])()
@@ -83,9 +87,17 @@ class TaskManager(QtCore.QObject):
     def __checkForFile(self):
         self.__commService.enqueuTask(self.__currentTask)
 
+    def __progressCheck(self):
+        print "PROGRESS CHECK TASK"
+
     def __deleteRemoteFile(self):
         print "I SHOULD DELETE REMOTE FILE"
-        pass
+    
+    def __downloadFile(self):
+        print "I SHOULD DOWNLOAD A FILE"
+    
+    def __uploadAccounts(self):
+        print "Upload Accounts!"
 
     def __syncFiles(self):
         self.__commService.enqueuTask(self.__currentTask)

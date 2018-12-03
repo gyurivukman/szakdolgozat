@@ -22,3 +22,5 @@ class TaskTypes(Enum):
     DELETEFILE = 3
     EXISTENCE_CHECK = 4
     KEEP_ALIVE = 5
+    PROGRESS_CHECK = 6
+    UPLOAD_ACCOUNTS = 7
