@@ -1,0 +1,8 @@
+1.: SqLite for server + DAO
+    1.1: When the server starts, it clears the remoteSyncDir //remoteTransitZone dir.
+2.: Workerthread for server(1 for now, one per account if there is enough time)
+3.: Poll based filechecking/tracking (Taskmanager tracks files, periodically polls them for a batched progress status update)
+4.: "overwriting an existing file" handling in filescanner
+
++1: storage checks/error handling
++2: internet connection drops on remote server handling
