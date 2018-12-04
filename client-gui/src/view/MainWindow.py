@@ -12,7 +12,6 @@ class MainWindow(QtGui.QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
         self.__setupInfos()
-        self.__setupTaskManager()
         self.__setupWidgets()
         self.show()
 
@@ -29,7 +28,6 @@ class MainWindow(QtGui.QMainWindow):
     def __setupTaskManager(self):
         self.__taskManager = (ContextManager()).getTaskManager()
         self.__taskManager.connectionStatusChannel.connect(self.__handleConnectionEvent)
-
         self.__connectionStates = {
             "SSH": False,
             "Comm": False,
@@ -53,7 +51,8 @@ class MainWindow(QtGui.QMainWindow):
 
     def __setupWidgets(self):
         self.__settings = QtCore.QSettings()
-        if self.__isFirstStart():
+        isFirstStart = self.__isFirstStart()
+        if isFirstStart:
             self.setFixedSize(400, 600)
             self.__settings.setValue('is_first_start', True)
             self.__settings.sync()
@@ -62,20 +61,23 @@ class MainWindow(QtGui.QMainWindow):
             self.setCentralWidget(firstConfigPanel)
         else:
             self.setFixedSize(400, 400)
+            self.__setupTaskManager()
             self.setCentralWidget(QtGui.QLabel("Connecting..."))
+            self.__taskManager.init()
 
     def __setupUploadsWidget(self):
         self.__uploadsWidget = UploadsWidget(self)
         self.setCentralWidget(self.__uploadsWidget)
-        
 
     def __isFirstStart(self):
         isFirstStart = not self.__settings.contains('is_first_start') or self.__settings.contains('is_first_start') and self.__settings.value('is_first_start').toBool()
         return isFirstStart
 
-    def __onFinishedFirstConfig(self):
+    def __onFinishedFirstConfig(self, accountData):
+        self.setFixedSize(400, 400)
+        self.__setupTaskManager()
         self.__setupUploadsWidget()
-        #TODO send acc data to server by queueing up a task for it.
+        self.__taskManager.init(accountData)
 
     def show(self):
         screenSize = QtCore.QCoreApplication.instance().desktop().screenGeometry()

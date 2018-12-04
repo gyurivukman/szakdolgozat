@@ -23,7 +23,7 @@ def main():
     app = QtGui.QApplication(sys.argv)
 
     setupOrganization()
-    flags = QtCore.Qt.CustomizeWindowHint|QtCore.Qt.WindowTitleHint|QtCore.Qt.WindowCloseButtonHint|QtCore.Qt.WindowStaysOnTopHint
+    flags = QtCore.Qt.CustomizeWindowHint|QtCore.Qt.WindowTitleHint|QtCore.Qt.WindowCloseButtonHint
 
     mainWindow = MainWindow(flags=flags)
 

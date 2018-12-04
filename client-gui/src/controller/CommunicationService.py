@@ -63,6 +63,7 @@ class CommunicationService(QtCore.QObject):
     def __setupTaskHandlers(self):
         self.__taskHandlers = {
             TaskTypes.SYNCFILELIST: self.__handleSyncFileListTask,
+            TaskTypes.UPLOAD_ACCOUNTS: self.__handleAccountUploadTask,
             TaskTypes.KEEP_ALIVE: self.__sendKeepAlive,
             TaskTypes.EXISTENCE_CHECK: self.__handleExistenceCheckTask
         }
@@ -96,14 +97,19 @@ class CommunicationService(QtCore.QObject):
 
     def __handleCurrentTask(self):
         (self.__taskHandlers[self.__currentTask.taskType])()
+        self.__taskQueue.task_done()
 
     def __handleSyncFileListTask(self):
         message = {"type": "get_file_list"}
         response = self.retrieveResponse(message)
         self.taskReportChannel.emit(Task(taskType=TaskTypes.SYNCFILELIST, subject=response))
-    
+
     def __handleExistenceCheckTask(self):
         self.taskReportChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=self.__currentTask.subject))
+
+    def __handleAccountUploadTask(self):
+        message = {"type": "account_upload", "data": self.__currentTask.subject}
+        response = self.retrieveResponse(message)
 
     def __sendKeepAlive(self):
         # print "sending Comm keepalive"

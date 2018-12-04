@@ -31,7 +31,6 @@ class TaskManager(QtCore.QObject):
         self.__setupServices()
 
     def start(self):
-        self.__taskQueue.put(Task(taskType=TaskTypes.SYNCFILELIST, subject=None))
         while(self.__shouldRun):
             if not self.__taskQueue.empty() and self.__readyForNextTask:
                 self.__currentTask = self.__taskQueue.get()
@@ -40,8 +39,10 @@ class TaskManager(QtCore.QObject):
             else:
                 time.sleep(3)
 
-    def startDependentServices(self):
-        self.__sshManagerThread.start()
+    def init(self, accountData=None):
+        if accountData:
+            self.__taskQueue.put(Task(taskType=TaskTypes.UPLOAD_ACCOUNTS, subject=accountData))
+        self.__taskQueue.put(Task(taskType=TaskTypes.SYNCFILELIST, subject=None))
 
     def __setupServices(self):
         settings = QtCore.QSettings()
@@ -55,31 +56,28 @@ class TaskManager(QtCore.QObject):
     def __setupDependentServices(self):
         self.__setupFileScanner()
         self.__setupSSHManager()
-        self.__sshManagerThread.start()
 
     def __setupFileScanner(self):
         self.__fileScanner = FileScanner()
         self.__fileScanner.newFileChannel.connect(self.__newFileEventHandler)
-
         self.__fileScannerThread = QtCore.QThread()
-        self.__fileScannerThread.setTerminationEnabled(True)
         self.__fileScanner.moveToThread(self.__fileScannerThread)
         self.__fileScannerThread.started.connect((self.__fileScanner).start)
 
     def __setupSSHManager(self):
         self.__sshManager = SSHManager()
+        self.__sshManager.connectionStatusChannel.connect(self.__connectionStatusChangeHandler)
         self.__sshManagerThread = QtCore.QThread()
         self.__sshManager.moveToThread(self.__sshManagerThread)
         self.__sshManagerThread.started.connect((self.__sshManager).start)
-        self.__sshManager.connectionStatusChannel.connect(self.__connectionStatusChangeHandler)
 
     def __setupCommService(self):
         self.__commService = CommunicationService()
+        self.__commService.connectionStatusChannel.connect(self.__connectionStatusChangeHandler)
+        self.__commService.taskReportChannel.connect(self.__commReportHandler)
         self.__commServiceThread = QtCore.QThread()
         self.__commService.moveToThread(self.__commServiceThread)
         self.__commServiceThread.started.connect((self.__commService).start)
-        self.__commService.taskReportChannel.connect(self.__commReportHandler)
-        self.__commService.connectionStatusChannel.connect(self.__connectionStatusChangeHandler)
 
     def __initTaskHandlers(self):
         self.__taskHandlers = {}
@@ -108,7 +106,9 @@ class TaskManager(QtCore.QObject):
             if self.__fileScanner.isPaused():
                 self.__fileScanner.resume()
             if not self.__fileScannerThread.isRunning():
-                self.__fileScannerThread.start() 
+                self.__fileScannerThread.start()
+            if not self.__sshManagerThread.isRunning():
+                self.__sshManagerThread.start()
             self.__connectionStates["Sync"] = True
             self.connectionStatusChannel.emit(ConnectionEvent("Sync", True))
             #TODO EMIT THIS TO UPLOADS COMP. TOO
@@ -126,7 +126,7 @@ class TaskManager(QtCore.QObject):
         print "I SHOULD DOWNLOAD A FILE"
 
     def __uploadAccounts(self):
-        print "Upload Accounts!"
+        self.__commService.enqueuTask(self.__currentTask)
 
     def __syncFiles(self):
         self.__commService.enqueuTask(self.__currentTask)

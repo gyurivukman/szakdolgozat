@@ -7,12 +7,12 @@ from AccountDialog import AccountDialog
 
 
 class FirstConfigPanel(QtGui.QWidget):
-    firstConfigFinished = QtCore.pyqtSignal()
+    firstConfigFinished = QtCore.pyqtSignal(object)
 
     def __init__(self, *args, **kwargs):
         super(FirstConfigPanel, self).__init__()
         self.settings = QtCore.QSettings()
-        self.accounts = []
+        self.__accounts = []
         self.__setup()
 
     def __setup(self):
@@ -22,8 +22,8 @@ class FirstConfigPanel(QtGui.QWidget):
         self.__setupAccountsPanel()
         saveButton = QtGui.QPushButton("Save")
         saveButton.clicked.connect(self.__finishConfig)
-        self.baseLayout.addStretch()
-        self.setLayout(self.baseLayout)
+        self.__baseLayout.addStretch()
+        self.setLayout(self.__baseLayout)
         self.setStyleSheet(
             """
                 .QLineEdit{
@@ -56,74 +56,74 @@ class FirstConfigPanel(QtGui.QWidget):
         )
 
     def __setupBaseLayout(self):
-        self.baseLayout = QtGui.QVBoxLayout()
-        self.baseLayout.setObjectName("baseLayout")
-        self.baseLayout.setContentsMargins(3, 0, 3, 15)
-        self.baseLayout.setSpacing(15)
+        self.__baseLayout = QtGui.QVBoxLayout()
+        self.__baseLayout.setObjectName("baseLayout")
+        self.__baseLayout.setContentsMargins(3, 0, 3, 15)
+        self.__baseLayout.setSpacing(15)
 
     def __setupSyncDirPanel(self):
         syncDirPanel = QtGui.QVBoxLayout()
         syncDirPanel.setSpacing(5)
         syncDirPanel.addWidget(QtGui.QLabel("Select the synchronization directory:"))
         controlsPanel = QtGui.QHBoxLayout()
-        self.directoryInputField = QtGui.QLineEdit()
-        self.directoryInputField.setObjectName("dirInput")
+        self.__directoryInputField = QtGui.QLineEdit()
+        self.__directoryInputField.setObjectName("dirInput")
 
         fileDialogButton = QtGui.QPushButton("Select")
         fileDialogButton.clicked.connect(self.__openFileDialog)
         fileDialogButton.setObjectName("selectButton")
 
         controlsPanel.addWidget(fileDialogButton)
-        controlsPanel.addWidget(self.directoryInputField)
+        controlsPanel.addWidget(self.__directoryInputField)
 
         syncDirPanel.addLayout(controlsPanel)
-        self.baseLayout.addLayout(syncDirPanel)
+        self.__baseLayout.addLayout(syncDirPanel)
 
     def __setupRemoteDataPanel(self):
         addressPanel = QtGui.QHBoxLayout()
-        self.addressInputField = QtGui.QLineEdit()
+        self.__addressInputField = QtGui.QLineEdit()
         addressPanel.addWidget(QtGui.QLabel("Remote host address:"))
-        addressPanel.addWidget(self.addressInputField)
-        self.baseLayout.addLayout(addressPanel)
+        addressPanel.addWidget(self.__addressInputField)
+        self.__baseLayout.addLayout(addressPanel)
 
         portPanel = QtGui.QHBoxLayout()
 
         sshPortPanel = QtGui.QVBoxLayout()
         sshPortPanel.addWidget(QtGui.QLabel("SSH port:"))
-        self.sshPortInputField = QtGui.QLineEdit()
-        sshPortPanel.addWidget(self.sshPortInputField)
+        self.__sshPortField = QtGui.QLineEdit()
+        sshPortPanel.addWidget(self.__sshPortField)
 
         commPortPanel = QtGui.QVBoxLayout()
         commPortPanel.addWidget(QtGui.QLabel("Communications port:"))
-        self.commPortInputField = QtGui.QLineEdit()
-        commPortPanel.addWidget(self.commPortInputField)
+        self.__commPortField = QtGui.QLineEdit()
+        commPortPanel.addWidget(self.__commPortField)
 
         portPanel.addLayout(sshPortPanel)
         portPanel.addLayout(commPortPanel)
 
-        self.baseLayout.addLayout(portPanel)
+        self.__baseLayout.addLayout(portPanel)
 
         remoteUsernamePanel = QtGui.QHBoxLayout()
-        self.remoteUsernameField = QtGui.QLineEdit()
+        self.__remoteUsernameField = QtGui.QLineEdit()
         remoteUsernamePanel.addWidget(QtGui.QLabel("SSH username:"))
-        remoteUsernamePanel.addWidget(self.remoteUsernameField)
-        self.baseLayout.addLayout(remoteUsernamePanel)
+        remoteUsernamePanel.addWidget(self.__remoteUsernameField)
+        self.__baseLayout.addLayout(remoteUsernamePanel)
 
         remotePasswordPanel = QtGui.QHBoxLayout()
-        self.remotePasswordField = QtGui.QLineEdit()
-        self.remotePasswordField.setEchoMode(QtGui.QLineEdit.Password)
+        self.__remotePasswordField = QtGui.QLineEdit()
+        self.__remotePasswordField.setEchoMode(QtGui.QLineEdit.Password)
         remotePasswordPanel.addWidget(QtGui.QLabel("SSH password:"))
-        remotePasswordPanel.addWidget(self.remotePasswordField)
-        self.baseLayout.addLayout(remotePasswordPanel)
+        remotePasswordPanel.addWidget(self.__remotePasswordField)
+        self.__baseLayout.addLayout(remotePasswordPanel)
 
         testButtonsPanel = QtGui.QHBoxLayout()
 
         communicationsKeyPanel = QtGui.QHBoxLayout()
-        self.commKeyField = QtGui.QLineEdit()
-        self.commKeyField.setObjectName("commKeyInput")
+        self.__commKeyField = QtGui.QLineEdit()
+        self.__commKeyField.setObjectName("commKeyInput")
         communicationsKeyPanel.addWidget(QtGui.QLabel("Comm. Encryption Key:"))
-        communicationsKeyPanel.addWidget(self.commKeyField)
-        self.baseLayout.addLayout(communicationsKeyPanel)
+        communicationsKeyPanel.addWidget(self.__commKeyField)
+        self.__baseLayout.addLayout(communicationsKeyPanel)
 
         testSSHConnectionButton = QtGui.QPushButton("Test SSH")
         testSSHConnectionButton.setObjectName("testSSHConnectionButton")
@@ -135,7 +135,7 @@ class FirstConfigPanel(QtGui.QWidget):
 
         testButtonsPanel.addWidget(testSSHConnectionButton)
         testButtonsPanel.addWidget(testCommunicationPortButton)
-        self.baseLayout.addLayout(testButtonsPanel)
+        self.__baseLayout.addLayout(testButtonsPanel)
 
     def __setupAccountsPanel(self):
         accountsPanel = QtGui.QVBoxLayout()
@@ -152,46 +152,46 @@ class FirstConfigPanel(QtGui.QWidget):
         accountsPanel.addLayout(messagePanel)
 
         subContainerPanel = QtGui.QHBoxLayout()
-        self.accountListWidget = QtGui.QListWidget()
-        self.accountListWidget.currentRowChanged.connect(self.__selectAccount)
-        subContainerPanel.addWidget(self.accountListWidget)
+        self.__accountListWidget = QtGui.QListWidget()
+        self.__accountListWidget.currentRowChanged.connect(self.__selectAccount)
+        subContainerPanel.addWidget(self.__accountListWidget)
 
         controlsPanel = QtGui.QVBoxLayout()
         controlsPanel.setSpacing(5)
         addAccountButton = QtGui.QPushButton("Add Account")
         addAccountButton.clicked.connect(self.__addAccount)
 
-        self.editAccountButton = QtGui.QPushButton("Edit Account")
-        self.editAccountButton.setEnabled(False)
-        self.editAccountButton.clicked.connect(self.__editAccount)
+        self.__editAccountButton = QtGui.QPushButton("Edit Account")
+        self.__editAccountButton.setEnabled(False)
+        self.__editAccountButton.clicked.connect(self.__editAccount)
 
-        self.removeAccountButton = QtGui.QPushButton("Remove Account")
-        self.removeAccountButton.setEnabled(False)
-        self.removeAccountButton.clicked.connect(self.removeCurrentlySelectedAccountFromGui)
+        self.__removeAccountButton = QtGui.QPushButton("Remove Account")
+        self.__removeAccountButton.setEnabled(False)
+        self.__removeAccountButton.clicked.connect(self.removeCurrentlySelectedAccountFromGui)
 
         controlsPanel.addWidget(addAccountButton)
-        controlsPanel.addWidget(self.editAccountButton)
-        controlsPanel.addWidget(self.removeAccountButton)
+        controlsPanel.addWidget(self.__editAccountButton)
+        controlsPanel.addWidget(self.__removeAccountButton)
         controlsPanel.addStretch()
         subContainerPanel.addLayout(controlsPanel)
         accountsPanel.addLayout(subContainerPanel)
-        self.baseLayout.addLayout(accountsPanel)
+        self.__baseLayout.addLayout(accountsPanel)
 
         finishButton = QtGui.QPushButton("Finish")
         finishButton.setObjectName("finishButton")
         finishButton.clicked.connect(self.__finishConfig)
-        self.baseLayout.addWidget(finishButton)
+        self.__baseLayout.addWidget(finishButton)
 
     def __openFileDialog(self):
         selectedDir = QtGui.QFileDialog().getExistingDirectory(self, "Choose the synchronization directory",options=QtGui.QFileDialog.DontUseNativeDialog|QtGui.QFileDialog.ShowDirsOnly)
-        self.directoryInputField.setText(selectedDir)
+        self.__directoryInputField.setText(selectedDir)
 
     def __testSSHConnection(self):
         try:
             client = paramiko.SSHClient()
             client.load_system_host_keys()
             client.set_missing_host_key_policy(paramiko.WarningPolicy)
-            client.connect(str(self.addressInputField.text()), port=22, username=str(self.remoteUsernameField.text()), password=str(self.remotePasswordField.text()))
+            client.connect(str(self.__addressInputField.text()), port=22, username=str(self.__remoteUsernameField.text()), password=str(self.__remotePasswordField.text()))
             self.__showTestResultDialog("SSH Connection successful!")
         except Exception as e:
             self.__showTestResultDialog("SSH Connection failed! reason:\n{}".format(e))
@@ -201,7 +201,7 @@ class FirstConfigPanel(QtGui.QWidget):
     def __testCommPort(self):
         try:
             commConnection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            remoteAddress = (unicode(self.addressInputField.text()).encode("utf8"), self.commPortInputField.text().toInt()[0])
+            remoteAddress = (unicode(self.__addressInputField.text()).encode("utf8"), self.__commPortField.text().toInt()[0])
             commConnection.settimeout(4)
             commConnection.connect(remoteAddress)
             self.__showTestResultDialog("Communications port works!")
@@ -216,53 +216,53 @@ class FirstConfigPanel(QtGui.QWidget):
         dialog.exec_()
 
     def __selectAccount(self, index):
-        if not self.editAccountButton.isEnabled():
-            self.editAccountButton.setEnabled(True)
-            self.removeAccountButton.setEnabled(True)
-        self.selectedAccountIndex = index 
+        if not self.__editAccountButton.isEnabled():
+            self.__editAccountButton.setEnabled(True)
+            self.__removeAccountButton.setEnabled(True)
+        self.__selectedAccountIndex = index 
 
     def __addAccount(self):
-        self.accountDialog = AccountDialog(self)
-        self.accountDialog.dataEmitter.connect(self.__onSaveAccount)
-        self.accountDialog.show()
+        self.__accountDialog = AccountDialog(self)
+        self.__accountDialog.dataEmitter.connect(self.__onSaveAccount)
+        self.__accountDialog.show()
 
     def __onSaveAccount(self, accData):
-        self.accountDialog.hide()
-        self.accounts.append(accData)
-        self.accountListWidget.addItem("{} / {}".format(self.accounts[-1]["account_type"], self.accounts[-1]["display_name"]))
+        self.__accountDialog.hide()
+        self.__accounts.append(accData)
+        self.__accountListWidget.addItem("{} / {}".format(self.__accounts[-1]["account_type"], self.__accounts[-1]["display_name"]))
 
     def __editAccount(self):
-        self.accountDialog = AccountDialog(self, edit=True, data=self.accounts[self.selectedAccountIndex])
-        self.accountDialog.dataEmitter.connect(self.__onEditAccount)
-        self.accountDialog.show()
+        self.__accountDialog = AccountDialog(self, edit=True, data=self.__accounts[self.__selectedAccountIndex])
+        self.__accountDialog.dataEmitter.connect(self.__onEditAccount)
+        self.__accountDialog.show()
 
     def removeCurrentlySelectedAccountFromGui(self):
-        del self.accounts[self.selectedAccountIndex]
-        self.accountListWidget.takeItem(self.selectedAccountIndex)
-        if(len(self.accounts) > 0):
-            self.selectedAccountIndex = self.selectedAccountIndex - 1
-            self.accountListWidget.setCurrentRow(self.selectedAccountIndex)
+        del self.__accounts[self.__selectedAccountIndex]
+        self.__accountListWidget.takeItem(self.__selectedAccountIndex)
+        if(len(self.__accounts) > 0):
+            self.__selectedAccountIndex = self.__selectedAccountIndex - 1
+            self.__accountListWidget.setCurrentRow(self.__selectedAccountIndex)
 
     def __onEditAccount(self, accData):
-        self.accountDialog.hide()
-        self.accounts.insert(self.selectedAccountIndex, accData)
-        del self.accounts[self.selectedAccountIndex+1]
+        self.__accountDialog.hide()
+        self.__accounts.insert(self.__selectedAccountIndex, accData)
+        del self.__accounts[self.__selectedAccountIndex+1]
 
-        displayName = "{} / {}".format(self.accounts[self.selectedAccountIndex]["account_type"], self.accounts[self.selectedAccountIndex]["display_name"])
-        self.accountListWidget.insertItem(self.selectedAccountIndex, displayName)    
-        self.accountListWidget.takeItem(self.selectedAccountIndex+1)
+        displayName = "{} / {}".format(self.__accounts[self.__selectedAccountIndex]["account_type"], self.__accounts[self.__selectedAccountIndex]["display_name"])
+        self.__accountListWidget.insertItem(self.__selectedAccountIndex, displayName)    
+        self.__accountListWidget.takeItem(self.__selectedAccountIndex+1)
 
     def __finishConfig(self):
         configs = {}
-        configs["syncDir"] = unicode(self.directoryInputField.text()).encode("utf8")
-        configs["remoteAddress"] = unicode(self.addressInputField.text()).encode("utf8")
-        configs["SSH_Port"] = unicode(self.sshPortInputField.text()).encode("utf8")
-        configs["SSH_username"] = unicode(self.remoteUsernameField.text()).encode("utf8")
-        configs["SSH_password"] = unicode(self.remotePasswordField.text()).encode("utf8")
-        configs["commPort"] = unicode(self.commPortInputField.text()).encode("utf8")
-        configs["commKey"] = unicode(self.commKeyField.text()).encode("utf8")
+        configs["syncDir"] = unicode(self.__directoryInputField.text()).encode("utf8")
+        configs["remoteAddress"] = unicode(self.__addressInputField.text()).encode("utf8")
+        configs["SSH_Port"] = unicode(self.__sshPortField.text()).encode("utf8")
+        configs["SSH_username"] = unicode(self.__remoteUsernameField.text()).encode("utf8")
+        configs["SSH_password"] = unicode(self.__remotePasswordField.text()).encode("utf8")
+        configs["commPort"] = unicode(self.__commPortField.text()).encode("utf8")
+        configs["commKey"] = unicode(self.__commKeyField.text()).encode("utf8")
         self.__setConfigs(configs)
-        self.firstConfigFinished.emit()
+        self.firstConfigFinished.emit(self.__accounts)
 
     def __setConfigs(self, configs):
         for key, value in configs.iteritems():

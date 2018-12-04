@@ -11,6 +11,7 @@ from messagehandlers.UploadFileMessageHandler import UploadFileMessageHandler
 from messagehandlers.DownloadFileMessageHandler import DownloadFileMessageHandler
 from messagehandlers.DeleteFileMessageHandler import DeleteFileMessageHandler
 from messagehandlers.CheckFileMessageHandler import CheckFileMessageHandler
+from messagehandlers.AccountUploadMessageHandler import AccountUploadMessageHandler
 
 # TODO Upload,Download,Delete handlers, optionally rename handler
 
@@ -19,7 +20,7 @@ class CryptStorePiServer(object):
 
     def __init__(self, port, encryptionKey):
         self.port = port
-        self.client = None
+        self.__client = None
         self.buffer = []
         self.shouldRun = True
         self.__messageEncoder = MessageEncoder(encryptionKey)
@@ -28,14 +29,14 @@ class CryptStorePiServer(object):
 
     def start(self):
         while self.shouldRun:
-            if not self.client:
+            if not self.__client:
                 self.__waitForConnection()
             else:
-                messageFragment = self.client.recv(1024)
+                messageFragment = self.__client.recv(1024)
                 if(messageFragment):
                     self.__handleMessageFragment(messageFragment)
                 else:
-                    self.client = None
+                    self.__client = None
 
     def __setupServerConnection(self):
         self.serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -51,11 +52,12 @@ class CryptStorePiServer(object):
             "upload_file": UploadFileMessageHandler(),
             "download_file": DownloadFileMessageHandler(),
             "delete_file": DeleteFileMessageHandler(),
-            "check_file": CheckFileMessageHandler()
+            "check_file": CheckFileMessageHandler(),
+            "account_upload": AccountUploadMessageHandler()
         }
 
     def __waitForConnection(self):
-        self.client, self.client_address = self.serverSocket.accept()
+        self.__client, self.__client_address = self.serverSocket.accept()
 
     def __handleMessageFragment(self, messageFragment):
         self.buffer.append(messageFragment)
@@ -65,10 +67,11 @@ class CryptStorePiServer(object):
             self.__handleMessage(decrypted)
 
     def __handleMessage(self, message):
+            print "handling message: "+str(message)
             result = (self.__messageHandlers[message["type"]]).handleMessage(message)
             print "message handling result: "+str(result)
             encryptedRes = self.__messageEncoder.encryptMessage(result)
-            self.client.sendall(encryptedRes)
+            self.__client.sendall(encryptedRes)
 
     def __sliceMessageBuffer(self):
         unsliced = "".join(self.buffer)
@@ -76,7 +79,6 @@ class CryptStorePiServer(object):
         self.buffer = []
         if len(slices) > 1:
             self.buffer.append(slices[1])
-
         return slices[0]
 
     def stop(self):
