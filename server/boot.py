@@ -12,6 +12,7 @@ def checkArgs(args):
         errors.append("Insufficient encryption key length! Key must be a 256 bit key")
     return errors
 
+
 # G+KbPeShVmYq3t6w
 
 
@@ -22,7 +23,15 @@ def main():
     # args = parser.parse_args()
 
     # errors = checkArgs(args)
+    def sigKillHandler(signum, frame):
+        print "\nReceived sigkill, shutting down"
+        server.stop()
+
+    signal.signal(signal.SIGINT, sigKillHandler)
+
     errors = None
+    server = None
+
     if errors:
         print "Errors: "
         for error in errors:

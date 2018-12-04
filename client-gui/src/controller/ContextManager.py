@@ -18,52 +18,18 @@ class ContextManager(object):
     __metaclass__ = ContextManagerWrapper
 
     def __init__(self):
-        self.__managers = {}
-        self.__threadPool = {}
-        self.__setupSSHManager()
-        self.__setupCommService()
         self.__setupTaskManager()
-        self.__startDependentServices()
-
-    def __setupSSHManager(self):
-        self.__managers['ssh_manager'] = SSHManager()
-        self.__threadPool['ssh_thread'] = QtCore.QThread()
-        self.__managers['ssh_manager'].moveToThread(self.__threadPool['ssh_thread'])
-        self.__threadPool['ssh_thread'].started.connect((self.__managers['ssh_manager']).start)
-
-    def __setupCommService(self):
-        self.__managers['comm_service'] = CommunicationService()
-        self.__threadPool['comm_service'] = QtCore.QThread()
-        self.__managers['comm_service'].moveToThread(self.__threadPool['comm_service'])
-        self.__threadPool['comm_service'].started.connect((self.__managers['comm_service']).start)
 
     def __setupTaskManager(self):
-        self.__managers['task_manager'] = TaskManager(self.getsshManager(), self.getCommService())
-        self.__threadPool['task_manager'] = QtCore.QThread()
+        self.__taskManager = TaskManager()
+        self.__taskManagerThread = QtCore.QThread()
 
-        self.__managers['task_manager'].moveToThread(self.__threadPool['task_manager'])
-        self.__threadPool['task_manager'].started.connect((self.__managers['task_manager']).start)
-        (self.__threadPool['task_manager']).start()
-
-    def __startDependentServices(self):
-        (self.__threadPool['ssh_thread']).start()
-        (self.__threadPool['comm_service']).start()
-
-    def getsshManager(self):
-        return self.__managers['ssh_manager']
-
-    def getCommService(self):
-        return self.__managers['comm_service']
+        self.__taskManager.moveToThread(self.__taskManagerThread)
+        self.__taskManagerThread.started.connect(self.__taskManager.start)
+        self.__taskManagerThread.start()
 
     def getTaskManager(self):
-        return self.__managers['task_manager']
+        return self.__taskManager
 
     def shutDown(self):
-        (self.__managers['ssh_manager']).stop()
-        (self.__threadPool['ssh_manager']).stop()
-
-        (self.__managers['task_manager']).stop()
-        (self.__threadPool['task_manager']).stop()
-
-        (self.__managers['comm_service']).stop()
-        (self.__threadPool['comm_service']).stop()
+        self.__taskManager.stop()

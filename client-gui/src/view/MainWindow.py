@@ -39,9 +39,9 @@ class MainWindow(QtGui.QMainWindow):
     def __handleConnectionEvent(self, event):
             self.__connectionStates[event.subject] = event.value
 
-            isSSHUp = self.__connectionStates["SSH"]
-            isCommUp = self.__connectionStates["Comm"]
-            isInSync = self.__connectionStates["Sync"]
+            isSSHUp = self.__connectionStates["SSH"] is True
+            isCommUp = self.__connectionStates["Comm"] is True
+            isInSync = self.__connectionStates["Sync"] is True
 
             if isSSHUp and isCommUp and isInSync:
                 self.__setupUploadsWidget()    
@@ -54,20 +54,20 @@ class MainWindow(QtGui.QMainWindow):
     def __setupWidgets(self):
         self.__settings = QtCore.QSettings()
         if self.__isFirstStart():
-            self.__settings.setValue('is_first_start', True)
             self.setFixedSize(400, 600)
+            self.__settings.setValue('is_first_start', True)
             self.__settings.sync()
             firstConfigPanel = FirstConfigPanel()
             firstConfigPanel.firstConfigFinished.connect(self.__onFinishedFirstConfig)
             self.setCentralWidget(firstConfigPanel)
         else:
-            self.__setupUploadsWidget()
+            self.setFixedSize(400, 400)
             self.setCentralWidget(QtGui.QLabel("Connecting..."))
 
     def __setupUploadsWidget(self):
         self.__uploadsWidget = UploadsWidget(self)
         self.setCentralWidget(self.__uploadsWidget)
-        self.setFixedSize(400, 400)
+        
 
     def __isFirstStart(self):
         isFirstStart = not self.__settings.contains('is_first_start') or self.__settings.contains('is_first_start') and self.__settings.value('is_first_start').toBool()

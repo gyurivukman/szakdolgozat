@@ -9,19 +9,26 @@ from src.model.FileDescription import FileDescription
 from src.model.ConnectionEvent import ConnectionEvent
 from src.model.Task import Task, TaskTypes
 from FileScanner import FileScanner
+from SSHManager import SSHManager
+from CommunicationService import CommunicationService
 
 
 class TaskManager(QtCore.QObject):
     fileStatusChannel = QtCore.pyqtSignal(object)
     connectionStatusChannel = QtCore.pyqtSignal(object)
 
-    def __init__(self, sshManager, commService):
+    def __init__(self):
         super(TaskManager, self).__init__()
         self.__shouldRun = True
         self.__taskQueue = Queue.Queue()
         self.__readyForNextTask = True
-        self.__setupServices(sshManager, commService)
+        self.__connectionStates = {
+            "Comm": False,
+            "SSH": False,
+            "Sync": False
+        }
         self.__initTaskHandlers()
+        self.__setupServices()
 
     def start(self):
         self.__taskQueue.put(Task(taskType=TaskTypes.SYNCFILELIST, subject=None))
@@ -31,31 +38,48 @@ class TaskManager(QtCore.QObject):
                 self.__readyForNextTask = False
                 self.__handleCurrentTask()
             else:
-                time.sleep(4)
+                time.sleep(3)
 
-    def __setupServices(self, sshManager, commService):
+    def startDependentServices(self):
+        self.__sshManagerThread.start()
+
+    def __setupServices(self):
+        settings = QtCore.QSettings()
+        isFirstStart = not settings.contains('is_first_start') or settings.contains('is_first_start') and settings.value('is_first_start').toBool()
+
+        if not isFirstStart:
+            self.__setupDependentServices()
+        self.__setupCommService()
+        self.__commServiceThread.start()
+
+    def __setupDependentServices(self):
         self.__setupFileScanner()
-        self.__setupSSHManager(sshManager)
-        self.__setupCommService(commService)
+        self.__setupSSHManager()
+        self.__sshManagerThread.start()
 
     def __setupFileScanner(self):
         self.__fileScanner = FileScanner()
         self.__fileScanner.newFileChannel.connect(self.__newFileEventHandler)
+
         self.__fileScannerThread = QtCore.QThread()
         self.__fileScannerThread.setTerminationEnabled(True)
         self.__fileScanner.moveToThread(self.__fileScannerThread)
         self.__fileScannerThread.started.connect((self.__fileScanner).start)
-        self.__fileScannerThread.finished.connect(self.__resetFileScanner)
 
-    def __setupSSHManager(self, sshManager):
-        self.sshManager = sshManager
-        self.sshManager.connectionStatusChannel.connect(self.__connectionStatusHandler)
-        #TODO reportChannelSub for SSH status!
+    def __setupSSHManager(self):
+        self.__sshManager = SSHManager()
+        self.__sshManagerThread = QtCore.QThread()
+        self.__sshManager.moveToThread(self.__sshManagerThread)
+        self.__sshManagerThread.started.connect((self.__sshManager).start)
+        self.__sshManager.connectionStatusChannel.connect(self.__connectionStatusChangeHandler)
 
-    def __setupCommService(self, commService):
-        self.__commService = commService
+    def __setupCommService(self):
+        self.__commService = CommunicationService()
+        self.__commServiceThread = QtCore.QThread()
+        self.__commService.moveToThread(self.__commServiceThread)
+        self.__commServiceThread.started.connect((self.__commService).start)
         self.__commService.taskReportChannel.connect(self.__commReportHandler)
-        self.__commService.connectionStatusChannel.connect(self.__connectionStatusHandler)
+        self.__commService.connectionStatusChannel.connect(self.__connectionStatusChangeHandler)
 
     def __initTaskHandlers(self):
         self.__taskHandlers = {}
@@ -69,6 +93,7 @@ class TaskManager(QtCore.QObject):
 
     def __handleCurrentTask(self):
         (self.__taskHandlers[self.__currentTask.taskType])()
+        self.__taskQueue.task_done()
         self.__readyForNextTask = True
 
     def __newFileEventHandler(self, task):
@@ -77,10 +102,14 @@ class TaskManager(QtCore.QObject):
     def __commReportHandler(self, report):
         taskType = report.taskType
         if taskType == TaskTypes.UPLOAD:
-            self.sshManager.enqueuTask(report)
+            self.__sshManager.enqueuTask(report)
         elif taskType == TaskTypes.SYNCFILELIST:
             syncedFilelist = self.__fileScanner.syncInitialFileList(report.subject) #TODO maybe data instead of subject?
-            self.__fileScannerThread.start()
+            if self.__fileScanner.isPaused():
+                self.__fileScanner.resume()
+            if not self.__fileScannerThread.isRunning():
+                self.__fileScannerThread.start() 
+            self.__connectionStates["Sync"] = True
             self.connectionStatusChannel.emit(ConnectionEvent("Sync", True))
             #TODO EMIT THIS TO UPLOADS COMP. TOO
 
@@ -92,10 +121,10 @@ class TaskManager(QtCore.QObject):
 
     def __deleteRemoteFile(self):
         print "I SHOULD DELETE REMOTE FILE"
-    
+
     def __downloadFile(self):
         print "I SHOULD DOWNLOAD A FILE"
-    
+
     def __uploadAccounts(self):
         print "Upload Accounts!"
 
@@ -104,20 +133,27 @@ class TaskManager(QtCore.QObject):
         self.__readyForNextTask = True
 
     def __uploadFile(self, task):
-        self.sshManager.enqueuTask(task)
+        self.__sshManager.enqueuTask(task)
 
-    def __connectionStatusHandler(self, report):
-        self.connectionStatusChannel.emit(report)
-        if report.value == False:
+    def __connectionStatusChangeHandler(self, report):
+        self.__connectionStates[report.subject] = report.value
+
+        if report.value is False:
+            self.__fileScanner.pause()
+            self.__connectionStates["Sync"] = False
             self.connectionStatusChannel.emit(ConnectionEvent("Sync", False))
-            self.__fileScanner.stop()
-            self.__fileScannerThread.terminate()
-            # self.__resetFileScanner()
+        elif self.__connectionStates["Comm"] is True and self.__connectionStates["SSH"] is True and self.__fileScanner.isPaused():
+            self.__restartFileScanner()
+        self.connectionStatusChannel.emit(report)
 
-    def __resetFileScanner(self):
-        self.__setupFileScanner()
+    def __restartFileScanner(self):
+        with self.__taskQueue.mutex:
+            self.__taskQueue.queue.clear()
         self.__taskQueue.put(Task(taskType=TaskTypes.SYNCFILELIST, subject=None))
+        self.__readyForNextTask = True
 
     def stop(self):
         self.__shouldRun = False
+        self.__commService.stop()
+        self.__sshManager.stop()
         self.__fileScanner.stop()

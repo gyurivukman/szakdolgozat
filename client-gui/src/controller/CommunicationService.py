@@ -106,7 +106,7 @@ class CommunicationService(QtCore.QObject):
         self.taskReportChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=self.__currentTask.subject))
 
     def __sendKeepAlive(self):
-        print "sending Comm keepalive"
+        # print "sending Comm keepalive"
         message = {"type": "keep_alive"}
         res = self.retrieveResponse(message)
 

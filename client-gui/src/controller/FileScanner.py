@@ -18,6 +18,7 @@ class FileScanner(QtCore.QObject):
     def __setup(self):
         self.__settings = QtCore.QSettings()
         self.__shouldRun = True
+        self.__canExecute = True
         self.__files = {}
         self.setSyncDir(unicode(self.__settings.value('syncDir').toString()).encode("utf8"))
 
@@ -30,11 +31,21 @@ class FileScanner(QtCore.QObject):
         time.sleep(2)
         print "filescanner initial filelist SET!"
         return []
-    
+
     def start(self):
         while self.__shouldRun:
-            self.__scanFiles()
+            if self.__canExecute:
+                self.__scanFiles()
             time.sleep(5)
+
+    def pause(self):
+        self.__canExecute = False
+
+    def resume(self):
+        self.__canExecute = True
+
+    def isPaused(self):
+        return not self.__canExecute
 
     def __scanFiles(self):
         currentTime = calendar.timegm(time.gmtime())

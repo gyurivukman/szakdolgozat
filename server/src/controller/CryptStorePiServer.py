@@ -12,7 +12,7 @@ from messagehandlers.DownloadFileMessageHandler import DownloadFileMessageHandle
 from messagehandlers.DeleteFileMessageHandler import DeleteFileMessageHandler
 from messagehandlers.CheckFileMessageHandler import CheckFileMessageHandler
 
-#TODO Upload,Download,Delete handlers, optionally rename handler
+# TODO Upload,Download,Delete handlers, optionally rename handler
 
 
 class CryptStorePiServer(object):
@@ -79,7 +79,7 @@ class CryptStorePiServer(object):
 
         return slices[0]
 
-    def stop(self, sig):
+    def stop(self):
         self.shouldRun = False
         #TODO close socket.
         sys.exit(0)
