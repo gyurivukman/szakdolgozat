@@ -91,5 +91,4 @@ class CryptStorePiServer(object):
 
     def stop(self):
         self.__shouldRun = False
-        #TODO close socket.
         sys.exit(0)

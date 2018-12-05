@@ -10,7 +10,7 @@ def checkArgs(args):
     errors = []
     if args.port < 12000 or args.port > 15000:
         errors.append("Invalid port! Port must be from interval [12000, 15000]")
-    if len(args.encryptionkey) != 32:
+    if len(args.encryptionkey) != 16:
         errors.append("Insufficient encryption key length! Key must be a 128 bit key")
     return errors
 
@@ -28,18 +28,17 @@ def main():
     def sigKillHandler(signum, frame):
         print "\nReceived sigkill, shutting down"
         server.stop()
+
     signal.signal(signal.SIGINT, sigKillHandler)
 
-    errors = None
+    errors = checkArgs(args)
     server = None
 
     if errors:
-        print "Errors: "
+        print "Errors:"
         for error in errors:
             print error
     else:
-        debugPort = 12500
-        debugKey = "G+KbPeShVmYq3t6w"
         server = CryptStorePiServer(args.port)
         server.start()
 

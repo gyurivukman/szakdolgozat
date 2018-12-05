@@ -1,6 +1,8 @@
 import base64
 import json
 import itertools 
+import sys
+import argparse
 
 from Crypto.Cipher import AES
 
@@ -18,9 +20,19 @@ class Encoder(object):
     __metaclass__ = EncoderWrapper
 
     def __init__(self):
-        self__encryptionKey = 'G+KbPeShVmYq3t6w'
+        self.__encryptionKey = self.__findEncryptionKeyInSysArgs()
         self.__paddingChar = " "
-        self.__cipher = AES.new(self__encryptionKey)
+        self.__cipher = AES.new(self.__encryptionKey)
+
+    def __findEncryptionKeyInSysArgs(self):
+        found = False
+        args = sys.argv
+        index = 0
+        while not found:
+            found = args[index] == '--encryptionkey'
+            if not found:
+                index = index + 1
+        return args[index+1]
 
     def decryptMessage(self, message):
         decryptedMessage = base64.b64decode(message)
