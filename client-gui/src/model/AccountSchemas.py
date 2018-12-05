@@ -20,7 +20,7 @@ accountSchemas = [
         ]
     },
     {
-        "name": "NotDropbox",
+        "name": "Random acc with fields",
         "fields": [
             {
                 "display_name": "somefield",
@@ -45,7 +45,7 @@ accountSchemas = [
         ]
     },
     {
-        "name": "NotDropbox2",
+        "name": "Big account with many fields",
         "fields": [
             {
                 "display_name": "somefield",

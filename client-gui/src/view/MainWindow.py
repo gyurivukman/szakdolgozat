@@ -76,8 +76,8 @@ class MainWindow(QtGui.QMainWindow):
     def __onFinishedFirstConfig(self, accountData):
         self.setFixedSize(400, 400)
         self.__setupTaskManager()
-        self.__setupUploadsWidget()
         self.__taskManager.init(accountData)
+        self.setCentralWidget(QtGui.QLabel("Connecting..."))
 
     def show(self):
         screenSize = QtCore.QCoreApplication.instance().desktop().screenGeometry()

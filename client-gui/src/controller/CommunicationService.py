@@ -7,6 +7,7 @@ from PyQt4 import QtCore
 
 from src.model.ConnectionEvent import ConnectionEvent
 from src.model.Task import Task, TaskTypes
+from src.model import MessageTypes as MessageTypes
 from MessageEncoder import MessageEncoder
 
 
@@ -100,7 +101,7 @@ class CommunicationService(QtCore.QObject):
         self.__taskQueue.task_done()
 
     def __handleSyncFileListTask(self):
-        message = {"type": "get_file_list"}
+        message = {"type": MessageTypes.GET_FILE_LIST}
         response = self.retrieveResponse(message)
         self.taskReportChannel.emit(Task(taskType=TaskTypes.SYNCFILELIST, subject=response))
 
@@ -108,12 +109,12 @@ class CommunicationService(QtCore.QObject):
         self.taskReportChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=self.__currentTask.subject))
 
     def __handleAccountUploadTask(self):
-        message = {"type": "account_upload", "data": self.__currentTask.subject}
+        message = {"type": MessageTypes.ACCOUNT_UPLOAD, "data": self.__currentTask.subject}
         response = self.retrieveResponse(message)
 
     def __sendKeepAlive(self):
         # print "sending Comm keepalive"
-        message = {"type": "keep_alive"}
+        message = {"type": MessageTypes.KEEP_ALIVE}
         res = self.retrieveResponse(message)
 
     def close(self):

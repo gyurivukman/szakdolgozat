@@ -1,5 +1,7 @@
 import Queue
 import time
+import os
+import shutil 
 
 import paramiko
 from PyQt4 import QtCore
@@ -41,31 +43,37 @@ class SSHManager(QtCore.QObject):
         )
         self.__sshTransport = ssh.get_transport()
         self.__sftpClient = ssh.open_sftp()
-        self.connectionStatusChannel.emit(ConnectionEvent("SSH", True))
         try:
-            self.__sftpClient.chdir('remoteSyncDir')
+            self.__sftpClient.chdir('/tmp/remoteSyncDir')
         except IOError:
+            self.__sftpClient.chdir('/tmp')
             self.__sftpClient.mkdir('remoteSyncDir')
             self.__sftpClient.chdir('remoteSyncDir')
         finally:
-            self.remoteSyncBaseDir = self.__sftpClient.getcwd()
+            self.__remoteSyncdirRoot = self.__sftpClient.getcwd()
+
+    def __cleanRemoteSyncDir(self):
+        for root, dirs, files in os.walk(self.__remoteSyncdirRoot):
+            for f in files:
+                self.__sftpClient.remove(os.path.join(root, f))
+            for d in dirs:
+                self.__sftpClient.remove(os.path.join(root, d))
+        print "Successfully cleaned remote."
 
     def start(self):
         self.__initSFTP()
+        self.__cleanRemoteSyncDir()
+        self.connectionStatusChannel.emit(ConnectionEvent("SSH", True))
         while(self.shouldRun):
             if not self.__queue.empty():
                 self.__currentTask = self.__queue.get()
                 self.__handleCurrentTask()
             else:
-                # print "Sending SSH keepalive packet..."
                 self.__sshTransport.send_ignore(10)                
                 time.sleep(5)
 
     def stop(self):
         self.shouldRun = False
-
-    def getCurrentTask(self):
-        return self.__currentTask
 
     def enqueuTask(self, task):
         self.__queue.put(task)
@@ -74,13 +82,13 @@ class SSHManager(QtCore.QObject):
         self.taskHandlers[self.__currentTask.taskType]()
 
     def __uploadHandler(self):
-        self.__navigateToTargetDirectoryRemoteHost()
+        self.__navigateToTargetDirectoryOnRemoteHost()
         self.__uploadFile()
 
     def __downloadHandler(self):
         print "DOWNLOADHANDLER"
 
-    def __navigateToTargetDirectoryRemoteHost(self):
+    def __navigateToTargetDirectoryOnRemoteHost(self):
         if self.__currentTask.subject.targetDir != "/":
             splittedPath = (self.__currentTask.subject.targetDir.lstrip("/").split('/'))
             for directory in splittedPath:
@@ -90,7 +98,7 @@ class SSHManager(QtCore.QObject):
         print "uploading: "+self.__currentTask.subject.fullPath
         self.__sftpClient.put(self.__currentTask.subject.fullPath, self.__currentTask.subject.fileName, callback=self.__reportProgress)
         print "Upload finished!"
-        self.__sftpClient.chdir(self.remoteSyncBaseDir)
+        self.__sftpClient.chdir(self.__remoteSyncdirRoot)
 
     def __reportProgress(self, transferred, remaining):
         print self.__currentTask.subject.fullPath + " {} / {}".format(transferred, remaining)
