@@ -35,5 +35,3 @@ class StatusWidget(QtGui.QWidget):
         qp.drawRect(50, 15, 15, 15)
         qp.setBrush(QtGui.QColor(255, 255, 255))
         qp.drawRect(75, 15, 15, 15)
-
-

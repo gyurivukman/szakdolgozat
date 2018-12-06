@@ -55,4 +55,4 @@ class DropboxWrapper(object):
                 ret[entry.name] = []
                 ret[entry.name].append(entry.server_modified.strftime("%b %d %H:%M"))
                 ret[entry.name].append(entry.size)
-return ret
+        return ret
