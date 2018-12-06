@@ -49,6 +49,11 @@ class DatabaseAccessObject(object):
             print encoder.decryptAccountEntry(acc)
         return rows
 
+    def getAllFiles(self):
+        self.__cursor.execute('SELECT * FROM files')
+        rawResult = self.__cursor.fetchall()
+        return rawResult
+
     def insertAccounts(self, accounts):
         for account in accounts:
             self.__cursor.execute('INSERT INTO accounts(name, account_type, structure, structure_values) VALUES(?,?,?,?)', (account["name"], account["account_type"], account["structure"], account["structure_values"]))

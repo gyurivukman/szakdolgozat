@@ -103,6 +103,7 @@ class CommunicationService(QtCore.QObject):
     def __handleSyncFileListTask(self):
         message = {"type": MessageTypes.GET_FILE_LIST}
         response = self.retrieveResponse(message)
+        print "Received the following filelist: " + str(response)
         self.taskReportChannel.emit(Task(taskType=TaskTypes.SYNCFILELIST, subject=response))
 
     def __handleExistenceCheckTask(self):

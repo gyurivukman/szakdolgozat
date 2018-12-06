@@ -1,31 +1,22 @@
 from MessageHandler import MessageHandler
+from src.controller.DatabaseAccessObject import DatabaseAccessObject
 
 
 class GetFileListMessageHandler(MessageHandler):
+
+    def __init__(self):
+        self.__dao = DatabaseAccessObject()
+
     def handleMessage(self, message):
-        return [
-            {
-                "name": "somefile1",
-                "size": 12345,
-                "path": "/firstDir/secondDir/",
-                "lastModified": 56789
-            },
-            {
-                "name": "somefile2",
-                "size": 12345,
-                "path": "/firstDir/secondDir/",
-                "lastModified": 56789
-            },
-            {
-                "name": "somefile3",
-                "size": 12345,
-                "path": "/",
-                "lastModified": 56789
-            },
-            {
-                "name": "somefile1",
-                "size": 12345,
-                "path": "/firstDir",
-                "lastModified": 56789
-            }
-        ]
+        rawResult = self.__dao.getAllFiles()
+        files = []
+
+        for f in rawResult:
+            files.append({
+                "name": f[1],
+                "directory": f[2],
+                "size": f[3],
+                "last_modified": f[4]
+            })
+
+        return files

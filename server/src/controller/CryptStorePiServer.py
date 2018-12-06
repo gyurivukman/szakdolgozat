@@ -36,7 +36,6 @@ class CryptStorePiServer(object):
         self.__dao = DatabaseAccessObject()
 
     def start(self):
-        print "getting accounts"
         self.__dao.getAccounts()
         while self.__shouldRun:
             if not self.__client:

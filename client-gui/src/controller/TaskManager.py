@@ -59,7 +59,7 @@ class TaskManager(QtCore.QObject):
 
     def __setupFileScanner(self):
         self.__fileScanner = FileScanner()
-        self.__fileScanner.newFileChannel.connect(self.__newFileEventHandler)
+        self.__fileScanner.fileStatusChangeChannel.connect(self.__fileEventHandler)
         self.__fileScannerThread = QtCore.QThread()
         self.__fileScanner.moveToThread(self.__fileScannerThread)
         self.__fileScannerThread.started.connect((self.__fileScanner).start)
@@ -94,8 +94,9 @@ class TaskManager(QtCore.QObject):
         self.__taskQueue.task_done()
         self.__readyForNextTask = True
 
-    def __newFileEventHandler(self, task):
-        self.__taskQueue.put(task)
+    def __fileEventHandler(self, task):
+        pass
+        # self.__taskQueue.put(task)
 
     def __commReportHandler(self, report):
         taskType = report.taskType
@@ -103,8 +104,6 @@ class TaskManager(QtCore.QObject):
             self.__sshManager.enqueuTask(report)
         elif taskType == TaskTypes.SYNCFILELIST:
             syncedFilelist = self.__fileScanner.syncInitialFileList(report.subject) #TODO maybe data instead of subject?
-            if self.__fileScanner.isPaused():
-                self.__fileScanner.resume()
             if not self.__fileScannerThread.isRunning():
                 self.__fileScannerThread.start()
             if not self.__sshManagerThread.isRunning():
@@ -142,8 +141,8 @@ class TaskManager(QtCore.QObject):
             self.__fileScanner.pause()
             self.__connectionStates["Sync"] = False
             self.connectionStatusChannel.emit(ConnectionEvent("Sync", False))
-        elif self.__connectionStates["Comm"] is True and self.__connectionStates["SSH"] is True and self.__fileScanner.isPaused():
-            self.__restartFileScanner()
+        # elif self.__connectionStates["Comm"] is True and self.__connectionStates["SSH"] is True:
+        #     self.__restartFileScanner()
         self.connectionStatusChannel.emit(report)
 
     def __restartFileScanner(self):
