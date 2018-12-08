@@ -6,7 +6,7 @@ import json
 from PyQt4 import QtCore
 
 from src.model.ConnectionEvent import ConnectionEvent
-from src.model.Task import Task, TaskTypes
+from src.model.Task import Task, TaskTypes, TaskStatus
 from src.model import MessageTypes as MessageTypes
 from MessageEncoder import MessageEncoder
 
@@ -65,8 +65,6 @@ class CommunicationService(QtCore.QObject):
         self.__taskHandlers = {
             TaskTypes.SYNCFILELIST: self.__handleSyncFileListTask,
             TaskTypes.UPLOAD_ACCOUNTS: self.__handleAccountUploadTask,
-            TaskTypes.KEEP_ALIVE: self.__sendKeepAlive,
-            TaskTypes.EXISTENCE_CHECK: self.__handleExistenceCheckTask
         }
 
     def __setupServerConnection(self):
@@ -103,15 +101,12 @@ class CommunicationService(QtCore.QObject):
     def __handleSyncFileListTask(self):
         message = {"type": MessageTypes.GET_FILE_LIST}
         response = self.retrieveResponse(message)
-        print "Received the following filelist: " + str(response)
-        self.taskReportChannel.emit(Task(taskType=TaskTypes.SYNCFILELIST, subject=response))
-
-    def __handleExistenceCheckTask(self):
-        self.taskReportChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=self.__currentTask.subject))
+        self.taskReportChannel.emit(Task(taskType=TaskTypes.SYNCFILELIST, subject=response, status=TaskStatus.STATELESS))
 
     def __handleAccountUploadTask(self):
         message = {"type": MessageTypes.ACCOUNT_UPLOAD, "data": self.__currentTask.subject}
         response = self.retrieveResponse(message)
+        self.__taskQueue.task_done()
 
     def __sendKeepAlive(self):
         # print "sending Comm keepalive"

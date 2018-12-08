@@ -42,7 +42,8 @@ class MainWindow(QtGui.QMainWindow):
             isInSync = self.__connectionStates["Sync"] is True
 
             if isSSHUp and isCommUp and isInSync:
-                self.__setupUploadsWidget()    
+                self.setCentralWidget(self.__uploadsWidget)
+                self.__uploadsWidget.show()
             elif isSSHUp and isCommUp and not isInSync:
                 self.setCentralWidget(QtGui.QLabel("Syncing filelist..."))
             else:
@@ -52,6 +53,9 @@ class MainWindow(QtGui.QMainWindow):
     def __setupWidgets(self):
         self.__settings = QtCore.QSettings()
         isFirstStart = self.__isFirstStart()
+        self.__uploadsWidget = UploadsWidget()
+        self.__uploadsWidget.hide(
+        )
         if isFirstStart:
             self.setFixedSize(400, 600)
             self.__moveToCenter()
@@ -61,15 +65,11 @@ class MainWindow(QtGui.QMainWindow):
             firstConfigPanel.firstConfigFinished.connect(self.__onFinishedFirstConfig)
             self.setCentralWidget(firstConfigPanel)
         else:
-            self.setFixedSize(400, 400)
+            self.setFixedSize(500, 400)
             self.__moveToUpperRightCorner()
             self.__setupTaskManager()
             self.setCentralWidget(QtGui.QLabel("Connecting..."))
             self.__taskManager.init()
-
-    def __setupUploadsWidget(self):
-        self.__uploadsWidget = UploadsWidget(self)
-        self.setCentralWidget(self.__uploadsWidget)
 
     def __isFirstStart(self):
         isFirstStart = not self.__settings.contains('is_first_start') or self.__settings.contains('is_first_start') and self.__settings.value('is_first_start').toBool()

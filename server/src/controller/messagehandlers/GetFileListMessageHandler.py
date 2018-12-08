@@ -15,7 +15,7 @@ class GetFileListMessageHandler(MessageHandler):
             files.append({
                 "fileName": f[1],
                 "dir": f[2],
-                "path": "{}/{}".format(f[2],f[1]),
+                "path": "{}/{}".format(f[2], f[1]) if f[2]!="" else f[1],
                 "size": f[3],
                 "lastModified": f[4]
             })

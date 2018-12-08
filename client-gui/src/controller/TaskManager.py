@@ -7,7 +7,7 @@ from PyQt4 import QtCore
 
 from src.model.FileDescription import FileDescription
 from src.model.ConnectionEvent import ConnectionEvent
-from src.model.Task import Task, TaskTypes
+from src.model.Task import Task, TaskTypes, TaskStatus
 
 from FileScanner import FileScanner
 from SSHManager import SSHManager
@@ -42,8 +42,8 @@ class TaskManager(QtCore.QObject):
 
     def init(self, accountData=None):
         if accountData:
-            self.__taskQueue.put(Task(taskType=TaskTypes.UPLOAD_ACCOUNTS, subject=accountData))
-        self.__taskQueue.put(Task(taskType=TaskTypes.SYNCFILELIST, subject=None))
+            self.__taskQueue.put(Task(taskType=TaskTypes.UPLOAD_ACCOUNTS, subject=accountData, status=TaskStatus.STATELESS))
+        self.__taskQueue.put(Task(taskType=TaskTypes.SYNCFILELIST, subject=None, status=TaskStatus.STATELESS))
 
     def __setupServices(self):
         settings = QtCore.QSettings()
@@ -84,7 +84,6 @@ class TaskManager(QtCore.QObject):
         self.__taskHandlers = {}
         self.__taskHandlers[TaskTypes.UPLOAD] = self.__uploadFile
         self.__taskHandlers[TaskTypes.DOWNLOAD] = self.__downloadFile
-        self.__taskHandlers[TaskTypes.EXISTENCE_CHECK] = self.__checkForFile
         self.__taskHandlers[TaskTypes.SYNCFILELIST] = self.__syncFiles
         self.__taskHandlers[TaskTypes.DELETEFILE] = self.__deleteRemoteFile
         self.__taskHandlers[TaskTypes.PROGRESS_CHECK] = self.__progressCheck
@@ -96,15 +95,15 @@ class TaskManager(QtCore.QObject):
         self.__readyForNextTask = True
 
     def __fileEventHandler(self, task):
-        pass
-        # self.__taskQueue.put(task)
+        self.fileStatusChannel.emit(task)
+        self.__taskQueue.put(task)
 
     def __commReportHandler(self, report):
         taskType = report.taskType
         if taskType == TaskTypes.UPLOAD:
             self.__sshManager.enqueuTask(report)
         elif taskType == TaskTypes.SYNCFILELIST:
-            syncedFilelist = self.__fileScanner.syncInitialFileList(report.subject) #TODO maybe data instead of subject?
+            self.__fileScanner.syncInitialFileList(report.subject) #TODO maybe data instead of subject?
             if not self.__fileScannerThread.isRunning():
                 self.__fileScannerThread.start()
             if not self.__sshManagerThread.isRunning():
@@ -113,17 +112,17 @@ class TaskManager(QtCore.QObject):
             self.connectionStatusChannel.emit(ConnectionEvent("Sync", True))
             #TODO EMIT THIS TO UPLOADS COMP. TOO
 
-    def __checkForFile(self):
-        self.__commService.enqueuTask(self.__currentTask)
-
     def __progressCheck(self):
-        print "PROGRESS CHECK TASK"
+        # print "PROGRESS CHECK TASK"
+        pass
 
     def __deleteRemoteFile(self):
-        print "I SHOULD DELETE REMOTE FILE"
+        # print "I SHOULD DELETE REMOTE FILE"
+        pass
 
     def __downloadFile(self):
-        print "I SHOULD DOWNLOAD A FILE"
+        # print "I SHOULD DOWNLOAD A FILE"
+        pass
 
     def __uploadAccounts(self):
         self.__commService.enqueuTask(self.__currentTask)
@@ -132,8 +131,8 @@ class TaskManager(QtCore.QObject):
         self.__commService.enqueuTask(self.__currentTask)
         self.__readyForNextTask = True
 
-    def __uploadFile(self, task):
-        self.__sshManager.enqueuTask(task)
+    def __uploadFile(self):
+        self.__sshManager.enqueuTask(self.__currentTask)
 
     def __connectionStatusChangeHandler(self, report):
         self.__connectionStates[report.subject] = report.value

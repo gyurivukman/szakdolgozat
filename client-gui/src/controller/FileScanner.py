@@ -8,7 +8,7 @@ from watchdog.observers import Observer
 
 from src.controller.FileEventBroker import FileEventBroker
 
-from src.model.Task import Task, TaskTypes
+from src.model.Task import Task, TaskTypes, TaskStatus
 from src.model.FileDescription import FileDescription
 
 
@@ -37,14 +37,12 @@ class FileScanner(QtCore.QObject):
     def syncInitialFileList(self, fileList):
         self.__filesCache = {}
         for remoteFile in fileList:
+            remoteFile["fullPath"] = self.__syncdir+'/'+remoteFile["path"]
             self.__filesCache[remoteFile["path"]] = remoteFile
         self.__scanLocalFiles()
-        return self.__filesCache
 
     def start(self):
-        print "Filescanner starting observer"
         self.__observer.start()
-        print "Observer started!"
         while self.__shouldRun:
             time.sleep(5)
             if self.__checkFilesInWriting:
@@ -52,35 +50,36 @@ class FileScanner(QtCore.QObject):
 
     def __scanLocalFiles(self):
         currentTime = calendar.timegm(time.gmtime())
-        localFiles = {localFile['fullPath'][self.__pathCutLength:]: localFile for localFile in self.__scanFileTree(self.__syncdir)}
+        localFiles = {localFile['path']: localFile for localFile in self.__scanFileTree(self.__syncdir)}
 
         for relativePath, localFile in localFiles.iteritems():
             if relativePath not in self.__filesCache:
                 if (currentTime - localFile["lastModified"]) > 5:
-                    print "localfile stable and does not exist, uploading.." + str(localFile)
+                    # print "localfile stable and does not exist, uploading.." + str(localFile)
                     self.__filesCache[relativePath] = localFile
-                    self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=localFile))
+                    self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=localFile, status=TaskStatus.IN_QUEUE_FOR_UPLOAD))
                 elif (currentTime - localFile["lastModified"]) < 5 and localFile[relativePath] not in self.__newFilesInWriting:
-                    print "localfile unstable and does not exist, delaying for upload " + str(localFile)
+                    # print "localfile unstable and does not exist, delaying for upload " + str(localFile)
                     self.__newFilesInWriting[relativePath] = localFile
             else:
                 if localFile["lastModified"] > self.__filesCache[relativePath]["lastModified"]:
                     if (currentTime - localFile["lastModified"]) > 5:
-                        print "local file is newer and stable, uploading..." + str(localFile)
+                        # print "local file is newer and stable, uploading..." + str(localFile)
                         self.__filesCache[relativePath] = localFile
-                        self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=localFile))
+                        self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=localFile, status=TaskStatus.IN_QUEUE_FOR_UPLOAD))
                     else:
-                        print "local file is newer, but unstable, delaying for upload" + str(localFile)
+                        # print "local file is newer, but unstable, delaying for upload" + str(localFile)
                         self.__newFilesInWriting[relativePath] = localFile
                 else:
-                    print "local file is older, downloading remote " + str(localFile)
-                    self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DOWNLOAD, subject=self.__filesCache[relativePath]))
+                    # print "local file is older, downloading remote " + str(localFile)
+                    self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DOWNLOAD, subject=self.__filesCache[relativePath], status=TaskStatus.IN_QUEUE_FOR_DOWNLOAD))
 
         # Syncing files that dont exist locally
         for relativePath, cachedFile in self.__filesCache.iteritems():
             if relativePath not in localFiles:
-                print "remotefile not in localfiles, downlading: " + str(cachedFile)
-                self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DOWNLOAD, subject=cachedFile))
+                cachedFile["fullPath"] = self.__syncdir + '/' + cachedFile["path"]
+                # print "remotefile not in localfiles, downlading: " + str(cachedFile)
+                self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DOWNLOAD, subject=cachedFile, status=TaskStatus.IN_QUEUE_FOR_DOWNLOAD))
 
     def __scanFileTree(self, baseDir):
         for localFile in scandir.scandir(baseDir):
@@ -88,7 +87,8 @@ class FileScanner(QtCore.QObject):
                 stats = localFile.stat()
                 yield {
                         "dir": os.path.dirname(localFile.path[self.__pathCutLength:]).lstrip('/'),
-                        "fullPath": localFile.path.lstrip('/'),
+                        "fullPath": localFile.path,
+                        "path": localFile.path[self.__pathCutLength:].lstrip('/'),
                         "fileName": localFile.name,
                         "lastModified": stats.st_mtime,
                         "size": stats.st_size
@@ -104,7 +104,7 @@ class FileScanner(QtCore.QObject):
             if currentTime - stats.st_mtime > 5000:
                 print "Found a finished file!" + str(self.__newFilesInWriting[relativePath])
                 self.__filesCache[relativePath] = self.__newFilesInWriting[relativePath]
-                self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DOWNLOAD, subject=self.__newFilesInWriting[relativePath]))
+                self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=self.__newFilesInWriting[relativePath], status=TaskStatus.IN_QUEUE_FOR_UPLOAD))
                 del self.__newFilesInWriting[relativePath]
 
     def __handleFileChangeEvent(self, event):

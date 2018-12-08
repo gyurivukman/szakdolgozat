@@ -89,19 +89,19 @@ class SSHManager(QtCore.QObject):
         print "DOWNLOADHANDLER"
 
     def __navigateToTargetDirectoryOnRemoteHost(self):
-        if self.__currentTask.subject.dir != "/":
-            splittedPath = (self.__currentTask.subject.dir.lstrip("/").split('/'))
+        if self.__currentTask.subject["dir"] != "/":
+            splittedPath = (self.__currentTask.subject["dir"]).lstrip("/").split('/')
             for directory in splittedPath:
                 self.__navigateToDirectory(directory)
 
     def __uploadFile(self):
-        print "uploading: "+self.__currentTask.subject.fullPath
-        self.__sftpClient.put(self.__currentTask.subject.fullPath, self.__currentTask.subject.fileName, callback=self.__reportProgress)
+        print "uploading: "+self.__currentTask.subject["fullPath"]
+        self.__sftpClient.put(self.__currentTask.subject["fullPath"], self.__currentTask.subject["path"], callback=self.__reportProgress)
         print "Upload finished!"
         self.__sftpClient.chdir(self.__remoteSyncdirRoot)
 
     def __reportProgress(self, transferred, remaining):
-        print self.__currentTask.subject.fullPath + " {} / {}".format(transferred, remaining)
+        print self.__currentTask.subject["fullPath"] + " {} / {}".format(transferred, remaining)
 
     def __navigateToDirectory(self, directory):
         try:

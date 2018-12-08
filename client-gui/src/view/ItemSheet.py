@@ -1,21 +1,35 @@
 from PyQt4 import QtCore, QtGui
 
-from StatusWidget import StatusWidget
+from src.model.Task import TaskStatus
 
 
 class ItemSheet(QtGui.QWidget):
     def __init__(self, *args, **kwargs):
         super(ItemSheet, self).__init__(args[0], args[1], **kwargs)
-        self.__setup(args[2], args[3])
-    
-    def __setup(self, itemPath, status):
-        self.itemState = status
-        self.layout = QtGui.QHBoxLayout(self)
-        self.layout.setContentsMargins(0,0,0,0)
-        self.layout.setSpacing(0)
+        self.__itemData = args[2]
+        self.__status = args[3]
+        self.__statusMap = {
+            TaskStatus.DECRYPTING: "Decrypting...",
+            TaskStatus.DOWNLOADING_FROM_CLOUD: "Downloading to remote!",
+            TaskStatus.DOWNLOADING_FROM_REMOTE: "Downloading to syncdir!",
+            TaskStatus.ENCRYPTING: "Encrypting...",
+            TaskStatus.IN_QUEUE: "Enqueued...",
+            TaskStatus.IN_QUEUE_FOR_DOWNLOAD: "Enqueued for download!",
+            TaskStatus.IN_QUEUE_FOR_UPLOAD: "Enqueued for upload!",
+            TaskStatus.INIT: "Init...",
+            TaskStatus.SYNCED: "Synced!",
+            TaskStatus.UPLOADING_TO_CLOUD: "Uploading to cloud!",
+            TaskStatus.UPLOADING_TO_REMOTE: "Uploading to remote!"
+        }
+        self.__setup()
+
+    def __setup(self):
+        self.__layout = QtGui.QHBoxLayout(self)
+        self.__layout.setContentsMargins(0, 0, 0, 0)
+        self.__layout.setSpacing(0)
         self.setFixedHeight(45)
-        self.__setupItemPathLabel(itemPath)
-        self.__setupStatusWidget(status)
+        self.__setupItemPathLabel()
+        self.__setupStatusLabel()
 
         self.setStyleSheet(
             """
@@ -26,16 +40,20 @@ class ItemSheet(QtGui.QWidget):
             """
         )
 
-        self.setLayout(self.layout)
+        self.setLayout(self.__layout)
 
-    def __setupItemPathLabel(self, itemPath):
-        if(len(itemPath)>39):
-            self.itemPath = QtGui.QLabel(itemPath[:37]+"...", parent=self)
+    def __setupItemPathLabel(self):
+        itemPath = self.__itemData["path"] if self.__itemData["path"] else self.__itemData["fullPath"]
+        if len(itemPath) > 39:
+            self.__itemPath = QtGui.QLabel(itemPath[:37] + "...", parent=self)
             self.setToolTip(itemPath)
         else:
-            self.itemPath = QtGui.QLabel(itemPath, parent=self)
-        self.layout.addWidget(self.itemPath)
-    
-    def __setupStatusWidget(self, status):
-        self.layout.addWidget(StatusWidget(self))
-        #self.layout.addWidget(QtGui.QLabel('TESZT'))
+            self.__itemPath = QtGui.QLabel(itemPath, parent=self)
+        self.__layout.addWidget(self.__itemPath)
+
+    def __setupStatusLabel(self):
+        self.__itemStatusWidget = QtGui.QLabel(self.__statusMap[self.__status])
+        self.__layout.addWidget(self.__itemStatusWidget)
+
+    def updateStatus(self, status):
+        self.__itemStatusWidget = QtGui.QLabel("UPDATED")
