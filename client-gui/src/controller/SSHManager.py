@@ -89,8 +89,8 @@ class SSHManager(QtCore.QObject):
         print "DOWNLOADHANDLER"
 
     def __navigateToTargetDirectoryOnRemoteHost(self):
-        if self.__currentTask.subject.targetDir != "/":
-            splittedPath = (self.__currentTask.subject.targetDir.lstrip("/").split('/'))
+        if self.__currentTask.subject.dir != "/":
+            splittedPath = (self.__currentTask.subject.dir.lstrip("/").split('/'))
             for directory in splittedPath:
                 self.__navigateToDirectory(directory)
 

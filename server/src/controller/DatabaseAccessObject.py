@@ -44,19 +44,33 @@ class DatabaseAccessObject(object):
         self.__cursor.execute('SELECT * FROM accounts')
         rows = self.__cursor.fetchall()
         encoder = Encoder()
-
-        for acc in rows:
-            print encoder.decryptAccountEntry(acc)
-        return rows
+        accounts = [encoder.decryptAccountEntry(acc) for acc in rows]
+        return accounts
 
     def getAllFiles(self):
         self.__cursor.execute('SELECT * FROM files')
         rawResult = self.__cursor.fetchall()
         return rawResult
 
+    def getAccountsCount(self):
+        self.__cursor.execute("SELECT COUNT(*) FROM accounts")
+        rawResult = self.__cursor.fetchone()
+        return rawResult[0]
+
+    def getFilesCount(self):
+        self.__cursor.execute("SELECT COUNT(*) FROM files")
+        rawResult = self.__cursor.fetchone()
+        return rawResult[0]
+
     def insertAccounts(self, accounts):
         for account in accounts:
-            self.__cursor.execute('INSERT INTO accounts(name, account_type, structure, structure_values) VALUES(?,?,?,?)', (account["name"], account["account_type"], account["structure"], account["structure_values"]))
+            values = (account["name"], account["account_type"], account["structure"], account["structure_values"])
+            self.__cursor.execute('INSERT INTO accounts(name, account_type, structure, structure_values) VALUES(?,?,?,?)', values)
+        self.__conn.commit()
+
+    def insertFile(self, newFile):
+        values = (newFile["fileName"], newFile["dir"], newFile["size"], newFile["lastModified"])
+        self.__cursor.execute('INSERT INTO files(name, directory, size, last_modified) VALUES(?,?,?,?)', values)
         self.__conn.commit()
 
     def close(self):

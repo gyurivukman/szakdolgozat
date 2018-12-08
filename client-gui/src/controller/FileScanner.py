@@ -79,7 +79,7 @@ class FileScanner(QtCore.QObject):
         # Syncing files that dont exist locally
         for relativePath, cachedFile in self.__filesCache.iteritems():
             if relativePath not in localFiles:
-                print "remotefile not in localfiles, uploading" + str(cachedFile)
+                print "remotefile not in localfiles, downlading: " + str(cachedFile)
                 self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DOWNLOAD, subject=cachedFile))
 
     def __scanFileTree(self, baseDir):
@@ -89,7 +89,7 @@ class FileScanner(QtCore.QObject):
                 yield {
                         "dir": os.path.dirname(localFile.path[self.__pathCutLength:]).lstrip('/'),
                         "fullPath": localFile.path.lstrip('/'),
-                        "filename": localFile.name, 
+                        "fileName": localFile.name,
                         "lastModified": stats.st_mtime,
                         "size": stats.st_size
                     }

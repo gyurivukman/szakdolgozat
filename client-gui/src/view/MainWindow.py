@@ -54,6 +54,7 @@ class MainWindow(QtGui.QMainWindow):
         isFirstStart = self.__isFirstStart()
         if isFirstStart:
             self.setFixedSize(400, 600)
+            self.__moveToCenter()
             self.__settings.setValue('is_first_start', True)
             self.__settings.sync()
             firstConfigPanel = FirstConfigPanel()
@@ -61,6 +62,7 @@ class MainWindow(QtGui.QMainWindow):
             self.setCentralWidget(firstConfigPanel)
         else:
             self.setFixedSize(400, 400)
+            self.__moveToUpperRightCorner()
             self.__setupTaskManager()
             self.setCentralWidget(QtGui.QLabel("Connecting..."))
             self.__taskManager.init()
@@ -75,13 +77,28 @@ class MainWindow(QtGui.QMainWindow):
 
     def __onFinishedFirstConfig(self, accountData):
         self.setFixedSize(400, 400)
+        self.__moveToUpperRightCorner()
         self.__setupTaskManager()
         self.__taskManager.init(accountData)
         self.setCentralWidget(QtGui.QLabel("Connecting..."))
 
-    def show(self):
+    def __moveToCenter(self):
         screenSize = QtCore.QCoreApplication.instance().desktop().screenGeometry()
-        self.move(screenSize.width()-self.width(), 15)
+        posX = (screenSize.width()/2) - (self.width()/2)
+        posY = (screenSize.height()/2) - (self.height()/2)
+        self.move(posX, posY)
+
+    def __moveToUpperRightCorner(self):
+        screenSize = QtCore.QCoreApplication.instance().desktop().screenGeometry()
+        posX = screenSize.width() - self.width() - 10
+        posY = 25
+        self.move(posX, posY)
+
+    def show(self):
+        if self.__isFirstStart():
+            self.__moveToCenter()
+        else:
+            self.__moveToUpperRightCorner()
         self.setVisible(True)
 
     def closeEvent(self, event):

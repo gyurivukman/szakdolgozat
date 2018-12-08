@@ -15,11 +15,6 @@ def setupOrganization():
 
 
 def main():
-    if sys.platform == 'win32':
-        import ctypes
-        appid = u'elte.cryptstorepi'
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
-
     app = QtGui.QApplication(sys.argv)
 
     setupOrganization()

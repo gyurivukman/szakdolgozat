@@ -14,6 +14,7 @@ from messagehandlers.CheckFileMessageHandler import CheckFileMessageHandler
 from messagehandlers.AccountUploadMessageHandler import AccountUploadMessageHandler
 
 from DatabaseAccessObject import DatabaseAccessObject
+from DatabaseBuilder import DatabaseBuilder
 
 from src.model import MessageTypes as MessageTypes
 
@@ -36,7 +37,7 @@ class CryptStorePiServer(object):
         self.__dao = DatabaseAccessObject()
 
     def start(self):
-        self.__dao.getAccounts()
+        self.__checkDatabase()
         while self.__shouldRun:
             if not self.__client:
                 self.__waitForConnection()
@@ -87,6 +88,13 @@ class CryptStorePiServer(object):
         if len(slices) > 1:
             self.__buffer.append(slices[1])
         return slices[0]
+
+    def __checkDatabase(self):
+        filesCount = self.__dao.getFilesCount()
+        accountsCount = self.__dao.getAccountsCount()
+        if filesCount == 0 and accountsCount > 0:
+            dbBuilder = DatabaseBuilder()
+            dbBuilder.initDatabase()
 
     def stop(self):
         self.__shouldRun = False

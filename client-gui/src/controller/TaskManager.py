@@ -8,6 +8,7 @@ from PyQt4 import QtCore
 from src.model.FileDescription import FileDescription
 from src.model.ConnectionEvent import ConnectionEvent
 from src.model.Task import Task, TaskTypes
+
 from FileScanner import FileScanner
 from SSHManager import SSHManager
 from CommunicationService import CommunicationService
@@ -138,11 +139,9 @@ class TaskManager(QtCore.QObject):
         self.__connectionStates[report.subject] = report.value
 
         if report.value is False:
-            self.__fileScanner.pause()
             self.__connectionStates["Sync"] = False
             self.connectionStatusChannel.emit(ConnectionEvent("Sync", False))
-        # elif self.__connectionStates["Comm"] is True and self.__connectionStates["SSH"] is True:
-        #     self.__restartFileScanner()
+        #TODO Some disconnection handling here
         self.connectionStatusChannel.emit(report)
 
     def __restartFileScanner(self):

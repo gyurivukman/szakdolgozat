@@ -13,10 +13,10 @@ class GetFileListMessageHandler(MessageHandler):
 
         for f in rawResult:
             files.append({
-                "name": f[1],
-                "directory": f[2],
+                "fileName": f[1],
+                "dir": f[2],
+                "path": "{}/{}".format(f[2],f[1]),
                 "size": f[3],
-                "last_modified": f[4]
+                "lastModified": f[4]
             })
-
         return files
