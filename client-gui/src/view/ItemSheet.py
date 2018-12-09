@@ -1,6 +1,6 @@
 from PyQt4 import QtCore, QtGui
 
-from src.model.Task import TaskStatus
+import src.model.TaskStatus as TaskStatus
 
 
 class ItemSheet(QtGui.QWidget):
@@ -56,4 +56,6 @@ class ItemSheet(QtGui.QWidget):
         self.__layout.addWidget(self.__itemStatusWidget)
 
     def updateStatus(self, status):
-        self.__itemStatusWidget = QtGui.QLabel("UPDATED")
+        print "UPDATING " + str(status)
+        self.__itemStatusWidget.setText(self.__statusMap[status])
+        self.repaint()

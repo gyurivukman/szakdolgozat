@@ -38,7 +38,7 @@ class Encoder(object):
         decryptedMessage = base64.b64decode(message)
         decryptedMessage = self.__cipher.decrypt(decryptedMessage)
         decryptedMessage = self.__removePadding(decryptedMessage)
-        print decryptedMessage
+
         return json.loads(decryptedMessage)
 
     def __removePadding(self, message):

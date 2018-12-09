@@ -8,7 +8,8 @@ from watchdog.observers import Observer
 
 from src.controller.FileEventBroker import FileEventBroker
 
-from src.model.Task import Task, TaskTypes, TaskStatus
+from src.model.Task import Task, TaskTypes
+import src.model.TaskStatus as TaskStatus
 from src.model.FileDescription import FileDescription
 
 
@@ -55,30 +56,31 @@ class FileScanner(QtCore.QObject):
         for relativePath, localFile in localFiles.iteritems():
             if relativePath not in self.__filesCache:
                 if (currentTime - localFile["lastModified"]) > 5:
-                    # print "localfile stable and does not exist, uploading.." + str(localFile)
+                    print "localfile stable and does not exist, uploading.." + str(localFile)
                     self.__filesCache[relativePath] = localFile
                     self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=localFile, status=TaskStatus.IN_QUEUE_FOR_UPLOAD))
                 elif (currentTime - localFile["lastModified"]) < 5 and localFile[relativePath] not in self.__newFilesInWriting:
-                    # print "localfile unstable and does not exist, delaying for upload " + str(localFile)
+                    print "localfile unstable and does not exist, delaying for upload " + str(localFile)
                     self.__newFilesInWriting[relativePath] = localFile
             else:
+                print "local Lastmodif:" + str(localFile["lastModified"]) + " remote Last modif:" + str(self.__filesCache[relativePath]["lastModified"])
                 if localFile["lastModified"] > self.__filesCache[relativePath]["lastModified"]:
                     if (currentTime - localFile["lastModified"]) > 5:
-                        # print "local file is newer and stable, uploading..." + str(localFile)
+                        print "local file is newer and stable, uploading..." + str(localFile)
                         self.__filesCache[relativePath] = localFile
                         self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=localFile, status=TaskStatus.IN_QUEUE_FOR_UPLOAD))
                     else:
-                        # print "local file is newer, but unstable, delaying for upload" + str(localFile)
+                        print "local file is newer, but unstable, delaying for upload" + str(localFile)
                         self.__newFilesInWriting[relativePath] = localFile
                 else:
-                    # print "local file is older, downloading remote " + str(localFile)
+                    print "local file is older, downloading remote " + str(localFile)
                     self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DOWNLOAD, subject=self.__filesCache[relativePath], status=TaskStatus.IN_QUEUE_FOR_DOWNLOAD))
 
         # Syncing files that dont exist locally
         for relativePath, cachedFile in self.__filesCache.iteritems():
             if relativePath not in localFiles:
                 cachedFile["fullPath"] = self.__syncdir + '/' + cachedFile["path"]
-                # print "remotefile not in localfiles, downlading: " + str(cachedFile)
+                print "remotefile not in localfiles, downlading: " + str(cachedFile)
                 self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DOWNLOAD, subject=cachedFile, status=TaskStatus.IN_QUEUE_FOR_DOWNLOAD))
 
     def __scanFileTree(self, baseDir):
@@ -86,9 +88,9 @@ class FileScanner(QtCore.QObject):
             if localFile.is_file():
                 stats = localFile.stat()
                 yield {
-                        "dir": os.path.dirname(localFile.path[self.__pathCutLength:]).lstrip('/'),
+                        "dir": os.path.dirname(localFile.path[self.__pathCutLength+1:]),
                         "fullPath": localFile.path,
-                        "path": localFile.path[self.__pathCutLength:].lstrip('/'),
+                        "path": localFile.path[self.__pathCutLength+1:],
                         "fileName": localFile.name,
                         "lastModified": stats.st_mtime,
                         "size": stats.st_size
@@ -108,7 +110,9 @@ class FileScanner(QtCore.QObject):
                 del self.__newFilesInWriting[relativePath]
 
     def __handleFileChangeEvent(self, event):
-        print "fileChangeEvent in filescanner " + str(event)
+        relativePath = event.src_path[self.__pathCutLength+1:]
+        if relativePath not in self.__filesCache:
+            print "fileChangeEvent in filescanner " + str(event)
 
     def stop(self):
         self.__shouldRun = False

@@ -6,7 +6,8 @@ import json
 from PyQt4 import QtCore
 
 from src.model.ConnectionEvent import ConnectionEvent
-from src.model.Task import Task, TaskTypes, TaskStatus
+from src.model.Task import Task, TaskTypes
+import src.model.TaskStatus as TaskStatus
 from src.model import MessageTypes as MessageTypes
 from MessageEncoder import MessageEncoder
 
@@ -65,6 +66,11 @@ class CommunicationService(QtCore.QObject):
         self.__taskHandlers = {
             TaskTypes.SYNCFILELIST: self.__handleSyncFileListTask,
             TaskTypes.UPLOAD_ACCOUNTS: self.__handleAccountUploadTask,
+            TaskTypes.PROGRESS_CHECK: self.__handleProgressCheckTask,
+            TaskTypes.DELETEFILE: self.__handleDeleteFileTask,
+            TaskTypes.DOWNLOAD: self.__handleDownloadFileTask,
+            TaskTypes.UPLOAD: self.__handleUploadFileTask,
+            TaskTypes.MOVEFILE: self.__handleMoveFileTask
         }
 
     def __setupServerConnection(self):
@@ -106,10 +112,31 @@ class CommunicationService(QtCore.QObject):
     def __handleAccountUploadTask(self):
         message = {"type": MessageTypes.ACCOUNT_UPLOAD, "data": self.__currentTask.subject}
         response = self.retrieveResponse(message)
-        self.__taskQueue.task_done()
+
+    def __handleProgressCheckTask(self):
+        message = {"type": MessageTypes.PROGRESS_CHECK, "data": self.__currentTask.subject["path"]}
+        response = self.retrieveResponse(message)
+        if response["status"] is not None:
+            self.__currentTask.status = response["status"]
+        self.taskReportChannel.emit(self.__currentTask)
+
+    def __handleDeleteFileTask(self):
+        pass
+
+    def __handleDownloadFileTask(self):
+        print "asking server to DOWNLOAD file"
+        message = {"type": MessageTypes.DOWNLOAD_FILE, "data": self.__currentTask.subject["path"]}
+        response = self.retrieveResponse(message)
+
+    def __handleUploadFileTask(self):
+        print "asking server to UPLOAD file"
+        message = {"type": MessageTypes.UPLOAD_FILE, "data": self.__currentTask.subject["path"]}
+        response = self.retrieveResponse(message)
+
+    def __handleMoveFileTask(self):
+        pass
 
     def __sendKeepAlive(self):
-        # print "sending Comm keepalive"
         message = {"type": MessageTypes.KEEP_ALIVE}
         res = self.retrieveResponse(message)
 

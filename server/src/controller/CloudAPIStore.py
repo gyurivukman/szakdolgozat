@@ -9,7 +9,6 @@ class CloudAPIStore(object):
         }
 
     def getAPIWrapper(self, account):
-        print account
         accountType = account["account_type"]
         apiWrapper = None
         if accountType in self.__apiStore:

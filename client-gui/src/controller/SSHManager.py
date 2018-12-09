@@ -8,6 +8,7 @@ from PyQt4 import QtCore
 
 from src.model.ConnectionEvent import ConnectionEvent
 from src.model.Task import TaskTypes
+import src.model.TaskStatus as TaskStatus
 
 
 class SSHManager(QtCore.QObject):
@@ -86,7 +87,8 @@ class SSHManager(QtCore.QObject):
         self.__uploadFile()
 
     def __downloadHandler(self):
-        print "DOWNLOADHANDLER"
+        self.__navigateToTargetDirectoryOnRemoteHost()
+        self.__downloadFile()
 
     def __navigateToTargetDirectoryOnRemoteHost(self):
         if self.__currentTask.subject["dir"] != "/":
@@ -95,13 +97,19 @@ class SSHManager(QtCore.QObject):
                 self.__navigateToDirectory(directory)
 
     def __uploadFile(self):
-        print "uploading: "+self.__currentTask.subject["fullPath"]
-        self.__sftpClient.put(self.__currentTask.subject["fullPath"], self.__currentTask.subject["path"], callback=self.__reportProgress)
+        print "Uploading: {} to remote!".format(self.__currentTask.subject["path"])
+        self.__sftpClient.put(self.__currentTask.subject["fullPath"], self.__currentTask.subject["path"])
         print "Upload finished!"
         self.__sftpClient.chdir(self.__remoteSyncdirRoot)
+        self.taskReportChannel.emit(self.__currentTask)
 
-    def __reportProgress(self, transferred, remaining):
-        print self.__currentTask.subject["fullPath"] + " {} / {}".format(transferred, remaining)
+    def __downloadFile(self):
+        print "Downloading: {} from remote!".format(self.__currentTask.subject["path"])
+        self.__sftpClient.get(self.__currentTask.subject["path"], self.__currentTask.subject["fullPath"])
+        print "Download finished!"
+        self.__sftpClient.chdir(self.__remoteSyncdirRoot)
+        self.__currentTask.status = TaskStatus.SYNCED
+        self.taskReportChannel.emit(self.__currentTask)
 
     def __navigateToDirectory(self, directory):
         try:

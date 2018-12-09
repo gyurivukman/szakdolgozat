@@ -17,9 +17,6 @@ class DropboxWrapper(ApiWrapper):
         except AuthError as err:
             raise Exception("Invalid dropbox api token!")
 
-    def getFileList(self):
-        pass
-
     def uploadFile(self, path):
         with open(path, 'rb') as f:
             print("Uploading " + path + " to Dropbox")
@@ -37,8 +34,7 @@ class DropboxWrapper(ApiWrapper):
 
     def downloadFile(self, path):
         print("Downloading /{} from Dropbox!".format(path))
-        filename = path.split('/')[-1]
-        self.__dbx.files_download_to_file(filename, "/{}".format(path))
+        self.__dbx.files_download_to_file('/tmp/remoteSyncDir/{}'.format(path), '/{}'.format(path)) #  kell bele hogy .enc
 
     def deleteFile(self, path):
         print("Deleting file " + path)
@@ -56,7 +52,7 @@ class DropboxWrapper(ApiWrapper):
                     "path": path.lstrip('/'),
                     "dir": path.split('/')[-2],
                     "fileName": entry.name,
-                    "lastModified":(entry.client_modified - epoch).total_seconds(),
+                    "lastModified": (entry.client_modified - epoch).total_seconds(),
                     "size": entry.size
                 })
         return fileList

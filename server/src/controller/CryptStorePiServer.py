@@ -3,6 +3,7 @@ import select
 import time
 import sys
 import json
+import thread
 
 from Encoder import Encoder
 from messagehandlers.KeepAliveMessageHandler import KeepAliveMessageHandler
@@ -10,15 +11,15 @@ from messagehandlers.GetFileListMessageHandler import GetFileListMessageHandler
 from messagehandlers.UploadFileMessageHandler import UploadFileMessageHandler
 from messagehandlers.DownloadFileMessageHandler import DownloadFileMessageHandler
 from messagehandlers.DeleteFileMessageHandler import DeleteFileMessageHandler
-from messagehandlers.CheckFileMessageHandler import CheckFileMessageHandler
 from messagehandlers.AccountUploadMessageHandler import AccountUploadMessageHandler
+from messagehandlers.ProgressCheckMessageHandler import ProgressCheckMessageHandler
 
 from DatabaseAccessObject import DatabaseAccessObject
 from DatabaseBuilder import DatabaseBuilder
 
-from src.model import MessageTypes as MessageTypes
+from LongTaskWorker import LongTaskWorker
 
-# TODO Upload,Download,Delete handlers, optionally rename handler
+from src.model import MessageTypes as MessageTypes
 
 
 class CryptStorePiServer(object):
@@ -56,14 +57,17 @@ class CryptStorePiServer(object):
         self.serverSocket.listen(1)
 
     def __initMessageHandlers(self):
+        taskReports = {}
+        longTaskWorker = LongTaskWorker(taskReports)
+        thread.start_new_thread(longTaskWorker.run, ())
         self.__messageHandlers = {
-            MessageTypes.KEEP_ALIVE: KeepAliveMessageHandler(),
-            MessageTypes.GET_FILE_LIST: GetFileListMessageHandler(),
-            MessageTypes.UPLOAD_FILE: UploadFileMessageHandler(),
-            MessageTypes.DOWNLOAD_FILE: DownloadFileMessageHandler(),
-            MessageTypes.DELETE_FILE: DeleteFileMessageHandler(),
-            MessageTypes.CHECK_FILE: CheckFileMessageHandler(),
-            MessageTypes.ACCOUNT_UPLOAD: AccountUploadMessageHandler()
+            MessageTypes.KEEP_ALIVE: KeepAliveMessageHandler().handleMessage,
+            MessageTypes.GET_FILE_LIST: GetFileListMessageHandler().handleMessage,
+            MessageTypes.UPLOAD_FILE: longTaskWorker.enqueueUploadFileTask,
+            MessageTypes.DOWNLOAD_FILE: longTaskWorker.enqueueDownloadFileTask,
+            MessageTypes.DELETE_FILE: DeleteFileMessageHandler().handleMessage,
+            MessageTypes.PROGRESS_CHECK: ProgressCheckMessageHandler(taskReports).handleMessage,
+            MessageTypes.ACCOUNT_UPLOAD: AccountUploadMessageHandler().handleMessage
         }
 
     def __waitForConnection(self):
@@ -77,7 +81,7 @@ class CryptStorePiServer(object):
             self.__handleMessage(decrypted)
 
     def __handleMessage(self, message):
-            result = (self.__messageHandlers[message["type"]]).handleMessage(message)
+            result = (self.__messageHandlers[message["type"]])(message)
             encryptedRes = self.__encoder.encryptMessage(result)
             self.__client.sendall(encryptedRes)
 
