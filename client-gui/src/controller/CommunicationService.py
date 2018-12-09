@@ -107,7 +107,6 @@ class CommunicationService(QtCore.QObject):
     def __handleSyncFileListTask(self):
         message = {"type": MessageTypes.GET_FILE_LIST}
         response = self.retrieveResponse(message)
-        print "getFileList response:" + str(response)
         self.taskReportChannel.emit(Task(taskType=TaskTypes.SYNCFILELIST, subject=response, status=TaskStatus.STATELESS))
 
     def __handleAccountUploadTask(self):

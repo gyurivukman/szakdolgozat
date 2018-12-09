@@ -62,7 +62,6 @@ class FileScanner(QtCore.QObject):
                     print "localfile unstable and does not exist, delaying for upload " + str(localFile)
                     self.__newFilesInWriting[relativePath] = localFile
             else:
-                print "local Lastmodif:" + str(int(localFile["lastModified"])) + " remote Last modif:" + str(int(self.__filesCache[relativePath]["lastModified"]))
                 if localFile["lastModified"] > self.__filesCache[relativePath]["lastModified"] and currentTime - localFile["lastModified"] > 5:
                     if currentTime > localFile["lastModified"]:
                         print "local file is newer and stable, uploading..." + str(localFile)
