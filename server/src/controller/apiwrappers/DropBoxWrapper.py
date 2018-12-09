@@ -1,5 +1,6 @@
 import sys
 import datetime
+import time
 import dropbox
 
 from dropbox.files import WriteMode, FileMetadata
@@ -34,14 +35,13 @@ class DropboxWrapper(ApiWrapper):
 
     def downloadFile(self, path):
         print("Downloading /{} from Dropbox!".format(path))
-        self.__dbx.files_download_to_file('/tmp/remoteSyncDir/{}'.format(path), '/{}'.format(path)) #  kell bele hogy .enc
+        self.__dbx.files_download_to_file('/opt/remoteSyncDir/{}'.format(path), '/{}'.format(path)) #  kell bele hogy .enc
 
     def deleteFile(self, path):
         print("Deleting file " + path)
         self.__dbx.files_delete("/{}".format(path))
 
     def getFilelist(self):
-        epoch = datetime.datetime(1970, 1, 1)
         fileList = []
         for entry in self.__dbx.files_list_folder('', recursive=True).entries:
             entryIsEncryptedFile = isinstance(entry, FileMetadata) #and entry.name.find('.enc') != -1:
@@ -52,7 +52,7 @@ class DropboxWrapper(ApiWrapper):
                     "path": path.lstrip('/'),
                     "dir": path.split('/')[-2],
                     "fileName": entry.name,
-                    "lastModified": (entry.client_modified - epoch).total_seconds(),
+                    "lastModified": int(time.mktime(datetime.datetime.timetuple(entry.client_modified))),
                     "size": entry.size
                 })
         return fileList

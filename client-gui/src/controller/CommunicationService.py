@@ -87,7 +87,7 @@ class CommunicationService(QtCore.QObject):
                 self.__handleCurrentTask()
             else:
                 self.__sendKeepAlive()
-                time.sleep(5)
+                time.sleep(10)
 
     def __connect(self):
         while not self.__connected:
@@ -107,6 +107,7 @@ class CommunicationService(QtCore.QObject):
     def __handleSyncFileListTask(self):
         message = {"type": MessageTypes.GET_FILE_LIST}
         response = self.retrieveResponse(message)
+        print "getFileList response:" + str(response)
         self.taskReportChannel.emit(Task(taskType=TaskTypes.SYNCFILELIST, subject=response, status=TaskStatus.STATELESS))
 
     def __handleAccountUploadTask(self):

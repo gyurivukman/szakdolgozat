@@ -71,7 +71,6 @@ class UploadsWidget(QtGui.QWidget):
             event.ignore()
 
     def __onFileStatusChange(self, task):
-        # relativePath = task.subject["dir"] + '/' + task.subject["fileName"] if task.subject["dir"] !="" else task.subject["fileName"]
         relativePath = task.subject["path"]
         if relativePath not in self.__itemSheets:
             itemSheet = ItemSheet(self.scrollContentContainer, QtCore.Qt.WindowFlags(0), task.subject, task.status)
@@ -85,4 +84,3 @@ class UploadsWidget(QtGui.QWidget):
                 (self.__itemSheets[relativePath]).updateStatus(task.status)
         self.__scrollLayout.removeItem(self.__spacer)
         self.__scrollLayout.addItem(self.__spacer)
-            # elif task.taskType == TaskTypes.MOVE_FILE:

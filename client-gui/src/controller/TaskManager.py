@@ -112,9 +112,12 @@ class TaskManager(QtCore.QObject):
     def __fileEventHandler(self, task):
         self.fileStatusChannel.emit(task)
         taskType = task.taskType
-        if taskType == TaskTypes.DOWNLOAD or taskType == TaskTypes.UPLOAD:
-            self.__trackedFiles[task.subject["path"]] = task
-        self.__taskQueue.put(task)
+        if taskType != TaskTypes.IGNORE:
+            if taskType == TaskTypes.DOWNLOAD or taskType == TaskTypes.UPLOAD:
+                self.__trackedFiles[task.subject["path"]] = task
+            self.__taskQueue.put(task)
+        else:
+            self.fileStatusChannel.emit(task)
 
     def __commReportHandler(self, report):
         taskType = report.taskType

@@ -10,16 +10,15 @@ class ItemSheet(QtGui.QWidget):
         self.__status = args[3]
         self.__statusMap = {
             TaskStatus.DECRYPTING: "Decrypting...",
-            TaskStatus.DOWNLOADING_FROM_CLOUD: "Downloading to remote!",
-            TaskStatus.DOWNLOADING_FROM_REMOTE: "Downloading to syncdir!",
+            TaskStatus.DOWNLOADING_FROM_CLOUD: "Downloading from cloud!",
+            TaskStatus.DOWNLOADING_FROM_REMOTE: "Downloading to local syncdir!",
             TaskStatus.ENCRYPTING: "Encrypting...",
-            TaskStatus.IN_QUEUE: "Enqueued...",
             TaskStatus.IN_QUEUE_FOR_DOWNLOAD: "Enqueued for download!",
             TaskStatus.IN_QUEUE_FOR_UPLOAD: "Enqueued for upload!",
-            TaskStatus.INIT: "Init...",
             TaskStatus.SYNCED: "Synced!",
             TaskStatus.UPLOADING_TO_CLOUD: "Uploading to cloud!",
-            TaskStatus.UPLOADING_TO_REMOTE: "Uploading to remote!"
+            TaskStatus.UPLOADING_TO_REMOTE: "Uploading to remote!",
+            TaskStatus.STATELESS: "Updating..."
         }
         self.__setup()
 

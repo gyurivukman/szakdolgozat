@@ -1,5 +1,6 @@
 import Queue
 import time
+import datetime
 import os
 import shutil 
 
@@ -33,21 +34,21 @@ class SSHManager(QtCore.QObject):
         }
 
     def __initSFTP(self):
-        ssh = paramiko.SSHClient()
-        ssh.load_system_host_keys()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy)
-        ssh.connect(
+        self.__ssh = paramiko.SSHClient()
+        self.__ssh.load_system_host_keys()
+        self.__ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy)
+        self.__ssh.connect(
             unicode(self.settings.value("remoteAddress").toString()),
             self.settings.value("SSH_Port").toInt()[0],
             username=unicode(self.settings.value("SSH_username").toString()),
             password=unicode(self.settings.value("SSH_password").toString())
         )
-        self.__sshTransport = ssh.get_transport()
-        self.__sftpClient = ssh.open_sftp()
+        self.__sshTransport = self.__ssh.get_transport()
+        self.__sftpClient = self.__ssh.open_sftp()
         try:
-            self.__sftpClient.chdir('/tmp/remoteSyncDir')
+            self.__sftpClient.chdir('/opt/remoteSyncDir')
         except IOError:
-            self.__sftpClient.chdir('/tmp')
+            self.__sftpClient.chdir('/opt')
             self.__sftpClient.mkdir('remoteSyncDir')
             self.__sftpClient.chdir('remoteSyncDir')
         finally:
@@ -106,6 +107,9 @@ class SSHManager(QtCore.QObject):
     def __downloadFile(self):
         print "Downloading: {} from remote!".format(self.__currentTask.subject["path"])
         self.__sftpClient.get(self.__currentTask.subject["path"], self.__currentTask.subject["fullPath"])
+        newModificationDate = datetime.datetime.fromtimestamp(self.__currentTask.subject["lastModified"]).strftime("%Y%m%d%H%M.%S")
+        os.system('touch -mt {} {}'.format(newModificationDate, self.__currentTask.subject["fullPath"]))
+        self.__sftpClient.remove(self.__remoteSyncdirRoot+'/'+self.__currentTask.subject["path"])
         print "Download finished!"
         self.__sftpClient.chdir(self.__remoteSyncdirRoot)
         self.__currentTask.status = TaskStatus.SYNCED
