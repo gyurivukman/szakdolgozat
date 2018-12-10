@@ -84,16 +84,16 @@ class SSHManager(QtCore.QObject):
         self.taskHandlers[self.__currentTask.taskType]()
 
     def __uploadHandler(self):
-        self.__navigateToTargetDirectoryOnRemoteHost()
+        self.__navigateToTargetDirectoryOnRemoteHost(self.__currentTask.subject["path"])
         self.__uploadFile()
 
     def __downloadHandler(self):
         self.__navigateToTargetDirectoryOnRemoteHost()
         self.__downloadFile()
 
-    def __navigateToTargetDirectoryOnRemoteHost(self):
-        if self.__currentTask.subject["dir"] != "/":
-            splittedPath = (self.__currentTask.subject["dir"]).lstrip("/").split('/')
+    def __navigateToTargetDirectoryOnRemoteHost(self, targetDir):
+        if targetDir != "/":
+            splittedPath = targetDir.lstrip("/").split('/')
             for directory in splittedPath:
                 self.__navigateToDirectory(directory)
 
@@ -112,11 +112,15 @@ class SSHManager(QtCore.QObject):
         self.__sftpClient.get(self.__currentTask.subject["path"], self.__currentTask.subject["fullPath"])
         newModificationDate = datetime.datetime.fromtimestamp(self.__currentTask.subject["lastModified"]).strftime("%Y%m%d%H%M.%S")
         os.system('touch -mt {} {}'.format(newModificationDate, self.__currentTask.subject["fullPath"]))
+        self.cleanTemporaryFile(self.__currentTask.subject["path"])
         self.__sftpClient.remove(self.__remoteSyncdirRoot+'/'+self.__currentTask.subject["path"])
         print "Download finished!"
         self.__sftpClient.chdir(self.__remoteSyncdirRoot)
         self.__currentTask.status = TaskStatus.SYNCED
         self.taskReportChannel.emit(self.__currentTask)
+
+    def cleanTemporaryFile(self, path):
+        self.__sftpClient.remove('{}/{}'.format(self.__remoteSyncdirRoot,self.__currentTask.subject["path"]))
 
     def __navigateToDirectory(self, directory):
         try:

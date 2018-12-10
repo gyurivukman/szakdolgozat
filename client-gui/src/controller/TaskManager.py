@@ -128,6 +128,8 @@ class TaskManager(QtCore.QObject):
         shouldStopTracking = report.status in [TaskStatus.DOWNLOADING_FROM_REMOTE, TaskStatus.SYNCED]
         if shouldStopTracking:
             del self.__trackedFiles[report.subject["path"]]
+            if report.status == TaskStatus.SYNCED:
+                self.__sshManager.cleanTemporaryFile(report.subject["path"])
 
         if report.status == TaskStatus.DOWNLOADING_FROM_REMOTE:
             self.__sshManager.enqueuTask(Task(taskType=TaskTypes.DOWNLOAD, subject=report.subject, status=report.status))
