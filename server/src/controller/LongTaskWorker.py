@@ -26,7 +26,7 @@ class LongTaskWorker(object):
 
     def enqueueUploadFileTask(self, targetFile):
         self.__taskQueu.put({"subject": targetFile, "taskType": MessageTypes.UPLOAD_FILE})
-        self.__taskReports[targetFile] = TaskStatus.IN_QUEUE_FOR_UPLOAD
+        self.__taskReports[targetFile] = TaskStatus.UPLOADING_TO_CLOUD
         return {"type": "ack"}
 
     def run(self):
@@ -48,4 +48,9 @@ class LongTaskWorker(object):
         self.__taskReports[targetFile] = TaskStatus.DOWNLOADING_FROM_REMOTE
 
     def __uploadFile(self, targetFile):
-        print "server UPLOADING " + targetFile
+        self.__taskReports[targetFile] = TaskStatus.ENCRYPTING
+        time.sleep(4)
+        for account in self.__accounts:
+            api = self.__apiStore.getAPIWrapper(account)
+            api.uploadFile(targetFile)
+        self.__taskReports[targetFile] = TaskStatus.SYNCED

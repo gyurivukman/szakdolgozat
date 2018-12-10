@@ -142,7 +142,10 @@ class TaskManager(QtCore.QObject):
         self.connectionStatusChannel.emit(ConnectionEvent("Sync", True))
 
     def __handleSSHUploadReport(self, report):
-        print "SSH UPLOAD REPORT HANDLER " + str(report)
+        self.__currentTask.status = TaskStatus.UPLOADING_TO_CLOUD
+        self.fileStatusChannel.emit(self.__currentTask)
+        self.__commService.enqueuTask(report)
+        self.__trackedFiles[self.__currentTask.subject["path"]] = self.__currentTask
 
     def __handleSSHDownloadReport(self, report):
         self.fileStatusChannel.emit(report)
@@ -170,6 +173,8 @@ class TaskManager(QtCore.QObject):
 
     def __uploadFile(self):
         self.__sshManager.enqueuTask(self.__currentTask)
+        self.__currentTask.status = TaskStatus.UPLOADING_TO_REMOTE
+        self.fileStatusChannel.emit(self.__currentTask)
 
     def __connectionStatusChangeHandler(self, report):
         self.__connectionStates[report.subject] = report.value

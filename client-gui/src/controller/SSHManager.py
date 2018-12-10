@@ -100,6 +100,9 @@ class SSHManager(QtCore.QObject):
     def __uploadFile(self):
         print "Uploading: {} to remote!".format(self.__currentTask.subject["path"])
         self.__sftpClient.put(self.__currentTask.subject["fullPath"], self.__currentTask.subject["path"])
+        newModificationDate = datetime.datetime.fromtimestamp(self.__currentTask.subject["lastModified"]).strftime("%Y%m%d%H%M.%S")
+        remotePath = '/opt/remoteSyncDir/{}'.format(self.__currentTask.subject["path"])
+        self.__ssh.exec_command('touch -mt {} {}'.format(newModificationDate, remotePath))
         print "Upload finished!"
         self.__sftpClient.chdir(self.__remoteSyncdirRoot)
         self.taskReportChannel.emit(self.__currentTask)
