@@ -45,7 +45,7 @@ class TaskManager(QtCore.QObject):
                 self.__readyForNextTask = False
                 self.__handleCurrentTask()
             else:
-                time.sleep(5)
+                time.sleep(3)
 
     def init(self, accountData=None):
         if accountData:
@@ -116,8 +116,6 @@ class TaskManager(QtCore.QObject):
             if taskType == TaskTypes.DOWNLOAD or taskType == TaskTypes.UPLOAD:
                 self.__trackedFiles[task.subject["path"]] = task
             self.__taskQueue.put(task)
-        else:
-            self.fileStatusChannel.emit(task)
 
     def __commReportHandler(self, report):
         taskType = report.taskType
@@ -135,7 +133,7 @@ class TaskManager(QtCore.QObject):
             self.__sshManager.enqueuTask(Task(taskType=TaskTypes.DOWNLOAD, subject=report.subject, status=report.status))
 
     def __handleCommSyncFileReport(self, report):
-        self.__fileScanner.syncInitialFileList(report.subject) #TODO maybe data instead of subject?
+        self.__fileScanner.syncInitialFileList(report.subject)
         if not self.__fileScannerThread.isRunning():
             self.__fileScannerThread.start()
         if not self.__sshManagerThread.isRunning():
@@ -144,7 +142,6 @@ class TaskManager(QtCore.QObject):
         self.connectionStatusChannel.emit(ConnectionEvent("Sync", True))
 
     def __handleSSHUploadReport(self, report):
-        self.__currentTask.status = TaskStatus.UPLOADING_TO_CLOUD
         self.fileStatusChannel.emit(self.__currentTask)
         self.__commService.enqueuTask(report)
         self.__trackedFiles[self.__currentTask.subject["path"]] = self.__currentTask

@@ -87,7 +87,7 @@ class CommunicationService(QtCore.QObject):
                 self.__handleCurrentTask()
             else:
                 self.__sendKeepAlive()
-                time.sleep(10)
+                time.sleep(3)
 
     def __connect(self):
         while not self.__connected:
@@ -95,6 +95,7 @@ class CommunicationService(QtCore.QObject):
                 print "Attempting to connect to {}:{}".format(self.__remoteAddress[0], self.__remoteAddress[1])
                 self.__serverConnection.connect(self.__remoteAddress)
                 self.__connected = True
+                print "Comm service connected!"
                 self.connectionStatusChannel.emit(ConnectionEvent("Comm", True))
             except socket.error:
                 print "failed to connect to {}:{} ,retrying in 5 seconds".format(self.__remoteAddress[0], self.__remoteAddress[1])

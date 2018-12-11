@@ -44,9 +44,9 @@ class FileScanner(QtCore.QObject):
     def start(self):
         self.__observer.start()
         while self.__shouldRun:
-            time.sleep(5)
             if self.__checkFilesInWriting:
                 self.__checkFilesInWriting()
+            time.sleep(5)
 
     def __scanLocalFiles(self):
         currentTime = int(time.time())
