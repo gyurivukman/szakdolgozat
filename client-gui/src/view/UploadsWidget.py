@@ -75,17 +75,26 @@ class UploadsWidget(QtGui.QWidget):
     def __onFileStatusChange(self, task):
         relativePath = task.subject["path"]
         if relativePath not in self.__itemSheets:
-            itemSheet = ItemSheet(None, task.subject, task.status)
-            self.__scrollLayout.addWidget(itemSheet)
-            self.__itemSheets[relativePath] = itemSheet
-            (self.__itemSheets[relativePath]).updateStatus(task.status)
+            self.__addItemSheet(task)
         if task.taskType == TaskTypes.DELETEFILE:
-            self.__scrollLayout.removeWidget(self.__itemSheets[relativePath])
-            (self.__itemSheets[relativePath]).setParent(None)
-            (self.__itemSheets[relativePath]).delete()
-            del self.__itemSheets[relativePath]
-            self.__scrollLayout.removeItem(self.__spacer)
-            self.__scrollLayout.addItem(self.__spacer)
-            self.__scrollLayout.update()
+            self.__removeItemSheet(task)
+        self.__rebalanceScrollHeight()
+
+    def __addItemSheet(self, task):
+        itemSheet = ItemSheet(None, task.subject, task.status)
+        self.__scrollLayout.addWidget(itemSheet)
+        self.__itemSheets[relativePath] = itemSheet
+        (self.__itemSheets[relativePath]).updateStatus(task.status)
+
+    def __removeItemSheet(self, task):
+        self.__scrollLayout.removeWidget(self.__itemSheets[relativePath])
+        (self.__itemSheets[relativePath]).setParent(None)
+        (self.__itemSheets[relativePath]).delete()
+        del self.__itemSheets[relativePath]
+        self.__scrollLayout.removeItem(self.__spacer)
+        self.__scrollLayout.addItem(self.__spacer)
+        self.__scrollLayout.update()
+
+    def __rebalanceScrollHeight(self):
         self.__scrollLayout.removeItem(self.__spacer)
         self.__scrollLayout.addItem(self.__spacer)
