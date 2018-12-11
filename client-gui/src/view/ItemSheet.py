@@ -55,6 +55,6 @@ class ItemSheet(QtGui.QWidget):
         self.__layout.addWidget(self.__itemStatusWidget)
 
     def updateStatus(self, status):
-        print "UPDATING " + str(status)
-        self.__itemStatusWidget.setText(self.__statusMap[status])
-        self.repaint()
+        if status is not 11:
+            self.__itemStatusWidget.setText(self.__statusMap[status])
+            self.repaint()

@@ -55,20 +55,21 @@ class FileScanner(QtCore.QObject):
         for relativePath, localFile in localFiles.iteritems():
             if relativePath not in self.__filesCache:
                 if currentTime - localFile["lastModified"] > 5:
-                    print "localfile stable and does not exist, uploading.." + str(localFile)
+                    print "localfile stable and does not exist, uploading: {}".format(localfile["fullPath"])
                     self.__filesCache[relativePath] = localFile
                     self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=localFile, status=TaskStatus.IN_QUEUE_FOR_UPLOAD))
                 elif (currentTime - localFile["lastModified"]) < 5 and localFile[relativePath] not in self.__newFilesInWriting:
-                    print "localfile unstable and does not exist, delaying for upload " + str(localFile)
+                    print "localfile unstable and does not exist, delaying for upload: {}".format(localFile["fullPath"])
                     self.__newFilesInWriting[relativePath] = localFile
             else:
                 if localFile["lastModified"] > self.__filesCache[relativePath]["lastModified"] and currentTime - localFile["lastModified"] > 5:
                     if currentTime > localFile["lastModified"]:
-                        print "local file is newer and stable, uploading..." + str(localFile)
+                        print "local file is newer and stable, uploading: {}".format(localFile["fullPath"])
+                        localFile["lastModified"] = self.__filesCache[relativePath]["lastModified"]
                         self.__filesCache[relativePath] = localFile
                         self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=localFile, status=TaskStatus.IN_QUEUE_FOR_UPLOAD))
                     else:
-                        print "local file is newer, but unstable, delaying for upload" + str(localFile)
+                        print "local file is newer, but unstable, delaying for upload: {}".format(localFile["fullPath"])
                         self.__newFilesInWriting[relativePath] = localFile
                 elif localFile["lastModified"] < self.__filesCache[relativePath]["lastModified"]:
                     print "rlocalfile is older, downloading remote " + str(localFile)
@@ -102,11 +103,12 @@ class FileScanner(QtCore.QObject):
 
     def __checkFilesInWriting(self):
         currentTime = time.strftime("%b %d %H:%M")
-        for relativePath in self.__newFilesInWriting.keys():
-            stats = os.stat(self.__newFilesInWriting[relativePath]["fullPath"])
+        for relativePath, newFile in self.__newFilesInWriting.keys():
+            stats = os.stat(newFile["fullPath"])
             if currentTime > datetime.datetime.fromtimestamp(stats.st_mtime).strftime("%b %d %H:%M"):
-                print "Found a finished file!" + str(self.__newFilesInWriting[relativePath])
-                self.__filesCache[relativePath] = self.__newFilesInWriting[relativePath]
+                print "Found a finished file: {}".format(newFil["fullPath"])
+                newFile["lastModified"] = stats.st_mtime
+                self.__filesCache[relativePath] = newFile
                 self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=self.__newFilesInWriting[relativePath], status=TaskStatus.IN_QUEUE_FOR_UPLOAD))
                 del self.__newFilesInWriting[relativePath]
 
@@ -117,5 +119,8 @@ class FileScanner(QtCore.QObject):
 
     def stop(self):
         self.__shouldRun = False
-        self.__observer.stop()
-        self.__observer.join()
+        try:
+            self.__observer.stop()
+            self.__observer.join()
+        except Exception as ignored:
+            pass

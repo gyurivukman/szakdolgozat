@@ -19,8 +19,7 @@ class DropboxWrapper(ApiWrapper):
             raise Exception("Invalid dropbox api token!")
 
     def uploadFile(self, path):
-        with open(path, 'rb') as f:
-            print("Uploading " + path + " to Dropbox")
+        with open('/opt/remoteSyncDir/{}'.format(path), 'rb') as f:
             try:
                 self.__dbx.files_upload(f.read(), "/{}".format(path), mode=WriteMode('overwrite'))
             except ApiError as err:

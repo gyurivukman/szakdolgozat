@@ -45,7 +45,7 @@ class TaskManager(QtCore.QObject):
                 self.__readyForNextTask = False
                 self.__handleCurrentTask()
             else:
-                time.sleep(3)
+                time.sleep(5)
 
     def init(self, accountData=None):
         if accountData:
@@ -116,6 +116,8 @@ class TaskManager(QtCore.QObject):
             if taskType == TaskTypes.DOWNLOAD or taskType == TaskTypes.UPLOAD:
                 self.__trackedFiles[task.subject["path"]] = task
             self.__taskQueue.put(task)
+        else:
+            self.fileStatusChannel.emit(task)
 
     def __commReportHandler(self, report):
         taskType = report.taskType
@@ -126,14 +128,12 @@ class TaskManager(QtCore.QObject):
         shouldStopTracking = report.status in [TaskStatus.DOWNLOADING_FROM_REMOTE, TaskStatus.SYNCED]
         if shouldStopTracking:
             del self.__trackedFiles[report.subject["path"]]
-            if report.status == TaskStatus.SYNCED:
-                self.__sshManager.cleanTemporaryFile(report.subject["path"])
 
         if report.status == TaskStatus.DOWNLOADING_FROM_REMOTE:
             self.__sshManager.enqueuTask(Task(taskType=TaskTypes.DOWNLOAD, subject=report.subject, status=report.status))
 
     def __handleCommSyncFileReport(self, report):
-        self.__fileScanner.syncInitialFileList(report.subject)
+        self.__fileScanner.syncInitialFileList(report.subject) #TODO maybe data instead of subject?
         if not self.__fileScannerThread.isRunning():
             self.__fileScannerThread.start()
         if not self.__sshManagerThread.isRunning():
@@ -142,9 +142,8 @@ class TaskManager(QtCore.QObject):
         self.connectionStatusChannel.emit(ConnectionEvent("Sync", True))
 
     def __handleSSHUploadReport(self, report):
-        self.fileStatusChannel.emit(self.__currentTask)
+        self.fileStatusChannel.emit(report)
         self.__commService.enqueuTask(report)
-        self.__trackedFiles[self.__currentTask.subject["path"]] = self.__currentTask
 
     def __handleSSHDownloadReport(self, report):
         self.fileStatusChannel.emit(report)
@@ -172,8 +171,6 @@ class TaskManager(QtCore.QObject):
 
     def __uploadFile(self):
         self.__sshManager.enqueuTask(self.__currentTask)
-        self.__currentTask.status = TaskStatus.UPLOADING_TO_REMOTE
-        self.fileStatusChannel.emit(self.__currentTask)
 
     def __connectionStatusChangeHandler(self, report):
         self.__connectionStates[report.subject] = report.value

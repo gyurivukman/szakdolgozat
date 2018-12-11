@@ -1,5 +1,6 @@
 import Queue
 import time
+import os
 
 import src.model.MessageTypes as MessageTypes
 import src.model.TaskStatus as TaskStatus
@@ -24,7 +25,8 @@ class LongTaskWorker(object):
         self.__taskReports[targetFile] = TaskStatus.IN_QUEUE_FOR_DOWNLOAD
         return {"type": "ack"}
 
-    def enqueueUploadFileTask(self, targetFile):
+    def enqueueUploadFileTask(self, message):
+        targetFile = message["data"]
         self.__taskQueu.put({"subject": targetFile, "taskType": MessageTypes.UPLOAD_FILE})
         self.__taskReports[targetFile] = TaskStatus.UPLOADING_TO_CLOUD
         return {"type": "ack"}
@@ -49,8 +51,12 @@ class LongTaskWorker(object):
 
     def __uploadFile(self, targetFile):
         self.__taskReports[targetFile] = TaskStatus.ENCRYPTING
-        time.sleep(4)
+        time.sleep(7)
         for account in self.__accounts:
             api = self.__apiStore.getAPIWrapper(account)
             api.uploadFile(targetFile)
+        self.__removeTemporaryFile(targetFile)
         self.__taskReports[targetFile] = TaskStatus.SYNCED
+
+    def __removeTemporaryFile(self, targetFile):
+        os.remove('/opt/remoteSyncDir/{}'.format(targetFile))
