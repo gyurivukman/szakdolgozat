@@ -1,10 +1,12 @@
 import scandir
 import os
 import time
+import datetime
+from threading import RLock
 
 from PyQt4 import QtCore
 from watchdog.observers import Observer
-
+from watchdog.events import FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent
 from src.controller.FileEventBroker import FileEventBroker
 
 from src.model.Task import Task, TaskTypes
@@ -23,8 +25,9 @@ class FileScanner(QtCore.QObject):
         self.__settings = QtCore.QSettings()
         self.__shouldRun = True
         self.__newFilesInWriting = {}
+        self.__lock = RLock()
         self.setSyncDir(unicode(self.__settings.value('syncDir').toString()).encode("utf8"))
-        self.__pathCutLength = len(self.__syncdir)
+        self.__pathCutLength = len(self.__syncdir) + 1
 
         self.__event_handler = FileEventBroker()
         self.__event_handler.fileEventChannel.connect(self.__handleFileChangeEvent)
@@ -82,7 +85,7 @@ class FileScanner(QtCore.QObject):
         for relativePath, cachedFile in self.__filesCache.iteritems():
             if relativePath not in localFiles:
                 cachedFile["fullPath"] = self.__syncdir + '/' + cachedFile["path"]
-                print "remotefile not in localfiles, downlading: " + str(cachedFile)
+                print "remotefile not in localfiles, downlading: {}".format(cachedFile["fullPath"])
                 self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DOWNLOAD, subject=cachedFile, status=TaskStatus.IN_QUEUE_FOR_DOWNLOAD))
 
     def __scanFileTree(self, baseDir):
@@ -91,7 +94,7 @@ class FileScanner(QtCore.QObject):
                 stats = localFile.stat()
                 yield {
                         "fullPath": localFile.path,
-                        "path": localFile.path[self.__pathCutLength+1:],
+                        "path": localFile.path[self.__pathCutLength:],
                         "fileName": localFile.name,
                         "lastModified": int(stats.st_mtime),
                         "size": stats.st_size
@@ -101,31 +104,55 @@ class FileScanner(QtCore.QObject):
                     yield subLocalFile
 
     def __checkFilesInWriting(self):
-        currentTime = time.strftime("%b %d %H:%M")
-        for relativePath, newFile in self.__newFilesInWriting.keys():
+        self.__lock.acquire()
+        currentTime = int(time.time())
+        for relativePath in self.__newFilesInWriting.keys():
+            newFile = self.__newFilesInWriting[relativePath]
             stats = os.stat(newFile["fullPath"])
-            if currentTime > datetime.datetime.fromtimestamp(stats.st_mtime).strftime("%b %d %H:%M"):
-                print "Found a finished file: {}".format(newFil["fullPath"])
+            if currentTime - stats.st_mtime > 5:
+                print "Found a finished file: {}".format(newFile["fullPath"])
                 newFile["lastModified"] = stats.st_mtime
                 self.__filesCache[relativePath] = newFile
                 self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=self.__newFilesInWriting[relativePath], status=TaskStatus.IN_QUEUE_FOR_UPLOAD))
                 del self.__newFilesInWriting[relativePath]
+            else:
+                print "File still being modified, delaying upload again!"
+        self.__lock.release()
 
     def __handleFileChangeEvent(self, event):
+        self.__lock.acquire()
+        print event
+        if self.__shouldTrack(event):
+            self.__handleTrackEvent(event)
+        elif self.__isDeletionEvent(event):
+            self.__handleDeletionEvent(event)
+        self.__lock.release()
+
+    def __shouldTrack(self, event):
+        return isinstance(event, FileCreatedEvent) or isinstance(event, FileModifiedEvent)
+
+    def __handleTrackEvent(self, event):
         fullPath = event.src_path
-        relativePath = fullPath[self.__pathCutLength+1:]
+        relativePath = fullPath[self.__pathCutLength:]
         if relativePath not in self.__filesCache:
-            fullPath = event.src_path
             stats = os.stat(fullPath)
             newFile = {
-                "dir": os.path.dirname(fullPath),
                 "fullPath": fullPath,
-                "path": localFile.path[self.__pathCutLength+1:],
-                "fileName": localFile.name,
+                "path": relativePath,
+                "fileName": fullPath.split('/')[-1],
                 "lastModified": int(stats.st_mtime),
                 "size": stats.st_size
             }
-        time.sleep(2)
+            self.__newFilesInWriting[relativePath] = newFile
+
+    def __isDeletionEvent(self, event):
+        return isinstance(event, FileDeletedEvent)
+
+    def __handleDeletionEvent(self, event):
+        relativePath = event.src_path[self.__pathCutLength:]
+        data = self.__filesCache[relativePath]
+        self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DELETEFILE, subject=data, status=TaskStatus.STATELESS))
+        del self.__filesCache[relativePath]
 
     def stop(self):
         self.__shouldRun = False

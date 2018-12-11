@@ -69,7 +69,11 @@ class CommunicationService(QtCore.QObject):
             TaskTypes.PROGRESS_CHECK: self.__handleProgressCheckTask,
             TaskTypes.DELETEFILE: self.__handleDeleteFileTask,
             TaskTypes.DOWNLOAD: self.__handleDownloadFileTask,
-            TaskTypes.UPLOAD: self.__handleUploadFileTask,
+            TaskTypes.UPLOAD: self.__handleUploadFileTask
+        }
+
+        self.__quickTaskHandlers = {
+            TaskTypes.DELETEFILE: self.__handleDeleteFileTask,
             TaskTypes.MOVEFILE: self.__handleMoveFileTask
         }
 
@@ -105,6 +109,9 @@ class CommunicationService(QtCore.QObject):
         (self.__taskHandlers[self.__currentTask.taskType])()
         self.__taskQueue.task_done()
 
+    def handleQuickTask(self, task):
+        self.__quickTaskHandlers[task.taskType](task)
+
     def __handleSyncFileListTask(self):
         message = {"type": MessageTypes.GET_FILE_LIST}
         response = self.retrieveResponse(message)
@@ -121,8 +128,9 @@ class CommunicationService(QtCore.QObject):
             self.__currentTask.status = response["status"]
         self.taskReportChannel.emit(self.__currentTask)
 
-    def __handleDeleteFileTask(self):
-        pass
+    def __handleDeleteFileTask(self, task):
+        message = {"type": MessageTypes.DELETE_FILE, "data": task.subject["path"]}
+        response = self.retrieveResponse(message)
 
     def __handleDownloadFileTask(self):
         print "Asking server to DOWNLOAD file: {}".format(self.__currentTask.subject["fullPath"])

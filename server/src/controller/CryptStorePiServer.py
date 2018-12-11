@@ -5,18 +5,15 @@ import sys
 import json
 import thread
 
-from Encoder import Encoder
 from messagehandlers.KeepAliveMessageHandler import KeepAliveMessageHandler
 from messagehandlers.GetFileListMessageHandler import GetFileListMessageHandler
 from messagehandlers.DeleteFileMessageHandler import DeleteFileMessageHandler
 from messagehandlers.AccountUploadMessageHandler import AccountUploadMessageHandler
 from messagehandlers.ProgressCheckMessageHandler import ProgressCheckMessageHandler
 
+from Encoder import Encoder
 from DatabaseAccessObject import DatabaseAccessObject
-from DatabaseBuilder import DatabaseBuilder
-
 from LongTaskWorker import LongTaskWorker
-
 from src.model import MessageTypes as MessageTypes
 
 
@@ -36,7 +33,6 @@ class CryptStorePiServer(object):
         self.__dao = DatabaseAccessObject()
 
     def start(self):
-        self.__checkDatabase()
         while self.__shouldRun:
             if not self.__client:
                 self.__waitForConnection()
@@ -80,7 +76,6 @@ class CryptStorePiServer(object):
 
     def __handleMessage(self, message):
             result = (self.__messageHandlers[message["type"]])(message)
-            print "message result" + str(result)
             encryptedRes = self.__encoder.encryptMessage(result)
             self.__client.sendall(encryptedRes)
 
@@ -91,13 +86,6 @@ class CryptStorePiServer(object):
         if len(slices) > 1:
             self.__buffer.append(slices[1])
         return slices[0]
-
-    def __checkDatabase(self):
-        filesCount = self.__dao.getFilesCount()
-        accountsCount = self.__dao.getAccountsCount()
-        if filesCount == 0 and accountsCount > 0:
-            dbBuilder = DatabaseBuilder()
-            dbBuilder.initDatabase()
 
     def stop(self):
         self.__shouldRun = False

@@ -5,9 +5,9 @@ import src.model.TaskStatus as TaskStatus
 
 class ItemSheet(QtGui.QWidget):
     def __init__(self, *args, **kwargs):
-        super(ItemSheet, self).__init__(args[0], args[1], **kwargs)
-        self.__itemData = args[2]
-        self.__status = args[3]
+        super(ItemSheet, self).__init__(args[0], **kwargs)
+        self.__itemData = args[1]
+        self.__status = args[2]
         self.__statusMap = {
             TaskStatus.DECRYPTING: "Decrypting...",
             TaskStatus.DOWNLOADING_FROM_CLOUD: "Downloading from cloud!",
@@ -18,7 +18,7 @@ class ItemSheet(QtGui.QWidget):
             TaskStatus.SYNCED: "Synced!",
             TaskStatus.UPLOADING_TO_CLOUD: "Uploading to cloud!",
             TaskStatus.UPLOADING_TO_REMOTE: "Uploading to remote!",
-            TaskStatus.STATELESS: "Updating..."
+            TaskStatus.STATELESS: "Updating"
         }
         self.__setup()
 
@@ -55,6 +55,11 @@ class ItemSheet(QtGui.QWidget):
         self.__layout.addWidget(self.__itemStatusWidget)
 
     def updateStatus(self, status):
-        if status is not 11:
-            self.__itemStatusWidget.setText(self.__statusMap[status])
-            self.repaint()
+        self.__itemStatusWidget.setText(self.__statusMap[status])
+        self.repaint()
+
+    def delete(self):
+        self.__itemPath.setParent(None)
+
+        self.__itemStatusWidget.setParent(None)
+        self.setParent(None)

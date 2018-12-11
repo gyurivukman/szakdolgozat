@@ -115,7 +115,11 @@ class TaskManager(QtCore.QObject):
         if taskType != TaskTypes.IGNORE:
             if taskType == TaskTypes.DOWNLOAD or taskType == TaskTypes.UPLOAD:
                 self.__trackedFiles[task.subject["path"]] = task
-            self.__taskQueue.put(task)
+                self.__taskQueue.put(task)
+            elif taskType == TaskTypes.DELETEFILE:
+                self.__commService.handleQuickTask(task)
+                self.fileStatusChannel.emit(task)
+            #elif taskType == TaskTypes.MOVEFILE:
         else:
             self.fileStatusChannel.emit(task)
 
