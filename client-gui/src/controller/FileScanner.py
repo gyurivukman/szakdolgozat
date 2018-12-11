@@ -46,7 +46,7 @@ class FileScanner(QtCore.QObject):
         while self.__shouldRun:
             if self.__checkFilesInWriting:
                 self.__checkFilesInWriting()
-            time.sleep(5)
+            time.sleep(3)
 
     def __scanLocalFiles(self):
         currentTime = int(time.time())
@@ -55,7 +55,7 @@ class FileScanner(QtCore.QObject):
         for relativePath, localFile in localFiles.iteritems():
             if relativePath not in self.__filesCache:
                 if currentTime - localFile["lastModified"] > 5:
-                    print "localfile stable and does not exist, uploading: {}".format(localfile["fullPath"])
+                    print "localfile stable and does not exist, uploading: {}".format(localFile["fullPath"])
                     self.__filesCache[relativePath] = localFile
                     self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.UPLOAD, subject=localFile, status=TaskStatus.IN_QUEUE_FOR_UPLOAD))
                 elif (currentTime - localFile["lastModified"]) < 5 and localFile[relativePath] not in self.__newFilesInWriting:
@@ -90,7 +90,6 @@ class FileScanner(QtCore.QObject):
             if localFile.is_file():
                 stats = localFile.stat()
                 yield {
-                        "dir": os.path.dirname(localFile.path[self.__pathCutLength+1:]),
                         "fullPath": localFile.path,
                         "path": localFile.path[self.__pathCutLength+1:],
                         "fileName": localFile.name,
@@ -113,14 +112,22 @@ class FileScanner(QtCore.QObject):
                 del self.__newFilesInWriting[relativePath]
 
     def __handleFileChangeEvent(self, event):
-        relativePath = event.src_path[self.__pathCutLength+1:]
+        fullPath = event.src_path
+        relativePath = fullPath[self.__pathCutLength+1:]
         if relativePath not in self.__filesCache:
-            print "fileChangeEvent in filescanner " + str(event)
+            fullPath = event.src_path
+            stats = os.stat(fullPath)
+            newFile = {
+                "dir": os.path.dirname(fullPath),
+                "fullPath": fullPath,
+                "path": localFile.path[self.__pathCutLength+1:],
+                "fileName": localFile.name,
+                "lastModified": int(stats.st_mtime),
+                "size": stats.st_size
+            }
+        time.sleep(2)
 
     def stop(self):
         self.__shouldRun = False
-        try:
-            self.__observer.stop()
-            self.__observer.join()
-        except Exception as ignored:
-            pass
+        self.__observer.stop()
+        self.__observer.join()

@@ -45,7 +45,7 @@ class TaskManager(QtCore.QObject):
                 self.__readyForNextTask = False
                 self.__handleCurrentTask()
             else:
-                time.sleep(5)
+                time.sleep(3)
 
     def init(self, accountData=None):
         if accountData:

@@ -20,15 +20,15 @@ class LongTaskWorker(object):
         #TODO FileEncoder
 
     def enqueueDownloadFileTask(self, message):
-        targetFile = message["data"]
-        self.__taskQueu.put({"subject": targetFile, "taskType": MessageTypes.DOWNLOAD_FILE})
-        self.__taskReports[targetFile] = TaskStatus.IN_QUEUE_FOR_DOWNLOAD
+        data = message["data"]
+        self.__taskQueu.put({"subject": data, "taskType": MessageTypes.DOWNLOAD_FILE})
+        self.__taskReports[data["path"]] = TaskStatus.IN_QUEUE_FOR_DOWNLOAD
         return {"type": "ack"}
 
     def enqueueUploadFileTask(self, message):
-        targetFile = message["data"]
-        self.__taskQueu.put({"subject": targetFile, "taskType": MessageTypes.UPLOAD_FILE})
-        self.__taskReports[targetFile] = TaskStatus.UPLOADING_TO_CLOUD
+        data = message["data"]
+        self.__taskQueu.put({"subject": data, "taskType": MessageTypes.UPLOAD_FILE})
+        self.__taskReports[data["path"]] = TaskStatus.UPLOADING_TO_CLOUD
         return {"type": "ack"}
 
     def run(self):
@@ -40,23 +40,23 @@ class LongTaskWorker(object):
                 else:
                     self.__uploadFile(task["subject"])
 
-    def __downloadFile(self, targetFile):
-        self.__taskReports[targetFile] = TaskStatus.DOWNLOADING_FROM_CLOUD
+    def __downloadFile(self, data):
+        self.__taskReports[data["path"]] = TaskStatus.DOWNLOADING_FROM_CLOUD
         api = self.__apiStore.getAPIWrapper(self.__accounts[0])
-        api.downloadFile(targetFile)
+        api.downloadFile(data["fileName"], data["path"])
         time.sleep(3)
-        self.__taskReports[targetFile] = TaskStatus.DECRYPTING
+        self.__taskReports[data["path"]] = TaskStatus.DECRYPTING
         time.sleep(3)
-        self.__taskReports[targetFile] = TaskStatus.DOWNLOADING_FROM_REMOTE
+        self.__taskReports[data["path"]] = TaskStatus.DOWNLOADING_FROM_REMOTE
 
-    def __uploadFile(self, targetFile):
-        self.__taskReports[targetFile] = TaskStatus.ENCRYPTING
-        time.sleep(7)
+    def __uploadFile(self, data):
+        self.__taskReports[data["path"]] = TaskStatus.ENCRYPTING
+        time.sleep(5)
         for account in self.__accounts:
             api = self.__apiStore.getAPIWrapper(account)
-            api.uploadFile(targetFile)
-        self.__removeTemporaryFile(targetFile)
-        self.__taskReports[targetFile] = TaskStatus.SYNCED
+            api.uploadFile(data["fileName"], data["path"])
+        self.__removeTemporaryFile(data["fileName"])
+        self.__taskReports[data["path"]] = TaskStatus.SYNCED
 
     def __removeTemporaryFile(self, targetFile):
         os.remove('/opt/remoteSyncDir/{}'.format(targetFile))

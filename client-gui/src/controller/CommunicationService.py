@@ -125,13 +125,13 @@ class CommunicationService(QtCore.QObject):
         pass
 
     def __handleDownloadFileTask(self):
-        print "asking server to DOWNLOAD file"
-        message = {"type": MessageTypes.DOWNLOAD_FILE, "data": self.__currentTask.subject["path"]}
+        print "Asking server to DOWNLOAD file: {}".format(self.__currentTask.subject["fullPath"])
+        message = {"type": MessageTypes.DOWNLOAD_FILE, "data": {"path": self.__currentTask.subject["path"], "fileName": self.__currentTask.subject["fileName"]}}
         response = self.retrieveResponse(message)
 
     def __handleUploadFileTask(self):
-        print "asking server to UPLOAD file"
-        message = {"type": MessageTypes.UPLOAD_FILE, "data": self.__currentTask.subject["path"]}
+        print "Asking server to UPLOAD file: {}".format(self.__currentTask.subject["fullPath"])
+        message = {"type": MessageTypes.UPLOAD_FILE, "data": {"path": self.__currentTask.subject["path"], "fileName": self.__currentTask.subject["fileName"]}}
         response = self.retrieveResponse(message)
 
     def __handleMoveFileTask(self):
