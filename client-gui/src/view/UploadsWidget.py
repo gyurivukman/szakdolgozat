@@ -73,20 +73,37 @@ class UploadsWidget(QtGui.QWidget):
             event.ignore()
 
     def __onFileStatusChange(self, task):
-        relativePath = task.subject["path"]
-        if relativePath not in self.__itemSheets:
-            self.__addItemSheet(task)
-        if task.taskType == TaskTypes.DELETEFILE:
+        if task.taskType in [TaskTypes.DOWNLOAD, TaskTypes.UPLOAD, TaskTypes.SYNCED]:
+            relativePath = task.subject["path"]
+            if relativePath not in self.__itemSheets:
+                self.__addItemSheet(task)
+                self.__rebalanceScrollHeight()
+            else:
+                (self.__itemSheets[relativePath]).updateStatus(task.status)
+        elif task.taskType == TaskTypes.DELETEFILE:
             self.__removeItemSheet(task)
-        self.__rebalanceScrollHeight()
+            self.__rebalanceScrollHeight()
+
+        elif task.taskType == TaskTypes.PROGRESS_CHECK:
+            relativePath = task.subject["path"]
+            (self.__itemSheets[relativePath]).updateStatus(task.status)
+
+        elif task.taskType == TaskTypes.MOVEFILE:
+            data = self.__itemSheets[task.subject["from"]]
+            self.__itemSheets[task.subject["to"]] = data
+            del self.__itemSheets[task.subject["from"]]
+            (self.__itemSheets[task.subject["to"]]).updateLocation(task.subject["to"])
 
     def __addItemSheet(self, task):
-        itemSheet = ItemSheet(None, task.subject, task.status)
-        self.__scrollLayout.addWidget(itemSheet)
-        self.__itemSheets[relativePath] = itemSheet
-        (self.__itemSheets[relativePath]).updateStatus(task.status)
+        relativePath = task.subject["path"]
+        if task.subject["path"] not in self.__itemSheets:
+            itemSheet = ItemSheet(None, task.subject, task.status)
+            self.__scrollLayout.addWidget(itemSheet)
+            self.__itemSheets[relativePath] = itemSheet
+            (self.__itemSheets[relativePath]).updateStatus(task.status)
 
     def __removeItemSheet(self, task):
+        relativePath = task.subject["path"]
         self.__scrollLayout.removeWidget(self.__itemSheets[relativePath])
         (self.__itemSheets[relativePath]).setParent(None)
         (self.__itemSheets[relativePath]).delete()

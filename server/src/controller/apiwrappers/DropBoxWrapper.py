@@ -21,7 +21,7 @@ class DropboxWrapper(ApiWrapper):
 
     def uploadFile(self, localPath, remotePath):
         fullPath = '/opt/remoteSyncDir/{}'.format(localPath)
-        lastModified = datetime.datetime.fromtimestamp(int(os.stat(fullPath).st_mtime))
+        lastModified = datetime.datetime.fromtimestamp(os.stat(fullPath).st_mtime)
         with open(fullPath, 'rb') as f:
             # try:
             self.__dbx.files_upload(f.read(), "/{}".format(remotePath), mode=WriteMode('overwrite'), client_modified=lastModified)
@@ -55,3 +55,6 @@ class DropboxWrapper(ApiWrapper):
                     "size": entry.size
                 })
         return fileList
+
+    def moveFile(self, sourcePath, destinationPath):
+        self.__dbx.files_move('/{}'.format(sourcePath), '/{}'.format(destinationPath))

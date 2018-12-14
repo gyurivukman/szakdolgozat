@@ -115,6 +115,8 @@ class CommunicationService(QtCore.QObject):
     def __handleSyncFileListTask(self):
         message = {"type": MessageTypes.GET_FILE_LIST}
         response = self.retrieveResponse(message)
+        print "SYNCFIEL RESPONSE"
+        print response
         self.taskReportChannel.emit(Task(taskType=TaskTypes.SYNCFILELIST, subject=response, status=TaskStatus.STATELESS))
 
     def __handleAccountUploadTask(self):
@@ -142,8 +144,10 @@ class CommunicationService(QtCore.QObject):
         message = {"type": MessageTypes.UPLOAD_FILE, "data": {"path": self.__currentTask.subject["path"], "fileName": self.__currentTask.subject["fileName"]}}
         response = self.retrieveResponse(message)
 
-    def __handleMoveFileTask(self):
-        pass
+    def __handleMoveFileTask(self, task):
+        print "Asking server to MOVE file: {} TO {}".format(task.subject["from"], task.subject["to"])
+        message = {"type": MessageTypes.MOVE_FILE, "data": task.subject}
+        response = self.retrieveResponse(message)
 
     def __sendKeepAlive(self):
         message = {"type": MessageTypes.KEEP_ALIVE}

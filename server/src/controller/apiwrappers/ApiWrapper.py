@@ -11,8 +11,8 @@ class ApiWrapper(object):
     def uploadFile(self, path):
         raise NotImplementedError("method 'uploadFile' not implemented in {}".format(self.__class__))
 
-    # def moveFile(self, sourcePath, destinationPath):
-    #     raise NotImplementedError("method 'moveFile(sourePath, destinationPath)' not implemented in {}".format(self.__class__))
+    def moveFile(self, sourcePath, destinationPath):
+        raise NotImplementedError("method 'moveFile(sourePath, destinationPath)' not implemented in {}".format(self.__class__))
 
     # def renameFile(self, path, newName):
     #     raise NotImplementedError("method 'renameFile(path, newName)' not implemented in {}".format(self.__class__))

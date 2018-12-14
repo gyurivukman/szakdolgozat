@@ -32,4 +32,4 @@ class TaskTypes(Enum):
     PROGRESS_CHECK = 4
     UPLOAD_ACCOUNTS = 5
     MOVEFILE = 6
-    IGNORE = 7
+    SYNCED = 7

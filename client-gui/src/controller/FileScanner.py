@@ -40,7 +40,7 @@ class FileScanner(QtCore.QObject):
     def syncInitialFileList(self, fileList):
         self.__filesCache = {}
         for remoteFile in fileList:
-            remoteFile["fullPath"] = self.__syncdir+'/'+remoteFile["path"]
+            remoteFile["fullPath"] = "{}/{}".format(self.__syncdir, remoteFile["path"])
             self.__filesCache[remoteFile["path"]] = remoteFile
         self.__scanLocalFiles()
 
@@ -67,6 +67,7 @@ class FileScanner(QtCore.QObject):
             else:
                 if localFile["lastModified"] > self.__filesCache[relativePath]["lastModified"] and currentTime - localFile["lastModified"] > 5:
                     if currentTime > localFile["lastModified"]:
+                        print "localFile : {}  remoteFile: {}".format(localFile["lastModified"], self.__filesCache[relativePath]["lastModified"])
                         print "local file is newer and stable, uploading: {}".format(localFile["fullPath"])
                         localFile["lastModified"] = self.__filesCache[relativePath]["lastModified"]
                         self.__filesCache[relativePath] = localFile
@@ -75,17 +76,16 @@ class FileScanner(QtCore.QObject):
                         print "local file is newer, but unstable, delaying for upload: {}".format(localFile["fullPath"])
                         self.__newFilesInWriting[relativePath] = localFile
                 elif localFile["lastModified"] < self.__filesCache[relativePath]["lastModified"]:
-                    print "rlocalfile is older, downloading remote " + str(localFile)
+                    print "localfile is older, downloading remote " + str(localFile)
                     self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DOWNLOAD, subject=self.__filesCache[relativePath], status=TaskStatus.IN_QUEUE_FOR_DOWNLOAD))
                 else:
-                    print "Local file is in sync!"
-                    self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.IGNORE, subject=self.__filesCache[relativePath], status=TaskStatus.SYNCED))
+                    self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.SYNCED, subject=self.__filesCache[relativePath], status=TaskStatus.SYNCED))
 
         # Syncing files that dont exist locally
         for relativePath, cachedFile in self.__filesCache.iteritems():
             if relativePath not in localFiles:
                 cachedFile["fullPath"] = self.__syncdir + '/' + cachedFile["path"]
-                print "remotefile not in localfiles, downlading: {}".format(cachedFile["fullPath"])
+                print "remotefile not in localfiles, downloading: {}".format(cachedFile["fullPath"])
                 self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DOWNLOAD, subject=cachedFile, status=TaskStatus.IN_QUEUE_FOR_DOWNLOAD))
 
     def __scanFileTree(self, baseDir):
@@ -121,11 +121,12 @@ class FileScanner(QtCore.QObject):
 
     def __handleFileChangeEvent(self, event):
         self.__lock.acquire()
-        print event
         if self.__shouldTrack(event):
             self.__handleTrackEvent(event)
         elif self.__isDeletionEvent(event):
             self.__handleDeletionEvent(event)
+        elif self.__isMovedEvent(event):
+            self.__handleFileMovedEvent(event)
         self.__lock.release()
 
     def __shouldTrack(self, event):
@@ -148,11 +149,26 @@ class FileScanner(QtCore.QObject):
     def __isDeletionEvent(self, event):
         return isinstance(event, FileDeletedEvent)
 
+    def __isMovedEvent(self, event):
+        return isinstance(event, FileMovedEvent)
+
     def __handleDeletionEvent(self, event):
         relativePath = event.src_path[self.__pathCutLength:]
         data = self.__filesCache[relativePath]
         self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.DELETEFILE, subject=data, status=TaskStatus.STATELESS))
         del self.__filesCache[relativePath]
+
+    def __handleFileMovedEvent(self, event):
+        relativeFrom = event.src_path[self.__pathCutLength:]
+        relativeTo = event.dest_path[self.__pathCutLength:]
+        data = self.__filesCache[relativeFrom]
+        data["fullPath"] = event.dest_path
+        data["path"] = relativeTo
+        newModificationDate = datetime.datetime.fromtimestamp(int(data["lastModified"])).strftime("%Y%m%d%H%M.%S")
+        os.system('touch -mt {} {}'.format(newModificationDate, event.dest_path))
+        del self.__filesCache[relativeFrom]
+        self.__filesCache[relativeTo] = data
+        self.fileStatusChangeChannel.emit(Task(taskType=TaskTypes.MOVEFILE, subject={"from":relativeFrom, "to":relativeTo}, status = TaskStatus.STATELESS))
 
     def stop(self):
         self.__shouldRun = False

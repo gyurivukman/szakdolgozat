@@ -25,7 +25,7 @@ class TaskManager(QtCore.QObject):
         self.__shouldRun = True
         self.__taskQueue = Queue.Queue()
         self.__trackedFiles = {}
-        self.__lastProgressCheck = calendar.timegm(time.gmtime())
+        self.__lastProgressCheck = time.time()
         self.__readyForNextTask = True
         self.__connectionStates = {
             "Comm": False,
@@ -37,15 +37,16 @@ class TaskManager(QtCore.QObject):
 
     def start(self):
         while(self.__shouldRun):
-            currentTime = calendar.timegm(time.gmtime())
-            if currentTime - self.__lastProgressCheck > 10:
+            currentTime = time.time()
+            if currentTime - self.__lastProgressCheck > 5:
+                self.__lastProgressCheck = currentTime
                 self.__updateTrackedFiles()
             if not self.__taskQueue.empty() and self.__readyForNextTask:
                 self.__currentTask = self.__taskQueue.get()
                 self.__readyForNextTask = False
                 self.__handleCurrentTask()
             else:
-                time.sleep(3)
+                time.sleep(5)
 
     def init(self, accountData=None):
         if accountData:
@@ -110,18 +111,14 @@ class TaskManager(QtCore.QObject):
         self.__readyForNextTask = True
 
     def __fileEventHandler(self, task):
-        self.fileStatusChannel.emit(task)
         taskType = task.taskType
-        if taskType != TaskTypes.IGNORE:
+        if taskType != TaskTypes.SYNCED:
             if taskType == TaskTypes.DOWNLOAD or taskType == TaskTypes.UPLOAD:
                 self.__trackedFiles[task.subject["path"]] = task
                 self.__taskQueue.put(task)
-            elif taskType == TaskTypes.DELETEFILE:
+            elif taskType == TaskTypes.DELETEFILE or taskType == TaskTypes.MOVEFILE:
                 self.__commService.handleQuickTask(task)
-                self.fileStatusChannel.emit(task)
-            #elif taskType == TaskTypes.MOVEFILE:
-        else:
-            self.fileStatusChannel.emit(task)
+        self.fileStatusChannel.emit(task)
 
     def __commReportHandler(self, report):
         taskType = report.taskType
@@ -153,6 +150,7 @@ class TaskManager(QtCore.QObject):
         self.fileStatusChannel.emit(report)
 
     def __updateTrackedFiles(self):
+        print "updating tracked files"
         for key, value in self.__trackedFiles.iteritems():
             self.__commService.enqueuTask(Task(taskType=TaskTypes.PROGRESS_CHECK, subject=value.subject, status=TaskStatus.STATELESS))
 

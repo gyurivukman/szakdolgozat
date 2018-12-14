@@ -10,6 +10,7 @@ from messagehandlers.GetFileListMessageHandler import GetFileListMessageHandler
 from messagehandlers.DeleteFileMessageHandler import DeleteFileMessageHandler
 from messagehandlers.AccountUploadMessageHandler import AccountUploadMessageHandler
 from messagehandlers.ProgressCheckMessageHandler import ProgressCheckMessageHandler
+from messagehandlers.MoveFileMessageHandler import MoveFileMessageHandler
 
 from Encoder import Encoder
 from DatabaseAccessObject import DatabaseAccessObject
@@ -61,7 +62,8 @@ class CryptStorePiServer(object):
             MessageTypes.DOWNLOAD_FILE: longTaskWorker.enqueueDownloadFileTask,
             MessageTypes.DELETE_FILE: DeleteFileMessageHandler().handleMessage,
             MessageTypes.PROGRESS_CHECK: ProgressCheckMessageHandler(taskReports).handleMessage,
-            MessageTypes.ACCOUNT_UPLOAD: AccountUploadMessageHandler().handleMessage
+            MessageTypes.ACCOUNT_UPLOAD: AccountUploadMessageHandler().handleMessage,
+            MessageTypes.MOVE_FILE: MoveFileMessageHandler().handleMessage
         }
 
     def __waitForConnection(self):

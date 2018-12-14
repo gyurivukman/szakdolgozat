@@ -42,7 +42,7 @@ class ItemSheet(QtGui.QWidget):
         self.setLayout(self.__layout)
 
     def __setupItemPathLabel(self):
-        itemPath = self.__itemData["path"] if self.__itemData["path"] else self.__itemData["fullPath"]
+        itemPath = self.__itemData["path"]
         if len(itemPath) > 26:
             self.__itemPath = QtGui.QLabel(itemPath[:26] + "...", parent=self)
             self.setToolTip(itemPath)
@@ -63,3 +63,7 @@ class ItemSheet(QtGui.QWidget):
 
         self.__itemStatusWidget.setParent(None)
         self.setParent(None)
+
+    def updateLocation(self, newItemPath):
+        path = newItemPath[:26] + "..." if len(newItemPath) > 26 else newItemPath
+        self.__itemPath.setText(path)

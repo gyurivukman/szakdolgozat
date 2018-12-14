@@ -25,7 +25,8 @@ class SSHManager(QtCore.QObject):
         self.__shouldRun = True
         self.__queue = Queue.Queue()
         self.__currentTask = None
-        self.settings = QtCore.QSettings()
+        self.__settings = QtCore.QSettings()
+        self.__localSyncDirRoot = unicode(self.__settings.value("syncDir").toString())
 
     def __initTaskHandlers(self):
         self.taskHandlers = {
@@ -38,10 +39,10 @@ class SSHManager(QtCore.QObject):
         self.__ssh.load_system_host_keys()
         self.__ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy)
         self.__ssh.connect(
-            unicode(self.settings.value("remoteAddress").toString()),
-            self.settings.value("SSH_Port").toInt()[0],
-            username=unicode(self.settings.value("SSH_username").toString()),
-            password=unicode(self.settings.value("SSH_password").toString())
+            unicode(self.__settings.value("remoteAddress").toString()),
+            self.__settings.value("SSH_Port").toInt()[0],
+            username=unicode(self.__settings.value("SSH_username").toString()),
+            password=unicode(self.__settings.value("SSH_password").toString())
         )
         self.__sshTransport = self.__ssh.get_transport()
         self.__sftpClient = self.__ssh.open_sftp()
@@ -56,8 +57,8 @@ class SSHManager(QtCore.QObject):
 
     def start(self):
         self.__initSFTP()
-        self.__cleanRemoteSyncDir()
         self.connectionStatusChannel.emit(ConnectionEvent("SSH", True))
+        self.__cleanRemoteSyncDir()
         while self.__shouldRun:
             if not self.__queue.empty():
                 self.__currentTask = self.__queue.get()
@@ -81,19 +82,29 @@ class SSHManager(QtCore.QObject):
         newModificationDate = datetime.datetime.fromtimestamp(int(self.__currentTask.subject["lastModified"])).strftime("%Y%m%d%H%M.%S")
         remotePath = '/opt/remoteSyncDir/{}'.format(self.__currentTask.subject["fileName"])
         self.__ssh.exec_command('touch -mt {} {}'.format(newModificationDate, remotePath))
-        print "Upload finished!"
+        self.__ssh.exec_command('chmod ugo+rwx {}'.format(remotePath))
+        os.system('touch -mt {} {}'.format(newModificationDate, self.__currentTask.subject["fullPath"]))
+        print "SSH Upload finished!"
         self.__currentTask.status = TaskStatus.UPLOADING_TO_CLOUD
         self.taskReportChannel.emit(self.__currentTask)
 
     def __downloadHandler(self):
         print "Downloading: {} from remote!".format(self.__currentTask.subject["path"])
-        self.__sftpClient.get('{}/{}'.format(self.__remoteSyncdirRoot, self.__currentTask.subject["fileName"]), self.__currentTask.subject["fullPath"])
+        self.__createLocalDirs()
+        remotePath = '{}/{}'.format(self.__remoteSyncdirRoot, self.__currentTask.subject["fileName"])
+        self.__sftpClient.get(remotePath, self.__currentTask.subject["fullPath"])
         newModificationDate = datetime.datetime.fromtimestamp(self.__currentTask.subject["lastModified"]).strftime("%Y%m%d%H%M.%S")
+        print "touching it."
         os.system('touch -mt {} {}'.format(newModificationDate, self.__currentTask.subject["fullPath"]))
         self.__removeTemporaryFile()
         print "Download finished!"
         self.__currentTask.status = TaskStatus.SYNCED
         self.taskReportChannel.emit(self.__currentTask)
+
+    def __createLocalDirs(self):
+        directory = "/".join(self.__currentTask.subject["fullPath"].split('/')[:-1])
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
     def __cleanRemoteSyncDir(self):
         for root, dirs, files in os.walk(self.__remoteSyncdirRoot):

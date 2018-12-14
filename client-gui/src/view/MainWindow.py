@@ -37,9 +37,9 @@ class MainWindow(QtGui.QMainWindow):
     def __handleConnectionEvent(self, event):
             self.__connectionStates[event.subject] = event.value
 
-            isSSHUp = self.__connectionStates["SSH"] is True
-            isCommUp = self.__connectionStates["Comm"] is True
-            isInSync = self.__connectionStates["Sync"] is True
+            isSSHUp = self.__connectionStates["SSH"]
+            isCommUp = self.__connectionStates["Comm"]
+            isInSync = self.__connectionStates["Sync"]
 
             if isSSHUp and isCommUp and isInSync:
                 self.setCentralWidget(self.__uploadsWidget)
