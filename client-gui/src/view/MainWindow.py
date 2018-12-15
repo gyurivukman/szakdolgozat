@@ -4,7 +4,6 @@ from UploadsWidget import UploadsWidget
 from FirstConfigPanel import FirstConfigPanel
 from src.controller.ContextManager import ContextManager
 from src.model.ConnectionEvent import ConnectionEvent
-from src.model.ConnectionEventTypes import ConnectionEventTypes
 
 
 class MainWindow(QtGui.QMainWindow):

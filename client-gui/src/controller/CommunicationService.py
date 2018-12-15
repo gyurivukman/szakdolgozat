@@ -135,17 +135,16 @@ class CommunicationService(QtCore.QObject):
         response = self.retrieveResponse(message)
 
     def __handleDownloadFileTask(self):
-        print "Asking server to DOWNLOAD file: {}".format(self.__currentTask.subject["fullPath"])
+        print "Downloading file: {}".format(self.__currentTask.subject["fullPath"])
         message = {"type": MessageTypes.DOWNLOAD_FILE, "data": {"path": self.__currentTask.subject["path"], "fileName": self.__currentTask.subject["fileName"]}}
         response = self.retrieveResponse(message)
 
     def __handleUploadFileTask(self):
-        print "Asking server to UPLOAD file: {}".format(self.__currentTask.subject["fullPath"])
         message = {"type": MessageTypes.UPLOAD_FILE, "data": {"path": self.__currentTask.subject["path"], "fileName": self.__currentTask.subject["fileName"]}}
         response = self.retrieveResponse(message)
 
     def __handleMoveFileTask(self, task):
-        print "Asking server to MOVE file: {} TO {}".format(task.subject["from"], task.subject["to"])
+        print "Moving file FROM {} TO {}".format(task.subject["from"], task.subject["to"])
         message = {"type": MessageTypes.MOVE_FILE, "data": task.subject}
         response = self.retrieveResponse(message)
 
@@ -153,9 +152,10 @@ class CommunicationService(QtCore.QObject):
         message = {"type": MessageTypes.KEEP_ALIVE}
         res = self.retrieveResponse(message)
 
-    def close(self):
-        self.shouldRun = False
+    def stop(self):
         try:
             self.__serverConnection.close()
         except Exception as unhandled:
             pass
+        finally:
+            self.shouldRun = False

@@ -150,7 +150,6 @@ class TaskManager(QtCore.QObject):
         self.fileStatusChannel.emit(report)
 
     def __updateTrackedFiles(self):
-        print "updating tracked files"
         for key, value in self.__trackedFiles.iteritems():
             self.__commService.enqueuTask(Task(taskType=TaskTypes.PROGRESS_CHECK, subject=value.subject, status=TaskStatus.STATELESS))
 
@@ -190,7 +189,7 @@ class TaskManager(QtCore.QObject):
         self.__readyForNextTask = True
 
     def stop(self):
-        self.__shouldRun = False
         self.__commService.stop()
         self.__sshManager.stop()
         self.__fileScanner.stop()
+        self.__shouldRun = False

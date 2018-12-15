@@ -1,9 +1,11 @@
 import socket
 import select
 import time
+import shutil
 import sys
 import json
 import thread
+import os
 
 from messagehandlers.KeepAliveMessageHandler import KeepAliveMessageHandler
 from messagehandlers.GetFileListMessageHandler import GetFileListMessageHandler
@@ -32,8 +34,10 @@ class CryptStorePiServer(object):
         self.__shouldRun = True
         self.__encoder = Encoder()
         self.__dao = DatabaseAccessObject()
+        
 
     def start(self):
+        self.__cleanSyncDir()
         while self.__shouldRun:
             if not self.__client:
                 self.__waitForConnection()
@@ -88,6 +92,14 @@ class CryptStorePiServer(object):
         if len(slices) > 1:
             self.__buffer.append(slices[1])
         return slices[0]
+    
+    def __cleanSyncDir(self):
+        for root, dirs, files in os.walk('/opt/remoteSyncDir'):
+            for f in files:
+                os.remove(os.path.join(root, f))
+            for d in dirs:
+                shutil.rmtree(os.path.join(root, d))
+        print "Successfully cleaned remote."
 
     def stop(self):
         self.__shouldRun = False

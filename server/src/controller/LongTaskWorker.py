@@ -6,6 +6,7 @@ import src.model.MessageTypes as MessageTypes
 import src.model.TaskStatus as TaskStatus
 from src.controller.DatabaseAccessObject import DatabaseAccessObject
 from src.controller.CloudAPIStore import CloudAPIStore
+from src.controller.FileEncoder import FileEncoder
 
 
 class LongTaskWorker(object):
@@ -17,6 +18,7 @@ class LongTaskWorker(object):
         dbo = DatabaseAccessObject()
         self.__accounts = dbo.getAccounts()
         self.__apiStore = CloudAPIStore()
+        self.__fileEncoder = FileEncoder()
         #TODO FileEncoder
 
     def enqueueDownloadFileTask(self, message):
@@ -43,20 +45,18 @@ class LongTaskWorker(object):
     def __downloadFile(self, data):
         self.__taskReports[data["path"]] = TaskStatus.DOWNLOADING_FROM_CLOUD
         api = self.__apiStore.getAPIWrapper(self.__accounts[0])
-        api.downloadFile(data["fileName"], data["path"])
-        time.sleep(3)
+        localPath = '/opt/remoteSyncDir/{}.enc'.format(data["path"])
+        cloudPath = '/{}.enc'.format(data["path"])
+        api.downloadFile(localPath, cloudPath)
         self.__taskReports[data["path"]] = TaskStatus.DECRYPTING
-        time.sleep(3)
+        self.__fileEncoder.decryptFile(localPath)
         self.__taskReports[data["path"]] = TaskStatus.DOWNLOADING_FROM_REMOTE
 
     def __uploadFile(self, data):
         self.__taskReports[data["path"]] = TaskStatus.ENCRYPTING
-        time.sleep(5)
+        localPath = '/opt/remoteSyncDir/{}'.format(data["path"])
+        self.__fileEncoder.encryptFile(localPath)
         for account in self.__accounts:
             api = self.__apiStore.getAPIWrapper(account)
-            api.uploadFile(data["fileName"], data["path"])
-        self.__removeTemporaryFile(data["fileName"])
+            api.uploadFile('{}.enc'.format(localPath), '/{}.enc'.format(data["path"]))
         self.__taskReports[data["path"]] = TaskStatus.SYNCED
-
-    def __removeTemporaryFile(self, targetFile):
-        os.remove('/opt/remoteSyncDir/{}'.format(targetFile))

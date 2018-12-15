@@ -46,6 +46,7 @@ class SSHManager(QtCore.QObject):
         )
         self.__sshTransport = self.__ssh.get_transport()
         self.__sftpClient = self.__ssh.open_sftp()
+        print "SSH service connected!"
         try:
             self.__sftpClient.chdir('/opt/remoteSyncDir')
         except IOError:
@@ -58,7 +59,6 @@ class SSHManager(QtCore.QObject):
     def start(self):
         self.__initSFTP()
         self.connectionStatusChannel.emit(ConnectionEvent("SSH", True))
-        self.__cleanRemoteSyncDir()
         while self.__shouldRun:
             if not self.__queue.empty():
                 self.__currentTask = self.__queue.get()
@@ -77,42 +77,46 @@ class SSHManager(QtCore.QObject):
         self.taskHandlers[self.__currentTask.taskType]()
 
     def __uploadHandler(self):
-        print "Uploading: {} to remote!".format(self.__currentTask.subject["path"])
-        self.__sftpClient.put(self.__currentTask.subject["fullPath"], self.__currentTask.subject["fileName"])
+        print "Uploading file: {}".format(self.__currentTask.subject["path"])
+        localPath = self.__currentTask.subject["fullPath"]
+        remotePath = self.__currentTask.subject["path"]
+        self.__createRemoteDirs(remotePath)
+        self.__sftpClient.put(localPath, remotePath)
         newModificationDate = datetime.datetime.fromtimestamp(int(self.__currentTask.subject["lastModified"])).strftime("%Y%m%d%H%M.%S")
-        remotePath = '/opt/remoteSyncDir/{}'.format(self.__currentTask.subject["fileName"])
+        remotePath = '/opt/remoteSyncDir/{}'.format(self.__currentTask.subject["path"])
         self.__ssh.exec_command('touch -mt {} {}'.format(newModificationDate, remotePath))
-        self.__ssh.exec_command('chmod ugo+rwx {}'.format(remotePath))
+        self.__ssh.exec_command('chmod -R o+rw {}'.format(remotePath))
         os.system('touch -mt {} {}'.format(newModificationDate, self.__currentTask.subject["fullPath"]))
-        print "SSH Upload finished!"
         self.__currentTask.status = TaskStatus.UPLOADING_TO_CLOUD
         self.taskReportChannel.emit(self.__currentTask)
 
     def __downloadHandler(self):
-        print "Downloading: {} from remote!".format(self.__currentTask.subject["path"])
         self.__createLocalDirs()
-        remotePath = '{}/{}'.format(self.__remoteSyncdirRoot, self.__currentTask.subject["fileName"])
+        remotePath = '{}/{}'.format(self.__remoteSyncdirRoot, self.__currentTask.subject["path"])
+        print"Downloading to {}".format(self.__currentTask.subject["fullPath"])
         self.__sftpClient.get(remotePath, self.__currentTask.subject["fullPath"])
         newModificationDate = datetime.datetime.fromtimestamp(self.__currentTask.subject["lastModified"]).strftime("%Y%m%d%H%M.%S")
-        print "touching it."
         os.system('touch -mt {} {}'.format(newModificationDate, self.__currentTask.subject["fullPath"]))
         self.__removeTemporaryFile()
-        print "Download finished!"
         self.__currentTask.status = TaskStatus.SYNCED
         self.taskReportChannel.emit(self.__currentTask)
+        print "Download finished!"
 
     def __createLocalDirs(self):
         directory = "/".join(self.__currentTask.subject["fullPath"].split('/')[:-1])
         if not os.path.exists(directory):
             os.makedirs(directory)
 
-    def __cleanRemoteSyncDir(self):
-        for root, dirs, files in os.walk(self.__remoteSyncdirRoot):
-            for f in files:
-                self.__sftpClient.remove(os.path.join(root, f))
-            for d in dirs:
-                self.__sftpClient.remove(os.path.join(root, d))
-        print "Successfully cleaned remote."
+    def __createRemoteDirs(self, remotePath):
+        dirs = remotePath.split('/')[:-1]
+        if len(dirs) > 0:
+            for directory in dirs:
+                try:
+                    self.__sftpClient.chdir(directory)
+                except IOError:
+                    self.__sftpClient.mkdir(directory)
+                    self.__sftpClient.chdir(directory)
+        self.__sftpClient.chdir(self.__remoteSyncdirRoot)
 
     def __removeTemporaryFile(self):
         self.__sftpClient.remove(self.__remoteSyncdirRoot+'/'+self.__currentTask.subject["fileName"])

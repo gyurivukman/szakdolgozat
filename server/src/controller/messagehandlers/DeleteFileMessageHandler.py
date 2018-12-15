@@ -15,6 +15,6 @@ class DeleteFileMessageHandler(MessageHandler):
 
         for account in accounts:
             api = self.__apiStore.getAPIWrapper(account)
-            api.deleteFile(targetFile)
+            api.deleteFile('{}.enc'.format(targetFile))
 
         return {"type": "ack"}

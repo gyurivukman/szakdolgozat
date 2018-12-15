@@ -1,4 +1,4 @@
-from watchdog.events import FileSystemEventHandler, DirModifiedEvent
+from watchdog.events import FileSystemEventHandler, DirModifiedEvent, FileModifiedEvent
 from PyQt4 import QtCore
 
 
@@ -9,5 +9,5 @@ class FileEventBroker(FileSystemEventHandler, QtCore.QObject):
         super(FileEventBroker, self).__init__(*args, **kwargs)
 
     def dispatch(self, event):
-        if not isinstance(event, DirModifiedEvent):
+        if not isinstance(event, DirModifiedEvent) and not isinstance(event, FileModifiedEvent):
             self.fileEventChannel.emit(event)

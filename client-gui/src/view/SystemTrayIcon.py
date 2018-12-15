@@ -1,6 +1,7 @@
 from PyQt4 import QtGui, QtCore
 
 from AboutDialog import AboutDialog
+from src.controller.TaskManager import TaskManager
 
 
 class SystemTrayIcon(QtGui.QSystemTrayIcon):

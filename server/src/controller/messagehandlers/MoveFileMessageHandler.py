@@ -10,8 +10,8 @@ class MoveFileMessageHandler(MessageHandler):
         self.__apiStore = CloudAPIStore()
 
     def handleMessage(self, message):
-        sourcePath = message["data"]["from"]
-        destinationPath = message["data"]["to"]
+        sourcePath = '{}.enc'.format(message["data"]["from"])
+        destinationPath = '{}.enc'.format(message["data"]["to"])
         accounts = self.__dao.getAccounts()
 
         for account in accounts:
