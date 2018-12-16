@@ -119,4 +119,4 @@ class SSHManager(QtCore.QObject):
         self.__sftpClient.chdir(self.__remoteSyncdirRoot)
 
     def __removeTemporaryFile(self):
-        self.__sftpClient.remove(self.__remoteSyncdirRoot+'/'+self.__currentTask.subject["fileName"])
+        self.__sftpClient.remove(self.__remoteSyncdirRoot+'/'+self.__currentTask.subject["path"])

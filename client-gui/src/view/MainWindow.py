@@ -44,7 +44,7 @@ class MainWindow(QtGui.QMainWindow):
                 self.setCentralWidget(self.__uploadsWidget)
                 self.__uploadsWidget.show()
             elif isSSHUp and isCommUp and not isInSync:
-                self.setCentralWidget(QtGui.QLabel("Syncing filelist..."))
+                self.setCentralWidget(QtGui.QLabel("Syncing file list..."))
             else:
                 self.setCentralWidget(QtGui.QLabel("Connecting..."))
             self.repaint()
@@ -52,9 +52,6 @@ class MainWindow(QtGui.QMainWindow):
     def __setupWidgets(self):
         self.__settings = QtCore.QSettings()
         isFirstStart = self.__isFirstStart()
-        self.__uploadsWidget = UploadsWidget()
-        self.__uploadsWidget.hide(
-        )
         if isFirstStart:
             self.setFixedSize(400, 600)
             self.__moveToCenter()
@@ -64,22 +61,24 @@ class MainWindow(QtGui.QMainWindow):
             firstConfigPanel.firstConfigFinished.connect(self.__onFinishedFirstConfig)
             self.setCentralWidget(firstConfigPanel)
         else:
-            self.setFixedSize(500, 400)
-            self.__moveToUpperRightCorner()
-            self.__setupTaskManager()
-            self.setCentralWidget(QtGui.QLabel("Connecting..."))
+            self.__setupNormalView()
             self.__taskManager.init()
+
+    def __setupNormalView(self):
+        self.setFixedSize(500, 400)
+        self.__moveToUpperRightCorner()
+        self.setCentralWidget(QtGui.QLabel("Connecting..."))
+        self.__setupTaskManager()
+        self.__uploadsWidget = UploadsWidget()
+        self.__uploadsWidget.hide()
 
     def __isFirstStart(self):
         isFirstStart = not self.__settings.contains('is_first_start') or self.__settings.contains('is_first_start') and self.__settings.value('is_first_start').toBool()
         return isFirstStart
 
     def __onFinishedFirstConfig(self, accountData):
-        self.setFixedSize(400, 400)
-        self.__moveToUpperRightCorner()
-        self.__setupTaskManager()
+        self.__setupNormalView()
         self.__taskManager.init(accountData)
-        self.setCentralWidget(QtGui.QLabel("Connecting..."))
 
     def __moveToCenter(self):
         screenSize = QtCore.QCoreApplication.instance().desktop().screenGeometry()

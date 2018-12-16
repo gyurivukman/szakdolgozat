@@ -46,7 +46,7 @@ class TaskManager(QtCore.QObject):
                 self.__readyForNextTask = False
                 self.__handleCurrentTask()
             else:
-                time.sleep(5)
+                time.sleep(3)
 
     def init(self, accountData=None):
         if accountData:
@@ -57,14 +57,12 @@ class TaskManager(QtCore.QObject):
         settings = QtCore.QSettings()
         isFirstStart = not settings.contains('is_first_start') or settings.contains('is_first_start') and settings.value('is_first_start').toBool()
 
-        if not isFirstStart:
-            self.__setupDependentServices()
-        self.__setupCommService()
-        self.__commServiceThread.start()
-
-    def __setupDependentServices(self):
-        self.__setupFileScanner()
         self.__setupSSHManager()
+        self.__setupCommService()
+
+        self.__commServiceThread.start()
+        self.__sshManagerThread.start()
+        self.__setupFileScanner()
 
     def __setupFileScanner(self):
         self.__fileScanner = FileScanner()
@@ -137,8 +135,6 @@ class TaskManager(QtCore.QObject):
         self.__fileScanner.syncInitialFileList(report.subject) #TODO maybe data instead of subject?
         if not self.__fileScannerThread.isRunning():
             self.__fileScannerThread.start()
-        if not self.__sshManagerThread.isRunning():
-            self.__sshManagerThread.start()
         self.__connectionStates["Sync"] = True
         self.connectionStatusChannel.emit(ConnectionEvent("Sync", True))
 

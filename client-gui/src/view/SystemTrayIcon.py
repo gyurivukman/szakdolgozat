@@ -22,9 +22,6 @@ class SystemTrayIcon(QtGui.QSystemTrayIcon):
         openAction = menu.addAction("Open")
         openAction.triggered.connect(self.__openAction)
 
-        settingsAction = menu.addAction("Settings")
-        settingsAction.triggered.connect(self.__settingsAction)
-
         aboutAction = menu.addAction("About")
         aboutAction.triggered.connect(self.__aboutAction)
 
@@ -35,9 +32,6 @@ class SystemTrayIcon(QtGui.QSystemTrayIcon):
 
     def __openAction(self):
         self.parent().show()
-
-    def __settingsAction(self):
-        print 'SETTINGS'
 
     def __aboutAction(self):
         self.__aboutDialog.show()

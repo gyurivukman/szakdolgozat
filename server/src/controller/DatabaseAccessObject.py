@@ -1,14 +1,24 @@
+import os
 import sqlite3
+import getpass
+
 from src.controller.Encoder import Encoder
 
 
 class DatabaseAccessObject(object):
-    __DBNAME = "database.db"
 
     def __init__(self):
+        self.__DBNAME = "/home/{}/cryptstorepi/database.db".format(getpass.getuser())
+        self.__createDB()
         self.__conn = sqlite3.connect(self.__DBNAME)
         self.__cursor = self.__conn.cursor()
         self.__createAccountsTable()
+
+    def __createDB(self):
+        dbPath = '/home/{}/cryptstorepi/'.format(getpass.getuser())
+        if not os.path.exists(dbPath):
+            os.mkdir(dbPath)
+            print "Database successfully created!"
 
     def __createAccountsTable(self):
         self.__cursor.execute(

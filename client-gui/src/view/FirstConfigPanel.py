@@ -17,6 +17,7 @@ class FirstConfigPanel(QtGui.QWidget):
 
     def __setup(self):
         self.__setupBaseLayout()
+        self.__setupWarningMessage()
         self.__setupSyncDirPanel()
         self.__setupRemoteDataPanel()
         self.__setupAccountsPanel()
@@ -30,16 +31,6 @@ class FirstConfigPanel(QtGui.QWidget):
                     height:20px;
                     width:250px;
                     max-width:250px;
-                }
-
-                .QPushButton#testConnectionButton {
-                    height:25px;
-                    width:100px;
-                }
-
-                .QPushButton#testCommPortButton{
-                    height: 25px;
-                    width: 100px;
                 }
 
                 .QLabel#testResultMessage{
@@ -60,6 +51,16 @@ class FirstConfigPanel(QtGui.QWidget):
         self.__baseLayout.setObjectName("baseLayout")
         self.__baseLayout.setContentsMargins(3, 0, 3, 15)
         self.__baseLayout.setSpacing(15)
+    
+    def __setupWarningMessage(self):
+        messagePanel = QtGui.QHBoxLayout()
+        messageIcon = QtGui.QLabel()
+        messageIcon.setAlignment(QtCore.Qt.AlignLeft)
+        messageIcon.setPixmap(QtGui.QPixmap("./resources/warning.png"))
+        message = QtGui.QLabel("Warning, you can only set your settings up once!\nYOU CANNOT CHANGE THEM LATER!")
+        message.setObjectName("accountWarningMessage")
+        messagePanel.addWidget(messageIcon)
+        messagePanel.addWidget(message)
 
     def __setupSyncDirPanel(self):
         syncDirPanel = QtGui.QVBoxLayout()
@@ -139,17 +140,6 @@ class FirstConfigPanel(QtGui.QWidget):
 
     def __setupAccountsPanel(self):
         accountsPanel = QtGui.QVBoxLayout()
-
-        messagePanel = QtGui.QHBoxLayout()
-        messageIcon = QtGui.QLabel()
-        messageIcon.setAlignment(QtCore.Qt.AlignLeft)
-        messageIcon.setPixmap(QtGui.QPixmap("./resources/warning.png"))
-        message = QtGui.QLabel("Warning, you can only set your accounts up once!\nYOU CANNOT CHANGE THEM LATER!")
-        message.setObjectName("accountWarningMessage")
-        messagePanel.addWidget(messageIcon)
-        messagePanel.addWidget(message)
-
-        accountsPanel.addLayout(messagePanel)
 
         subContainerPanel = QtGui.QHBoxLayout()
         self.__accountListWidget = QtGui.QListWidget()

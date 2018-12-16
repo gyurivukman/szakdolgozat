@@ -13,7 +13,6 @@ from ApiWrapper import ApiWrapper
 class DropboxWrapper(ApiWrapper):
     def __init__(self,  apitoken):
         self.__dbx = dropbox.Dropbox(apitoken)
-
         try:
             self.__dbx.users_get_current_account()
         except AuthError as err:
@@ -22,11 +21,19 @@ class DropboxWrapper(ApiWrapper):
     def uploadFile(self, localPath, remotePath):
         lastModified = datetime.datetime.fromtimestamp(os.stat(localPath).st_mtime)
         with open(localPath, 'rb') as f:
-            self.__dbx.files_upload(f.read(), remotePath, mode=WriteMode('overwrite'), client_modified=lastModified)
+            data = f.read()
+            self.__dbx.files_upload(data, remotePath, mode=WriteMode('overwrite'), client_modified=lastModified)
             
-
     def downloadFile(self, localPath, remotePath):
+        self.__createLocalPath(remotePath)
         self.__dbx.files_download_to_file(localPath, remotePath)
+
+    def __createLocalPath(self, path):
+        path = path.lstrip('/').split('/')
+        targetDirs = "/".join(path[:-1])
+        fullPath = '/opt/remoteSyncDir/{}'.format(targetDirs)
+        if not os.path.exists(fullPath):
+            os.makedirs(fullPath)
 
     def deleteFile(self, path):
         self.__dbx.files_delete('/{}'.format(path))

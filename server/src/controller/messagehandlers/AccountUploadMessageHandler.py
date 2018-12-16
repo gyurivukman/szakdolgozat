@@ -3,7 +3,6 @@ import json
 from MessageHandler import MessageHandler
 from src.controller.DatabaseAccessObject import DatabaseAccessObject
 from src.controller.Encoder import Encoder
-from src.controller.DatabaseBuilder import DatabaseBuilder
 
 
 class AccountUploadMessageHandler(MessageHandler):
@@ -18,9 +17,6 @@ class AccountUploadMessageHandler(MessageHandler):
             entity = self.__buildAccountEntity(accData)
             newAccounts.append(entity)
         self.__dao.insertAccounts(newAccounts)
-
-        dbBuilder = DatabaseBuilder()
-        dbBuilder.initDatabase()
 
         return {"type": "ack"}
 
