@@ -101,7 +101,7 @@ class FirstStartWizard(QWidget):
 
 class WizardProgressWidget(QWidget):
     """
-        This widget shows the progress of the FirstStartWizard widget. 
+        This widget shows the progress of the FirstStartWizard widget.
         Inherits from QWidget.
         It has an inner enum class for state tracking.
         The widget itself is rendered manually via a custom paint method.
