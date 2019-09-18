@@ -31,18 +31,22 @@ class FirstStartWizard(QWidget):
     def __setupStyle(self):
         self.setAttribute(Qt.WA_StyledBackground)
         self.setStyleSheet(
-        """
-            QPushButton {
-                background-color:#e36410;
-                color:white;
-                width:150px;
-                border:0px;
-                height:30px;
-            }
-            QPushButton:disabled {
-                background-color:#D8D8D8;
-            }
-        """)
+            """
+                QPushButton {
+                    background-color:#e36410;
+                    color:white;
+                    width:150px;
+                    border:0px;
+                    height:30px;
+                }
+                QPushButton:disabled {
+                    background-color:#D8D8D8;
+                }
+                QPushButton:hover {
+                    background-color:#e68a4e;
+                }
+            """
+        )
 
     def __setupWidgets(self):
         self.__layout = QVBoxLayout()
@@ -182,7 +186,8 @@ class FirstStartWizardMiddleWidget(QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setAttribute(Qt.WA_StyledBackground)
-        self.setStyleSheet("background-image:url(./view/assets/Presentation1.png);background-repeat:no-repeat;background-position:center")
+        self.setObjectName("backgroundLogo")
+        self.setStyleSheet("QWidget#backgroundLogo{background-image:url(./view/assets/encryptionBackground.png);background-repeat:no-repeat;background-position:center;}")
         self.setFixedSize(1280, 480)
 
     def __setup(self):
@@ -202,14 +207,17 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
         layout.setAlignment(Qt.AlignTop)
 
         welcomeLabel = QLabel("Welcome to CryptStorePi!")
+        welcomeLabel.setAttribute(Qt.WA_TranslucentBackground)
         welcomeLabelFont = QFont('Helvetica', 42, QFont.Normal)
         welcomeLabelFont.setUnderline(True)
         welcomeLabel.setFont(welcomeLabelFont)
 
         welcomeInstructionsLabel = QLabel("This wizard will guide you through the first setup of this application.")
         welcomeInstructionsLabel.setFont(QFont('Helvetica', 22, QFont.Normal))
+        welcomeInstructionsLabel.setAttribute(Qt.WA_TranslucentBackground)
         continueInstructionLabel = QLabel("To start, click 'Next'!")
         continueInstructionLabel.setFont(QFont('Helvetica', 16, QFont.Normal))
+        continueInstructionLabel.setAttribute(Qt.WA_TranslucentBackground)
 
         layout.addWidget(welcomeLabel, 0, Qt.AlignHCenter)
         layout.addWidget(welcomeInstructionsLabel, 0, Qt.AlignHCenter)
@@ -221,15 +229,18 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setStyleSheet("QLabel#sectionTitle{color:#E39910;}")
         self.__setup()
 
     def __setup(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(0, 50, 0, 0)
+        layout.setContentsMargins(10, 10, 0, 0)
         layout.setSpacing(0)
         layout.setAlignment(Qt.AlignTop)
 
-        headingLabel = QLabel("<h3>Setup network connections</h3>")
-        
-        layout.addWidget(headingLabel, 0, Qt.AlignHCenter)
+        headingLabel = QLabel("Setup network connections")
+        headingLabel.setObjectName("sectionTitle")
+        headingLabel.setFont(QFont('Helvetica', 26))
+
+        layout.addWidget(headingLabel, 0, Qt.AlignLeft)
         self.setLayout(layout)
