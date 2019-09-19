@@ -1,7 +1,7 @@
 from enum import IntEnum
 
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QLineEdit
-from PyQt5.QtCore import QSettings, Qt, pyqtSlot
+from PyQt5.QtCore import QSettings, Qt, pyqtSlot, pyqtSignal
 from PyQt5 import QtCore
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap
 
@@ -226,12 +226,16 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
 
 
 class SetupNetworkWidget(FirstStartWizardMiddleWidget):
+    connectionTestResult = pyqtSignal(bool)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__formLabelFont = QFont("Helvetica", 14)
         self.__descriptionFont = QFont("Helvetica", 10)
         self.__formInputFont = QFont("Helvetica", 12)
+
+        self.__isConnectionOK = False
+        self.__isSshOK = False
 
         self.setStyleSheet(
             """
@@ -246,6 +250,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
             QLineEdit#sshUsername{max-width: 290px;height:25px;margin-right:20px;}
             QLineEdit#sshPassword{max-width: 290px;height:25px;margin-right:40px;}
+            QPushButton#testSSH:pressed {background-color:#e68a4e;}
             """
         )
         self.__network_data = {"remote": {"address": None, "port": None}, "ssh":{"username": None, "password": None}}
@@ -299,7 +304,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         hostFormLayout.setAlignment(Qt.AlignHCenter)
 
         self.__remoteHostTestResultLabel = QLabel()
-        self.__remoteHostTestResultLabel.setObjectName("successfulConnectionTest")
+        self.__remoteHostTestResultLabel.setObjectName("connectionTestText")
         self.__remoteHostTestResultLabel.setFont(self.__formInputFont)
         testRemoteHostButton = QPushButton("Test Connection")
         testRemoteHostButton.setObjectName("testConnection")
@@ -337,17 +342,42 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         sshFormPasswordInputLayout.addWidget(sshPasswordLabel)
         sshFormPasswordInputLayout.addWidget(self.__sshPasswordInput)
 
+        self.__SSHTestResultLabel = QLabel()
+        self.__SSHTestResultLabel.setObjectName("sshTestText")
+        self.__SSHTestResultLabel.setFont(self.__formInputFont)
+
+        testSSHButton = QPushButton("Test SSH")
+        testSSHButton.setObjectName("testSSH")
+        testSSHButton.clicked.connect(self.__test_ssh_connection)
+        sshFormTestConnectionLayout.addWidget(testSSHButton)
+        sshFormTestConnectionLayout.addWidget(self.__SSHTestResultLabel)
+        sshFormTestConnectionLayout.setContentsMargins(0, 5, 0, 0)
+        sshFormTestConnectionLayout.setAlignment(Qt.AlignLeft)
+
         sshFormLayout.addLayout(sshFormUsernameInputLayout)
         sshFormLayout.addLayout(sshFormPasswordInputLayout)
         sshFormLayout.setAlignment(Qt.AlignLeft)
 
-        sshFormLayout.addWidget(QLabel("SSH Username and password."))
+        sshDescriptionLabel = QLabel("SSH Username and password.")
+        sshDescriptionLabel.setFont(self.__descriptionFont)
+        sshDescriptionLabel.setAlignment(Qt.AlignBottom)
+        sshFormLayout.addWidget(sshDescriptionLabel)
+
         sshLayout.addLayout(sshFormLayout)
+        sshLayout.addLayout(sshFormTestConnectionLayout)
         sshLayout.setContentsMargins(0, 40, 0, 0)
         return sshLayout
 
-    @pyqtSlot()
     def __test_connection(self):
-        # self.__remoteHostTestResultLabel.setStyleSheet("color:green;")
-        # self.__remoteHostTestResultLabel.setText("XDDDDDDD")
-        print("Test connection!")
+        self.__remoteHostTestResultLabel.setStyleSheet("color:green;")
+        self.__remoteHostTestResultLabel.setText("OK")
+        self.__isConnectionOK = True
+
+        self.connectionTestResult.emit(self.__isConnectionOK and self.__isSshOK)
+    
+    def __test_ssh_connection(self):
+        self.__remoteHostTestResultLabel.setStyleSheet("color:green;")
+        self.__remoteHostTestResultLabel.setText("OK")
+        self.__isConnectionOK = True
+
+        self.connectionTestResult.emit(self.__isConnectionOK and self.__isSshOK)
