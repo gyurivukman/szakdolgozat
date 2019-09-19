@@ -1,6 +1,6 @@
 from enum import IntEnum
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QLineEdit
 from PyQt5.QtCore import QSettings, Qt, pyqtSlot
 from PyQt5 import QtCore
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap
@@ -42,7 +42,7 @@ class FirstStartWizard(QWidget):
                 QPushButton:disabled {
                     background-color:#D8D8D8;
                 }
-                QPushButton:hover {
+                QPushButton:pressed {
                     background-color:#e68a4e;
                 }
             """
@@ -229,18 +229,125 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setStyleSheet("QLabel#sectionTitle{color:#E39910;}")
+        self.__formLabelFont = QFont("Helvetica", 14)
+        self.__descriptionFont = QFont("Helvetica", 10)
+        self.__formInputFont = QFont("Helvetica", 12)
+
+        self.setStyleSheet(
+            """
+            QLineEdit {border:1px solid #E39910;}
+            QLineEdit:focus {border:2px solid #E39910}
+            QLineEdit:hover {border:2px solid #E39910}
+
+            QLineEdit#hostName {max-width: 500px; height:25px; margin-right:20px;}
+            QLineEdit#hostPort {max-width: 80px; height:25px; margin-right:40px;}
+            QPushButton#testConnection {width: 150px; max-width:150px; border:0; height:25px; margin-right:20px; background-color:#e36410; color:white;}
+            QPushButton#testConnection:pressed {background-color:#e68a4e;}
+
+            QLineEdit#sshUsername{max-width: 290px;height:25px;margin-right:20px;}
+            QLineEdit#sshPassword{max-width: 290px;height:25px;margin-right:40px;}
+            """
+        )
+        self.__network_data = {"remote": {"address": None, "port": None}, "ssh":{"username": None, "password": None}}
         self.__setup()
 
     def __setup(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(10, 10, 0, 0)
+        layout.setContentsMargins(100, 10, 0, 0)
         layout.setSpacing(0)
         layout.setAlignment(Qt.AlignTop)
 
-        headingLabel = QLabel("Setup network connections")
-        headingLabel.setObjectName("sectionTitle")
-        headingLabel.setFont(QFont('Helvetica', 26))
-
-        layout.addWidget(headingLabel, 0, Qt.AlignLeft)
+        hostLayout = self.__setupHostLayout()
+        sshLayout = self.__setupSSHLayout()
+        layout.addLayout(hostLayout)
+        layout.addLayout(sshLayout)
+        layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
         self.setLayout(layout)
+
+    def __setupHostLayout(self):
+        hostLayout = QVBoxLayout()
+
+        hostFormLayout = QHBoxLayout()
+        remoteHostNameInputLayout = QVBoxLayout()
+        remoteHostPortInputLayout = QVBoxLayout()
+        remoteHostTestLayout = QHBoxLayout()
+
+        remoteHostNameLabel = QLabel("Remote host")
+        remoteHostNameLabel.setFont(self.__formLabelFont)
+        remoteHostDescription = QLabel("Resolveable address of the remote host, eg.: localhost or 10.20.30.40 \nand port, eg.: 12345")
+        remoteHostDescription.setFont(self.__descriptionFont)
+        remoteHostDescription.setAlignment(Qt.AlignBottom)
+
+        self.__remoteHostNameInput = QLineEdit()
+        self.__remoteHostNameInput.setObjectName("hostName")
+        self.__remoteHostNameInput.setFont(QFont("Helvetica", 12))
+        remoteHostNameInputLayout.addWidget(remoteHostNameLabel)
+        remoteHostNameInputLayout.addWidget(self.__remoteHostNameInput)
+
+        remoteHostPortLabel = QLabel("Port")
+        remoteHostPortLabel.setFont(self.__formLabelFont)
+        self.__remotePortInput = QLineEdit()
+        self.__remotePortInput.setObjectName("hostPort")
+        self.__remotePortInput.setFont(QFont("Helvetica", 12))
+        remoteHostPortInputLayout.addWidget(remoteHostPortLabel)
+        remoteHostPortInputLayout.addWidget(self.__remotePortInput)
+
+        hostFormLayout.addLayout(remoteHostNameInputLayout)
+        hostFormLayout.addLayout(remoteHostPortInputLayout)
+        hostFormLayout.addWidget(remoteHostDescription)
+        hostFormLayout.setContentsMargins(0, 0, 0, 0)
+        hostFormLayout.setAlignment(Qt.AlignHCenter)
+
+        self.__remoteHostTestResultLabel = QLabel()
+        self.__remoteHostTestResultLabel.setObjectName("successfulConnectionTest")
+        self.__remoteHostTestResultLabel.setFont(self.__formInputFont)
+        testRemoteHostButton = QPushButton("Test Connection")
+        testRemoteHostButton.setObjectName("testConnection")
+        testRemoteHostButton.clicked.connect(self.__test_connection)
+        remoteHostTestLayout.addWidget(testRemoteHostButton)
+        remoteHostTestLayout.addWidget(self.__remoteHostTestResultLabel)
+        remoteHostTestLayout.setContentsMargins(0, 5, 0, 0)
+        remoteHostTestLayout.setAlignment(Qt.AlignLeft)
+
+        hostLayout.addLayout(hostFormLayout)
+        hostLayout.addLayout(remoteHostTestLayout)
+        hostLayout.setAlignment(Qt.AlignHCenter)
+        return hostLayout
+
+    def __setupSSHLayout(self):
+        sshLayout = QVBoxLayout()
+        sshFormLayout = QHBoxLayout()
+        sshFormUsernameInputLayout = QVBoxLayout()
+        sshFormPasswordInputLayout = QVBoxLayout()
+        sshFormTestConnectionLayout = QHBoxLayout()
+
+        sshUsernameLabel = QLabel("SSH Username")
+        sshUsernameLabel.setFont(self.__formLabelFont)
+        self.__sshUsernameInput = QLineEdit()
+        self.__sshUsernameInput.setObjectName("sshUsername")
+        self.__sshUsernameInput.setFont(self.__formInputFont)
+        sshFormUsernameInputLayout.addWidget(sshUsernameLabel)
+        sshFormUsernameInputLayout.addWidget(self.__sshUsernameInput)
+
+        sshPasswordLabel = QLabel("SSH Password")
+        sshPasswordLabel.setFont(self.__formLabelFont)
+        self.__sshPasswordInput = QLineEdit()
+        self.__sshPasswordInput.setObjectName("sshPassword")
+        self.__sshUsernameInput.setFont(self.__formInputFont)
+        sshFormPasswordInputLayout.addWidget(sshPasswordLabel)
+        sshFormPasswordInputLayout.addWidget(self.__sshPasswordInput)
+
+        sshFormLayout.addLayout(sshFormUsernameInputLayout)
+        sshFormLayout.addLayout(sshFormPasswordInputLayout)
+        sshFormLayout.setAlignment(Qt.AlignLeft)
+
+        sshFormLayout.addWidget(QLabel("SSH Username and password."))
+        sshLayout.addLayout(sshFormLayout)
+        sshLayout.setContentsMargins(0, 40, 0, 0)
+        return sshLayout
+
+    @pyqtSlot()
+    def __test_connection(self):
+        # self.__remoteHostTestResultLabel.setStyleSheet("color:green;")
+        # self.__remoteHostTestResultLabel.setText("XDDDDDDD")
+        print("Test connection!")
