@@ -15,13 +15,27 @@ class FirstStartWizard(QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__settings = QSettings()
-        self.__widgetMap = {
-            WizardProgressWidget.WIZARD_PROGRESS_STATES.WELCOME: WelcomeWidget(),
-            WizardProgressWidget.WIZARD_PROGRESS_STATES.NETWORK: SetupNetworkWidget(),
-            WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS: WelcomeWidget(),
-            WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY: SetupNetworkWidget(),
-        }
+        self.__widgetMap = self.__createWidgetMap()
         self.__setup()
+
+    def __createWidgetMap(self):
+        widgetMap = {
+            WizardProgressWidget.WIZARD_PROGRESS_STATES.WELCOME: WelcomeWidget()
+        }
+
+        setupNetworkWidget = SetupNetworkWidget()
+        setupNetworkWidget.formValidityChanged.connect(self.__updateNextButtonState)
+        widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.NETWORK] = setupNetworkWidget
+
+        setupAccountsWidget = WelcomeWidget()
+        setupAccountsWidget.formValidityChanged.connect(self.__updateNextButtonState)
+        widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS] = setupAccountsWidget
+
+        summaryWidget = SetupNetworkWidget()
+        summaryWidget.formValidityChanged.connect(self.__updateNextButtonState)
+        widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY] = summaryWidget
+
+        return widgetMap
 
     def __setup(self):
         self.__state = WizardProgressWidget.WIZARD_PROGRESS_STATES.WELCOME
@@ -81,10 +95,11 @@ class FirstStartWizard(QWidget):
             self.__widgetMap[self.__state].hide()
             self.__state = self.__progressWidget.toNextState()
             self.__widgetMap[self.__state].show()
-            if self.__state == WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY:
-                self.__nextButton.setDisabled(True)
+            self.__updateNextButtonState()
             self.__progressWidget.update()
             self.update()
+        else:
+            self.__nextButton.setDisabled(True)
 
     @pyqtSlot()
     def __goBack(self):
@@ -97,6 +112,9 @@ class FirstStartWizard(QWidget):
             self.__previousButton.setDisabled(True)
         self.__progressWidget.update()
         self.update()
+    
+    def __updateNextButtonState(self):
+        self.__nextButton.setDisabled(not self.__widgetMap[self.__state].canProceed())
 
 
 class WizardProgressWidget(QWidget):
@@ -183,6 +201,8 @@ class WizardProgressWidget(QWidget):
 
 class FirstStartWizardMiddleWidget(QWidget):
 
+    formValidityChanged = pyqtSignal()
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setAttribute(Qt.WA_StyledBackground)
@@ -191,6 +211,9 @@ class FirstStartWizardMiddleWidget(QWidget):
         self.setFixedSize(1280, 480)
 
     def __setup(self):
+        raise NotImplementedError('Derived class must implement method "__setup"')
+
+    def canProceed(self):
         raise NotImplementedError('Derived class must implement method "__setup"')
 
 
@@ -224,9 +247,11 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
         layout.addWidget(continueInstructionLabel, 0, Qt.AlignHCenter)
         self.setLayout(layout)
 
+    def canProceed(self):
+        return True
+
 
 class SetupNetworkWidget(FirstStartWizardMiddleWidget):
-    connectionTestResult = pyqtSignal(bool)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -250,11 +275,15 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
             QLineEdit#sshUsername{max-width: 290px;height:25px;margin-right:20px;}
             QLineEdit#sshPassword{max-width: 290px;height:25px;margin-right:40px;}
+            QPushButton#testSSH {width: 150px; max-width:150px; border:0; height:25px; margin-right:20px; background-color:#e36410; color:white;}
             QPushButton#testSSH:pressed {background-color:#e68a4e;}
             """
         )
         self.__network_data = {"remote": {"address": None, "port": None}, "ssh":{"username": None, "password": None}}
         self.__setup()
+
+    def canProceed(self):
+        return self.__isConnectionOK and self.__isSshOK
 
     def __setup(self):
         layout = QVBoxLayout()
@@ -358,7 +387,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         sshFormLayout.addLayout(sshFormPasswordInputLayout)
         sshFormLayout.setAlignment(Qt.AlignLeft)
 
-        sshDescriptionLabel = QLabel("SSH Username and password.")
+        sshDescriptionLabel = QLabel("SSH Username and password. CryptStorePi uses SSH to upload and download\nyour files to and from the CryptStorePi encryption server.")
         sshDescriptionLabel.setFont(self.__descriptionFont)
         sshDescriptionLabel.setAlignment(Qt.AlignBottom)
         sshFormLayout.addWidget(sshDescriptionLabel)
@@ -373,11 +402,11 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__remoteHostTestResultLabel.setText("OK")
         self.__isConnectionOK = True
 
-        self.connectionTestResult.emit(self.__isConnectionOK and self.__isSshOK)
+        self.formValidityChanged.emit()
     
     def __test_ssh_connection(self):
-        self.__remoteHostTestResultLabel.setStyleSheet("color:green;")
-        self.__remoteHostTestResultLabel.setText("OK")
-        self.__isConnectionOK = True
+        self.__SSHTestResultLabel.setStyleSheet("color:green;")
+        self.__SSHTestResultLabel.setText("OK")
+        self.__isSshOK = True
 
-        self.connectionTestResult.emit(self.__isConnectionOK and self.__isSshOK)
+        self.formValidityChanged.emit()
