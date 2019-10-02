@@ -198,28 +198,30 @@ class FirstStartWizardMiddleWidget(QWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setAttribute(Qt.WA_StyledBackground)
-        self.setObjectName("backgroundLogo")
-        self.setStyleSheet("QWidget#backgroundLogo{background-image:url(./view/assets/encryptionBackground.png);background-repeat:no-repeat;background-position:center;}")
         self.setFixedSize(1280, 480)
+        self.__setupStylesheet()
+        self._setup()
 
-    def __setup(self):
-        raise NotImplementedError('Derived class must implement method "__setup"')
+    def __setupStylesheet(self):
+        self.setAttribute(Qt.WA_StyledBackground)
+        self.setStyleSheet(self._getStyle())
+
+    def _setup(self):
+        raise NotImplementedError('Derived class must implement method "_setup"')
+
+    def _getStyle(self):
+        raise NotImplementedError('Derived class must implement method "_getStyle". It should return a valid qss stylesheet string.')
 
     def canProceed(self):
-        raise NotImplementedError('Derived class must implement method "canProceed"')
+        raise NotImplementedError('Derived class must implement method "canProceed". It should return a bool.')
 
     def canGoBack(self):
-        raise NotImplementedError('Derived class must implement method "canGoBack"')
+        raise NotImplementedError('Derived class must implement method "canGoBack" it should return a bool.')
 
 
 class WelcomeWidget(FirstStartWizardMiddleWidget):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__setup()
-
-    def __setup(self):
+    def _setup(self):
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 50, 0, 0)
         layout.setSpacing(30)
@@ -245,24 +247,25 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
 
     def canProceed(self):
         return True
-    
+
     def canGoBack(self):
-        return False
+        return True
+
+    def _getStyle(self):
+        self.setObjectName("welcomeWidget")
+        return "QWidget#welcomeWidget{background-image:url(./view/assets/encryptionBackground.png);background-repeat:no-repeat;background-position:center;}"
 
 
 class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__formLabelFont = QFont("Helvetica", 14)
-        self.__descriptionFont = QFont("Helvetica", 10)
-        self.__formInputFont = QFont("Helvetica", 12)
+    def canProceed(self):
+        return self.__isConnectionOK and self.__isSshOK
 
-        self.__isConnectionOK = False
-        self.__isSshOK = False
+    def canGoBack(self):
+        return True
 
-        self.setStyleSheet(
-            """
+    def _getStyle(self):
+        return """
             QLineEdit {border:1px solid #E39910;}
             QLineEdit:focus {border:2px solid #E39910}
             QLineEdit:hover {border:2px solid #E39910}
@@ -276,18 +279,18 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
             QLineEdit#sshPassword{max-width: 290px;height:25px;margin-right:40px;}
             QPushButton#testSSH {width: 150px; max-width:150px; border:0; height:25px; margin-right:20px; background-color:#e36410; color:white;}
             QPushButton#testSSH:pressed {background-color:#e68a4e;}
-            """
-        )
+        """
+
+    def _setup(self):
+        self.__formLabelFont = QFont("Helvetica", 14)
+        self.__descriptionFont = QFont("Helvetica", 10)
+        self.__formInputFont = QFont("Helvetica", 12)
+
+        self.__isConnectionOK = False
+        self.__isSshOK = False
+
         self.__network_data = {"remote": {"address": None, "port": None}, "ssh":{"username": None, "password": None}}
-        self.__setup()
 
-    def canProceed(self):
-        return self.__isConnectionOK and self.__isSshOK
-
-    def canGoBack(self):
-        return True
-
-    def __setup(self):
         layout = QVBoxLayout()
         layout.setContentsMargins(100, 10, 0, 0)
         layout.setSpacing(0)
@@ -324,7 +327,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         remoteHostPortLabel.setFont(self.__formLabelFont)
         self.__remotePortInput = QLineEdit()
         self.__remotePortInput.setObjectName("hostPort")
-        self.__remotePortInput.setFont(QFont("Helvetica", 12))
+        self.__remotePortInput.setFont(self.__formInputFont)
         remoteHostPortInputLayout.addWidget(remoteHostPortLabel)
         remoteHostPortInputLayout.addWidget(self.__remotePortInput)
 
@@ -369,7 +372,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         sshPasswordLabel.setFont(self.__formLabelFont)
         self.__sshPasswordInput = QLineEdit()
         self.__sshPasswordInput.setObjectName("sshPassword")
-        self.__sshUsernameInput.setFont(self.__formInputFont)
+        self.__sshPasswordInput.setFont(self.__formInputFont)
         sshFormPasswordInputLayout.addWidget(sshPasswordLabel)
         sshFormPasswordInputLayout.addWidget(self.__sshPasswordInput)
 
