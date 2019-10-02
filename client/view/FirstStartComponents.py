@@ -24,18 +24,21 @@ class FirstStartWizard(QWidget):
         }
 
         setupNetworkWidget = SetupNetworkWidget()
-        setupNetworkWidget.formValidityChanged.connect(self.__updateNextButtonState)
+        setupNetworkWidget.formValidityChanged.connect(self.__checkCanProceed)
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.NETWORK] = setupNetworkWidget
 
         setupAccountsWidget = WelcomeWidget()
-        setupAccountsWidget.formValidityChanged.connect(self.__updateNextButtonState)
+        setupAccountsWidget.formValidityChanged.connect(self.__checkCanProceed)
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS] = setupAccountsWidget
 
         summaryWidget = SetupNetworkWidget()
-        summaryWidget.formValidityChanged.connect(self.__updateNextButtonState)
+        summaryWidget.formValidityChanged.connect(self.__checkCanProceed)
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY] = summaryWidget
 
         return widgetMap
+
+    def __checkCanProceed(self):
+        self.__nextButton.setDisabled(not self.__widgetMap[self.__state].canProceed())
 
     def __setup(self):
         self.__state = WizardProgressWidget.WIZARD_PROGRESS_STATES.WELCOME
@@ -88,33 +91,23 @@ class FirstStartWizard(QWidget):
         self.__layout.addLayout(controlLayout)
         self.setLayout(self.__layout)
 
-    @pyqtSlot()
     def __goNext(self):
-        if self.__state != WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY:
-            self.__previousButton.setDisabled(False)
-            self.__widgetMap[self.__state].hide()
-            self.__state = self.__progressWidget.toNextState()
-            self.__widgetMap[self.__state].show()
-            self.__updateNextButtonState()
-            self.__progressWidget.update()
-            self.update()
-        else:
-            self.__nextButton.setDisabled(True)
+        self.__widgetMap[self.__state].hide()
+        self.__state = self.__progressWidget.toNextState()
+        self.__widgetMap[self.__state].show()
+        self.__update()
 
-    @pyqtSlot()
     def __goBack(self):
-        if self.__state == WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY:
-            self.__nextButton.setDisabled(False)
         self.__widgetMap[self.__state].hide()
         self.__state = self.__progressWidget.toPreviousState()
         self.__widgetMap[self.__state].show()
-        if self.__state == WizardProgressWidget.WIZARD_PROGRESS_STATES.WELCOME:
-            self.__previousButton.setDisabled(True)
+        self.__update()
+
+    def __update(self):
+        self.__nextButton.setDisabled(not self.__widgetMap[self.__state].canProceed())
+        self.__previousButton.setDisabled(not self.__widgetMap[self.__state].canGoBack())
         self.__progressWidget.update()
         self.update()
-    
-    def __updateNextButtonState(self):
-        self.__nextButton.setDisabled(not self.__widgetMap[self.__state].canProceed())
 
 
 class WizardProgressWidget(QWidget):
@@ -214,7 +207,10 @@ class FirstStartWizardMiddleWidget(QWidget):
         raise NotImplementedError('Derived class must implement method "__setup"')
 
     def canProceed(self):
-        raise NotImplementedError('Derived class must implement method "__setup"')
+        raise NotImplementedError('Derived class must implement method "canProceed"')
+
+    def canGoBack(self):
+        raise NotImplementedError('Derived class must implement method "canGoBack"')
 
 
 class WelcomeWidget(FirstStartWizardMiddleWidget):
@@ -249,6 +245,9 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
 
     def canProceed(self):
         return True
+    
+    def canGoBack(self):
+        return False
 
 
 class SetupNetworkWidget(FirstStartWizardMiddleWidget):
@@ -284,6 +283,9 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
     def canProceed(self):
         return self.__isConnectionOK and self.__isSshOK
+
+    def canGoBack(self):
+        return True
 
     def __setup(self):
         layout = QVBoxLayout()
@@ -403,7 +405,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__isConnectionOK = True
 
         self.formValidityChanged.emit()
-    
+
     def __test_ssh_connection(self):
         self.__SSHTestResultLabel.setStyleSheet("color:green;")
         self.__SSHTestResultLabel.setText("OK")
