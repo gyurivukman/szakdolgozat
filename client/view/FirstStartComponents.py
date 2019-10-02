@@ -1,9 +1,9 @@
 from enum import IntEnum
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QLineEdit
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QLineEdit, QRadioButton
 from PyQt5.QtCore import QSettings, Qt, pyqtSlot, pyqtSignal
 from PyQt5 import QtCore
-from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap
+from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics
 
 
 class FirstStartWizard(QWidget):
@@ -27,7 +27,7 @@ class FirstStartWizard(QWidget):
         setupNetworkWidget.formValidityChanged.connect(self.__checkCanProceed)
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.NETWORK] = setupNetworkWidget
 
-        setupAccountsWidget = WelcomeWidget()
+        setupAccountsWidget = SetupAccountsWidget()
         setupAccountsWidget.formValidityChanged.connect(self.__checkCanProceed)
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS] = setupAccountsWidget
 
@@ -68,13 +68,14 @@ class FirstStartWizard(QWidget):
     def __setupWidgets(self):
         self.__layout = QVBoxLayout()
         self.__layout.setContentsMargins(0, 0, 0, 0)
+        self.__layout.setSpacing(0)
         self.__progressWidget = WizardProgressWidget()
-        self.__setupNetworkWidget = SetupNetworkWidget()
         self.__layout.addWidget(self.__progressWidget, 0, Qt.AlignTop)
 
         for key, widget in self.__widgetMap.items():
             self.__layout.addWidget(widget, 0, Qt.AlignTop)
             widget.show() if key == WizardProgressWidget.WIZARD_PROGRESS_STATES.WELCOME else widget.hide()
+        self.__layout.addStretch(1)
 
         self.__nextButton = QPushButton("Next")
         self.__nextButton.clicked.connect(self.__goNext)
@@ -82,7 +83,7 @@ class FirstStartWizard(QWidget):
         self.__previousButton.setDisabled(True)
         self.__previousButton.clicked.connect(self.__goBack)
         controlLayout = QHBoxLayout()
-        controlLayout.setContentsMargins(0, 0, 20, 20)
+        controlLayout.setContentsMargins(0, 0, 10, 10)
         controlLayout.setSpacing(20)
         controlLayout.setAlignment(Qt.AlignTrailing)
         controlLayout.addWidget(self.__previousButton)
@@ -224,7 +225,7 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
     def _setup(self):
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 50, 0, 0)
-        layout.setSpacing(30)
+        layout.setSpacing(25)
         layout.setAlignment(Qt.AlignTop)
 
         welcomeLabel = QLabel("Welcome to CryptStorePi!")
@@ -239,8 +240,7 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
         continueInstructionLabel = QLabel("To start, click 'Next'!")
         continueInstructionLabel.setFont(QFont('Helvetica', 16, QFont.Normal))
         continueInstructionLabel.setAttribute(Qt.WA_TranslucentBackground)
-
-        layout.addWidget(welcomeLabel, 0, Qt.AlignHCenter)
+        layout.addWidget(welcomeLabel, 0, Qt.AlignHCenter | Qt.AlignTop)
         layout.addWidget(welcomeInstructionsLabel, 0, Qt.AlignHCenter)
         layout.addWidget(continueInstructionLabel, 0, Qt.AlignHCenter)
         self.setLayout(layout)
@@ -292,15 +292,16 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__network_data = {"remote": {"address": None, "port": None}, "ssh":{"username": None, "password": None}}
 
         layout = QVBoxLayout()
-        layout.setContentsMargins(100, 10, 0, 0)
-        layout.setSpacing(0)
-        layout.setAlignment(Qt.AlignTop)
 
         hostLayout = self.__setupHostLayout()
         sshLayout = self.__setupSSHLayout()
         layout.addLayout(hostLayout)
         layout.addLayout(sshLayout)
-        layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        layout.setAlignment(Qt.AlignHCenter)
+        layout.setContentsMargins(100, 50, 0, 0)
+        layout.setSpacing(0)
+        layout.addStretch(1)
+
         self.setLayout(layout)
 
     def __setupHostLayout(self):
@@ -320,6 +321,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__remoteHostNameInput = QLineEdit()
         self.__remoteHostNameInput.setObjectName("hostName")
         self.__remoteHostNameInput.setFont(QFont("Helvetica", 12))
+        self.__remoteHostNameInput.textChanged.connect(self.__onFormChanged)
         remoteHostNameInputLayout.addWidget(remoteHostNameLabel)
         remoteHostNameInputLayout.addWidget(self.__remoteHostNameInput)
 
@@ -328,6 +330,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__remotePortInput = QLineEdit()
         self.__remotePortInput.setObjectName("hostPort")
         self.__remotePortInput.setFont(self.__formInputFont)
+        self.__remotePortInput.textChanged.connect(self.__onFormChanged)
         remoteHostPortInputLayout.addWidget(remoteHostPortLabel)
         remoteHostPortInputLayout.addWidget(self.__remotePortInput)
 
@@ -365,6 +368,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__sshUsernameInput = QLineEdit()
         self.__sshUsernameInput.setObjectName("sshUsername")
         self.__sshUsernameInput.setFont(self.__formInputFont)
+        self.__sshUsernameInput.textChanged.connect(self.__onFormChanged)
         sshFormUsernameInputLayout.addWidget(sshUsernameLabel)
         sshFormUsernameInputLayout.addWidget(self.__sshUsernameInput)
 
@@ -373,6 +377,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__sshPasswordInput = QLineEdit()
         self.__sshPasswordInput.setObjectName("sshPassword")
         self.__sshPasswordInput.setFont(self.__formInputFont)
+        self.__sshPasswordInput.textChanged.connect(self.__onFormChanged)
         sshFormPasswordInputLayout.addWidget(sshPasswordLabel)
         sshFormPasswordInputLayout.addWidget(self.__sshPasswordInput)
 
@@ -415,3 +420,118 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__isSshOK = True
 
         self.formValidityChanged.emit()
+
+    def __onFormChanged(self):
+        self.__isSshOK = False
+        self.__isConnectionOK = False
+        self.__SSHTestResultLabel.setText("")
+        self.__remoteHostTestResultLabel.setText("")
+        self.formValidityChanged.emit()
+
+
+class SetupAccountsWidget(FirstStartWizardMiddleWidget):
+
+    def canProceed(self):
+        return len(self.__formData) > 0
+
+    def canGoBack(self):
+        return True
+
+    def _getStyle(self):
+        return ""
+
+    def _setup(self):
+        self.__setupMembers()
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        # layout.addLayout(self.__createEditorLayout())
+        layout.addWidget(AccountEditorWidget())
+        layout.addLayout(self.__createAccountListLayout())
+        self.setLayout(layout)
+
+    def __setupMembers(self):
+        self.__formData = []
+
+    def __createEditorLayout(self):
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("EDITOR"))
+        layout.addStretch(1)
+        return layout
+
+    def __createAccountListLayout(self):
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("ACC LIST"))
+        layout.addStretch(1)
+        return layout
+
+
+class AccountEditorWidget(QWidget):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__setup()
+        self.setAttribute(Qt.WA_StyledBackground)
+        self.setStyleSheet(
+            """
+                QRadioButton{border-width:2px; border-style:solid; border-radius:3px;}
+                QRadioButton::indicator{display:none}
+                QRadioButton::checked{border-color: #E39910;}
+                QRadioButton::unchecked{border-color: #777777;}
+            """
+        )
+
+    def __setup(self):
+        layout = QVBoxLayout()
+        layout.addWidget(AccountEditorSectionSeparatorWidget(sectionName="Account Type"))
+
+        accountTypeLayout = QHBoxLayout()
+        self.__dropBoxButton = QRadioButton("Dropbox")
+        self.__dropBoxButton.setFixedSize(150, 100)
+        self.__dropBoxButton.setChecked(True)
+        self.__driveButton = QRadioButton("Google Drive")
+        self.__driveButton.setFixedSize(150, 100)
+        accountTypeLayout.addWidget(self.__dropBoxButton)
+        accountTypeLayout.addWidget(self.__driveButton)
+        layout.addLayout(accountTypeLayout)
+        layout.addStretch(1)
+        self.setLayout(layout)
+
+
+class AccountEditorSectionSeparatorWidget(QWidget):
+
+    def __init__(self, *args, **kwargs):
+        self.__sectionText = kwargs.pop("sectionName")
+        self.__sectionFont = QFont(QFont('Helvetica', 12, QFont.Bold))
+        self.__sectionFontMetrics = QFontMetrics(self.__sectionFont)
+        super().__init__(*args, **kwargs)
+        self.setFixedSize(960, 25)
+
+    def paintEvent(self, e):
+        qp = QPainter()
+        qp.begin(self)
+        self.__drawWidget(qp)
+        qp.end()
+
+    def __drawWidget(self, painter):
+        width = self.__sectionFontMetrics.width(self.__sectionText)
+        height = self.__sectionFontMetrics.height()
+
+        painter.setFont(self.__sectionFont)
+        painter.setPen(QPen(QColor("#888888"), 1, Qt.SolidLine))
+        painter.drawText(QtCore.QRect(480 - (width / 2), 0, width, height), Qt.AlignCenter, self.__sectionText)
+        painter.drawLine(50, (height / 2) + 1, 480 - (width / 2 + 5), (height / 2) + 1)
+        painter.drawLine(485 + (width / 2), (height / 2) + 1, 910, (height / 2) + 1)
+
+
+class AccountListWidget(QWidget):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setFixedSize(320, 480)
+        self.__setup()
+
+    def __setup(self):
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Account List PLaceholder"))
+        self.setLayout(layout)
