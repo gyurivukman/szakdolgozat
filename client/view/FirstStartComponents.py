@@ -49,17 +49,19 @@ class FirstStartWizard(QWidget):
         self.setAttribute(Qt.WA_StyledBackground)
         self.setStyleSheet(
             """
-                QPushButton {
+                QPushButton#controlButton {
                     background-color:#e36410;
                     color:white;
                     width:150px;
                     border:0px;
                     height:30px;
                 }
-                QPushButton:disabled {
+        
+                QPushButton#controlButton:disabled {
                     background-color:#D8D8D8;
                 }
-                QPushButton:pressed {
+
+                QPushButton#controlButton:pressed {
                     background-color:#e68a4e;
                 }
             """
@@ -79,7 +81,9 @@ class FirstStartWizard(QWidget):
 
         self.__nextButton = QPushButton("Next")
         self.__nextButton.clicked.connect(self.__goNext)
+        self.__nextButton.setObjectName("controlButton")
         self.__previousButton = QPushButton("Back")
+        self.__previousButton.setObjectName("controlButton")
         self.__previousButton.setDisabled(True)
         self.__previousButton.clicked.connect(self.__goBack)
         controlLayout = QHBoxLayout()
@@ -445,7 +449,6 @@ class SetupAccountsWidget(FirstStartWizardMiddleWidget):
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        # layout.addLayout(self.__createEditorLayout())
         layout.addWidget(AccountEditorWidget())
         layout.addLayout(self.__createAccountListLayout())
         self.setLayout(layout)
@@ -470,39 +473,63 @@ class AccountEditorWidget(QWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__setup()
+        self.__accountButtons = []
+        self.__selectedAccountTypeIndex = 0
         self.setAttribute(Qt.WA_StyledBackground)
-        self.setStyleSheet(
-            """
-                QRadioButton{border-width:2px; border-style:solid; border-radius:3px;}
-                QRadioButton::indicator{display:none}
-                QRadioButton::checked{border-color: #E39910;}
-                QRadioButton::unchecked{border-color: #777777;}
-            """
-        )
+        self.setStyleSheet("border-right:1px solid #777777")
+        self.__activeButtonStyle = """
+            QPushButton{background-color:#FFFFFF; border:2px solid #e36410; width:100px; height:60px; }
+            QPushButton:pressed{border:2px solid #e36410;}
+            
+        """
+        self.__inactiveButtonStyle = """
+            QPushButton{background-color:#FFFFFF; border:2px solid #777777; width:100px; height:60px; }
+            QPushButton:pressed{border:2px solid #e36410;}
+        """
+        self.__setup()
 
     def __setup(self):
         layout = QVBoxLayout()
         layout.addWidget(AccountEditorSectionSeparatorWidget(sectionName="Account Type"))
-
-        accountTypeLayout = QHBoxLayout()
-        self.__dropBoxButton = QRadioButton("Dropbox")
-        self.__dropBoxButton.setFixedSize(150, 100)
-        self.__dropBoxButton.setChecked(True)
-        self.__driveButton = QRadioButton("Google Drive")
-        self.__driveButton.setFixedSize(150, 100)
-        accountTypeLayout.addWidget(self.__dropBoxButton)
-        accountTypeLayout.addWidget(self.__driveButton)
+        accountTypeLayout = self.__createAccountTypeLayout()
         layout.addLayout(accountTypeLayout)
+        layout.addWidget(AccountEditorSectionSeparatorWidget(sectionName="Credentials"))
         layout.addStretch(1)
         self.setLayout(layout)
+    
+    def __createAccountTypeLayout(self):
+        accountTypeLayout = QHBoxLayout()
+        accountTypeLayout.setContentsMargins(50, 0, 50 ,50)
+        accountTypeLayout.setSpacing(100)
+        self.__accountButtons = self.__createAccountButtons()
+        for button in self.__accountButtons:
+            accountTypeLayout.addWidget(button)
+        return accountTypeLayout
+    
+    def __createAccountButtons(self):
+        dropboxButton = QPushButton("Dropbox")
+        dropboxButton.setStyleSheet(self.__activeButtonStyle)
+        dropboxButton.clicked.connect(lambda: self.__onAccountTypeSelected(0))
+        
+        driveButton = QPushButton("Google Drive")
+        driveButton.setStyleSheet(self.__inactiveButtonStyle)
+        driveButton.clicked.connect(lambda: self.__onAccountTypeSelected(1))
 
+        return [dropboxButton, driveButton]
+    
+    def __onAccountTypeSelected(self, index):
+        print(index)
+        self.__accountButtons[self.__selectedAccountTypeIndex].setStyleSheet(self.__inactiveButtonStyle)
+        self.__accountButtons[index].setStyleSheet(self.__activeButtonStyle)
+        self.__selectedAccountTypeIndex = index
 
 class AccountEditorSectionSeparatorWidget(QWidget):
 
     def __init__(self, *args, **kwargs):
         self.__sectionText = kwargs.pop("sectionName")
         self.__sectionFont = QFont(QFont('Helvetica', 12, QFont.Bold))
+        self.__sectionFontColor = QColor("#777777")
+        self.__sectionLineColor = QColor("#ECECEC")
         self.__sectionFontMetrics = QFontMetrics(self.__sectionFont)
         super().__init__(*args, **kwargs)
         self.setFixedSize(960, 25)
@@ -518,8 +545,9 @@ class AccountEditorSectionSeparatorWidget(QWidget):
         height = self.__sectionFontMetrics.height()
 
         painter.setFont(self.__sectionFont)
-        painter.setPen(QPen(QColor("#888888"), 1, Qt.SolidLine))
+        painter.setPen(QPen(self.__sectionFontColor, 1, Qt.SolidLine))
         painter.drawText(QtCore.QRect(480 - (width / 2), 0, width, height), Qt.AlignCenter, self.__sectionText)
+        painter.setPen(QPen(self.__sectionLineColor, 1, Qt.SolidLine))
         painter.drawLine(50, (height / 2) + 1, 480 - (width / 2 + 5), (height / 2) + 1)
         painter.drawLine(485 + (width / 2), (height / 2) + 1, 910, (height / 2) + 1)
 
