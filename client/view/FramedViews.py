@@ -3,7 +3,7 @@ from pprint import pprint
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from PyQt5.QtCore import Qt, QSettings, QCoreApplication
 
-from view.FirstStartComponents import FirstStartWizard
+from view.ConfigurationComponents import FirstStartWizard
 
 
 class MainWindow(QMainWindow):
