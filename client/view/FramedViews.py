@@ -39,3 +39,7 @@ class MainWindow(QMainWindow):
 
     def __setupRegularView(self):
         pass
+
+    def closeEvent(self, event):
+        event.ignore()
+        self.hide()
