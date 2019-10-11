@@ -1,9 +1,11 @@
+import os
 from enum import IntEnum
 
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QLineEdit, QRadioButton
 from PyQt5.QtCore import QSettings, Qt, pyqtSlot, pyqtSignal
 from PyQt5 import QtCore
-from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics
+from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
+
 
 
 class FirstStartWizard(QWidget):
@@ -471,21 +473,24 @@ class AccountEditorWidget(QWidget):
     onAddAccount = pyqtSignal()
     onRemoveAccount = pyqtSignal()
 
+    __accountTypeButtons = []
+    __selectedAccountTypeIndex = 0
+    __accountForms = []
+
+    __activeButtonStyle = """
+            QPushButton{background-color:#FFFFFF; border:2px solid #e36410; width:350px; height:60px; font-size:18px;}
+            QPushButton:pressed{border:2px solid #e36410;}        
+        """
+    __inactiveButtonStyle = """
+            QPushButton{background-color:#FFFFFF; border:2px solid #777777; width:350px; height:60px; font-size:18px;}
+            QPushButton:pressed{border:2px solid #e36410;}
+        """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__accountButtons = []
-        self.__selectedAccountTypeIndex = 0
-        self.setAttribute(Qt.WA_StyledBackground)
+        self.setAttribute(Qt.WA_StyledBackground)    
         self.setStyleSheet("border-right:1px solid #777777")
-        self.__activeButtonStyle = """
-            QPushButton{background-color:#FFFFFF; border:2px solid #e36410; width:100px; height:60px; }
-            QPushButton:pressed{border:2px solid #e36410;}
-            
-        """
-        self.__inactiveButtonStyle = """
-            QPushButton{background-color:#FFFFFF; border:2px solid #777777; width:100px; height:60px; }
-            QPushButton:pressed{border:2px solid #e36410;}
-        """
+        self.__accountForms = [DropboxAccountFormWidget(), GoogleDriveAccountFormWidget()]
         self.__setup()
 
     def __setup(self):
@@ -493,48 +498,44 @@ class AccountEditorWidget(QWidget):
         layout.addWidget(AccountEditorSectionSeparatorWidget(sectionName="Account Type"))
         layout.addLayout(self.__createAccountTypeLayout())
         layout.addWidget(AccountEditorSectionSeparatorWidget(sectionName="Credentials"))
-
-        addButton = QPushButton("Add Account")
-        addButton.clicked.connect(self.__addAccountClicked)
-        removeButton = QPushButton("Remove Account")
-        removeButton.clicked.connect(self.__removeAccountClicked)
-        
-        layout.addWidget(addButton)
-        layout.addWidget(removeButton)
+        for accountForm in self.__accountForms:
+            layout.addWidget(accountForm)
         layout.addStretch(1)
         self.setLayout(layout)
-    
+
     def __createAccountTypeLayout(self):
         accountTypeLayout = QHBoxLayout()
-        accountTypeLayout.setContentsMargins(50, 0, 50 ,50)
-        accountTypeLayout.setSpacing(100)
-        self.__accountButtons = self.__createAccountButtons()
-        for button in self.__accountButtons:
-            accountTypeLayout.addWidget(button)
+        accountTypeLayout.setContentsMargins(50, 0, 30, 0)
+        self.__accountTypeButtons = self.__createAccountButtons()
+        accountTypeLayout.addWidget(self.__accountTypeButtons[0], 0, Qt.AlignLeading)
+        accountTypeLayout.addWidget(self.__accountTypeButtons[1], 0, Qt.AlignTrailing)
         return accountTypeLayout
-    
+
     def __createAccountButtons(self):
         dropboxButton = QPushButton("Dropbox")
+        dropboxButton.setIcon(QIcon('./view/assets/dropbox.png'))
+        dropboxButton.setIconSize(QtCore.QSize(50,50))
         dropboxButton.setStyleSheet(self.__activeButtonStyle)
         dropboxButton.clicked.connect(lambda: self.__onAccountTypeSelected(0))
-        
+
         driveButton = QPushButton("Google Drive")
+        driveButton.setIcon(QIcon('./view/assets/googledrive.png'))
         driveButton.setStyleSheet(self.__inactiveButtonStyle)
         driveButton.clicked.connect(lambda: self.__onAccountTypeSelected(1))
 
         return [dropboxButton, driveButton]
-    
+
     def __onAccountTypeSelected(self, index):
-        print(index)
-        self.__accountButtons[self.__selectedAccountTypeIndex].setStyleSheet(self.__inactiveButtonStyle)
-        self.__accountButtons[index].setStyleSheet(self.__activeButtonStyle)
+        self.__accountTypeButtons[self.__selectedAccountTypeIndex].setStyleSheet(self.__inactiveButtonStyle)
+        self.__accountTypeButtons[index].setStyleSheet(self.__activeButtonStyle)
         self.__selectedAccountTypeIndex = index
-    
+
     def __addAccountClicked(self):
         self.onAddAccount.emit()
 
     def __removeAccountClicked(self):
         self.onRemoveAccount.emit()
+
 
 class AccountEditorSectionSeparatorWidget(QWidget):
 
@@ -547,7 +548,7 @@ class AccountEditorSectionSeparatorWidget(QWidget):
         super().__init__(*args, **kwargs)
         self.setFixedSize(960, 25)
 
-    def paintEvent(self, e):
+    def paintEvent(self, _):
         qp = QPainter()
         qp.begin(self)
         self.__drawWidget(qp)
@@ -579,13 +580,50 @@ class AccountListWidget(QWidget):
         self.__accounts = []
         self.__selectedAccountIndex = -1
         self.setLayout(self.__layout)
-    
+
     def addAccount(self):
         account = QLabel(f'Account {len(self.__accounts)+1}')
         self.__accounts.append(account)
         self.__layout.insertWidget(self.__layout.count() - 1, account)
-    
+
     def removeAccount(self):
         self.__accounts[-1].hide()
         self.__layout.removeWidget(self.__accounts[-1])
         del self.__accounts[-1]
+
+
+class AccountFormBaseWidget(QWidget):
+    _formData = {}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setFixedSize(960, 200)
+        self.setStyleSheet("QWidget{border:1px solid red;}")
+
+    def getFormData(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'self.getFormData'. It should return a dictionary.")
+
+
+class DropboxAccountFormWidget(AccountFormBaseWidget):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__setup()
+
+    def __setup(self):
+        layout = QVBoxLayout()
+        layout.setContentsMargins(50,0,50,0)
+        layout.addWidget(QLabel('Dropbox form'))
+        self.setLayout(layout)
+
+
+class GoogleDriveAccountFormWidget(AccountFormBaseWidget):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__setup()
+
+    def __setup(self):
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel('Drive form'))
+        self.setLayout(layout)
