@@ -7,7 +7,6 @@ from PyQt5 import QtCore
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
 
 
-
 class FirstStartWizard(QWidget):
     """
         This is the wizard widget that is being shown if the user hasn't configured the software yet.
@@ -132,7 +131,7 @@ class WizardProgressWidget(QWidget):
         self.__inactiveStateColor = QColor('#D8D8D8')
         self.__separatorLineColor = QColor('#777777')
         self.__stageIndexFont = QFont('Arial', 32, QFont.Bold, False)
-        self.__stageLabelFont = QFont('Arial', 12, QFont.Bold, False)
+        self.__stageLabelFont = QFont('Arial', 10, QFont.Bold, False)
         self.setFixedSize(1280, 160)
 
     def paintEvent(self, e):
@@ -403,7 +402,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         sshFormLayout.addLayout(sshFormPasswordInputLayout)
         sshFormLayout.setAlignment(Qt.AlignLeft)
 
-        sshDescriptionLabel = QLabel("SSH Username and password. CryptStorePi uses SSH to upload and download\nyour files to and from the CryptStorePi encryption server.")
+        sshDescriptionLabel = QLabel("SSH Username and password.\nCryptStorePi uses SSH to upload and download your files to and from\nthe CryptStorePi encryption server.")
         sshDescriptionLabel.setFont(self.__descriptionFont)
         sshDescriptionLabel.setAlignment(Qt.AlignBottom)
         sshFormLayout.addWidget(sshDescriptionLabel)
