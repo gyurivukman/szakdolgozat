@@ -19,9 +19,18 @@ def createTrayIcon():
 
 def createTrayMenu():
     menu = QMenu()
+
+    openAction = menu.addAction("Open")
+    openAction.triggered.connect(onOpenClicked)
+
     exitAction = menu.addAction("Exit")
     exitAction.triggered.connect(app.exit)
+
     return menu
+
+def onOpenClicked():
+    if mainWindow.isHidden():
+        mainWindow.show()
 
 def iconActivated(reason):
     if reason == QSystemTrayIcon.DoubleClick:

@@ -498,8 +498,10 @@ class AccountEditorWidget(QWidget):
         layout.addWidget(AccountEditorSectionSeparatorWidget(sectionName="Account Type"))
         layout.addLayout(self.__createAccountTypeLayout())
         layout.addWidget(AccountEditorSectionSeparatorWidget(sectionName="Credentials"))
-        for accountForm in self.__accountForms:
+        for accountForm, index in zip(self.__accountForms, range(len(self.__accountForms))):
             layout.addWidget(accountForm)
+            if index > 0 :
+                accountForm.hide()
         layout.addStretch(1)
         self.setLayout(layout)
 
@@ -514,12 +516,13 @@ class AccountEditorWidget(QWidget):
     def __createAccountButtons(self):
         dropboxButton = QPushButton("Dropbox")
         dropboxButton.setIcon(QIcon('./view/assets/dropbox.png'))
-        dropboxButton.setIconSize(QtCore.QSize(50,50))
+        dropboxButton.setIconSize(QtCore.QSize(35, 35))
         dropboxButton.setStyleSheet(self.__activeButtonStyle)
         dropboxButton.clicked.connect(lambda: self.__onAccountTypeSelected(0))
 
         driveButton = QPushButton("Google Drive")
         driveButton.setIcon(QIcon('./view/assets/googledrive.png'))
+        driveButton.setIconSize(QtCore.QSize(35, 35))
         driveButton.setStyleSheet(self.__inactiveButtonStyle)
         driveButton.clicked.connect(lambda: self.__onAccountTypeSelected(1))
 
@@ -528,7 +531,9 @@ class AccountEditorWidget(QWidget):
     def __onAccountTypeSelected(self, index):
         self.__accountTypeButtons[self.__selectedAccountTypeIndex].setStyleSheet(self.__inactiveButtonStyle)
         self.__accountTypeButtons[index].setStyleSheet(self.__activeButtonStyle)
+        self.__accountForms[self.__selectedAccountTypeIndex].hide()
         self.__selectedAccountTypeIndex = index
+        self.__accountForms[index].show()
 
     def __addAccountClicked(self):
         self.onAddAccount.emit()
@@ -592,19 +597,19 @@ class AccountListWidget(QWidget):
         del self.__accounts[-1]
 
 
-class AccountFormBaseWidget(QWidget):
+class BaseAccountFormWidget(QWidget):
     _formData = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setFixedSize(960, 200)
+        self.setFixedSize(960, 335)
         self.setStyleSheet("QWidget{border:1px solid red;}")
 
     def getFormData(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'self.getFormData'. It should return a dictionary.")
 
 
-class DropboxAccountFormWidget(AccountFormBaseWidget):
+class DropboxAccountFormWidget(BaseAccountFormWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -612,12 +617,12 @@ class DropboxAccountFormWidget(AccountFormBaseWidget):
 
     def __setup(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(50,0,50,0)
+        layout.setContentsMargins(50, 0, 50, 0)
         layout.addWidget(QLabel('Dropbox form'))
         self.setLayout(layout)
 
 
-class GoogleDriveAccountFormWidget(AccountFormBaseWidget):
+class GoogleDriveAccountFormWidget(BaseAccountFormWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -625,5 +630,6 @@ class GoogleDriveAccountFormWidget(AccountFormBaseWidget):
 
     def __setup(self):
         layout = QVBoxLayout()
+        layout.setContentsMargins(50, 0, 50, 0)
         layout.addWidget(QLabel('Drive form'))
         self.setLayout(layout)
