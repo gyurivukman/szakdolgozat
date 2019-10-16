@@ -24,7 +24,7 @@ def createTrayMenu():
     openAction.triggered.connect(onOpenClicked)
 
     exitAction = menu.addAction("Exit")
-    exitAction.triggered.connect(app.exit)
+    exitAction.triggered.connect(app.quit)
 
     return menu
 
