@@ -22,5 +22,6 @@ class Task:
 @dataclass
 class AccountData:
     accountType: int
+    identifier: str
     data: dict
     id: int = None

@@ -690,8 +690,7 @@ class AccountListWidget(QWidget):
 
 
 class BaseAccountFormWidget(QWidget):
-
-    _formData = {'accountType':None, 'data':None, 'id':None}
+    _accountType = None
     _formLabelFont = QFont("Helvetica", 13)
     _descriptionFont = QFont("Helvetica", 10)
     _formInputFont = QFont("Helvetica", 11)
@@ -701,7 +700,7 @@ class BaseAccountFormWidget(QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFixedSize(942, 295)
-        self._setup()
+        layout = self._createAndSetupOwnLayout()
 
     def getAccountData(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'getAccountData'. It should return an instance of models.AccountData.")
@@ -709,68 +708,88 @@ class BaseAccountFormWidget(QWidget):
     def isFormValid(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'isFormValid'. It should return a boolean.")
 
-    def _setup(self):
-        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_setup'. It should setup the components layouts and widgets.")
+    def _createAndSetupOwnLayout(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_createAndSetupOwnLayout'. It should return a layout.")
 
 
 class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._helpFrame = self._createHelpFrame()
+        self._helpLayout = self._createHelpLayout()
         self._setupStyle()
 
-    def _setup(self):
+    def _createAndSetupOwnLayout(self):
         layout = QVBoxLayout()
         layout.setContentsMargins(80, 0, 0, 0)
-
         layout.addLayout(self.__createAccountFormLayout())
         layout.addLayout(self.__createHelpButtonLayout())
         layout.addStretch(1)
         self.setLayout(layout)
 
-    def _createHelpFrame(self):
-        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_createHelpFrame'. It should create and return a Dialog widget.")
+    def _createHelpLayout(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_createHelpLayout'. It should create and return a layout that can be displayed in a dialog widget.")
 
     def _getTokenInputLabel(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_getTokenDescription'. It should create and return a Dialog widget.")
 
     def __createAccountFormLayout(self):
-        formLayout = QHBoxLayout()
-        formInputLayout = QVBoxLayout()
+        layout = QVBoxLayout()
+        identifierFormLayout = QHBoxLayout()
+        identifierInputFormLayout = QVBoxLayout()
+        tokenFormLayout = QHBoxLayout()
+        tokenInputFormLayout = QVBoxLayout()
 
-        tokenInputLabel = QLabel("API Token")
+        identifierInputLabel = QLabel("Account identifier")
+        identifierInputLabel.setFont(self._formLabelFont)
+
+        self._identifierInput = QLineEdit()
+        self._identifierInput.setFont(self._formInputFont)
+        self._identifierInput.textChanged.connect(self._onInputChanged)
+
+        identifierDescription = QLabel("An arbitrary name to easily identify your cloud account\nin cryptStorePi. This is NOT the username!")
+        identifierDescription.setAlignment(Qt.AlignBottom)
+        identifierDescription.setFont(self._descriptionFont)
+        
+        identifierInputFormLayout.addWidget(identifierInputLabel)
+        identifierInputFormLayout.addWidget(self._identifierInput)
+        identifierFormLayout.addLayout(identifierInputFormLayout)
+        identifierFormLayout.addWidget(identifierDescription)
+
+        tokenInputLabel = QLabel(self._getTokenInputLabel())
         tokenInputLabel.setFont(self._formLabelFont)
 
         self._tokenInput = QLineEdit()
         self._tokenInput.setFont(self._formInputFont)
-        self._tokenInput.textChanged.connect(self._onTokenInputChanged)
+        self._tokenInput.textChanged.connect(self._onInputChanged)
 
-        description = QLabel("For help, click the 'How to get a token?' button!")
-        description.setAlignment(Qt.AlignBottom)
-        description.setFont(self._descriptionFont)
+        tokenFormDescription = QLabel("For help, click the 'How to get a token?' button!")
+        tokenFormDescription.setAlignment(Qt.AlignBottom)
+        tokenFormDescription.setFont(self._descriptionFont)
 
-        formInputLayout.addWidget(tokenInputLabel)
-        formInputLayout.addWidget(self._tokenInput)
+        tokenInputFormLayout.addWidget(tokenInputLabel)
+        tokenInputFormLayout.addWidget(self._tokenInput)
+        tokenFormLayout.addLayout(tokenInputFormLayout)
+        tokenFormLayout.addWidget(tokenFormDescription)
 
-        formLayout.addLayout(formInputLayout)
-        formLayout.addWidget(description)
-
-        return formLayout
-
-    def __createHelpButtonLayout(self):
-        layout = QHBoxLayout()
-        layout.setContentsMargins(0, 50, 0, 0)
-        helpButton = QPushButton("How to get an access token?")
-        helpButton.setObjectName("helpButton")
-        helpButton.clicked.connect(self._openHelpFrame)
-        layout.addWidget(helpButton, Qt.AlignHCenter)
+        layout.addLayout(identifierFormLayout)
+        layout.addLayout(tokenFormLayout)
+        layout.addStretch(1)
 
         return layout
 
-    def _onTokenInputChanged(self):
-        isValid = self.isFormValid()
-        self.formValidityChanged.emit(isValid)
+    def __createHelpButtonLayout(self):
+        layout = QHBoxLayout()
+        layout.setContentsMargins(-50, 50, 0, 0)
+        helpButton = QPushButton("How to get an access token?")
+        helpButton.setObjectName("helpButton")
+        helpButton.clicked.connect(self._openHelpFrame)
+        layout.addWidget(helpButton, Qt.AlignLeading)
+
+        return layout
+
+    def _onInputChanged(self):
+        self.formValidityChanged.emit(self.isFormValid())
 
     def _openHelpFrame(self):
         print("Opening help dialog!")
@@ -778,7 +797,7 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
     def _setupStyle(self):
         self.setStyleSheet(
             """
-                QLineEdit {border:1px solid #E39910; height:25px; max-width: 400px; margin-right:40px;}
+                QLineEdit {border:1px solid #E39910; height:25px; width: 400px; max-width: 400px; margin-right:40px;}
                 QLineEdit:focus {border:2px solid #E39910}
                 QLineEdit:hover {border:2px solid #E39910}
 
@@ -797,19 +816,21 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
         )
 
     def getAccountData(self):
-        return AccountData(**self._formData)
+        accountIdenfitifer = self._identifierInput.text().strip()
+        apiToken = self._tokenInput.text().strip()
+        return AccountData(self._accountType, accountIdenfitifer, apiToken)
 
     def isFormValid(self):
-        return len(self._tokenInput.text().strip()) > 0
+        return len(self._tokenInput.text().strip()) > 0 and len(self._identifierInput.text().strip()) > 0
 
 
 class DropboxAccountForm(APITokenAccountFormWithHelpDialogWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._formData['accountType'] = AccountTypes.Dropbox
+        self._accountType = AccountTypes.Dropbox
 
-    def _createHelpFrame(self):
+    def _createHelpLayout(self):
         return None
 
     def _getTokenInputLabel(self):
@@ -820,9 +841,9 @@ class DriveAccountForm(APITokenAccountFormWithHelpDialogWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._formData['accountType'] = AccountTypes.Dropbox
+        self._accountType = AccountTypes.Dropbox
 
-    def _createHelpFrame(self):
+    def _createHelpLayout(self):
         return None
 
     def _getTokenInputLabel(self):
