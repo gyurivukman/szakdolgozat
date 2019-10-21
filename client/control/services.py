@@ -39,13 +39,47 @@ class ErrorDisplayService:
 
 class TaskManager(BaseWorkerService):
     def __init__(self):
-        self.__fileScannerThread = QThread()
+        self.__fileScannerWorker = QThread()
         self.__fileScannerService = FileScannerWorkerService()
-        self.__fileScannerService.moveToThread(self.__fileScannerThread)
-        self.__fileScannerThread.started.connect(self.__fileScannerService.start)
-    
+        self.__fileScannerService.moveToThread(self.__fileScannerWorker)
+        self.__fileScannerWorker.started.connect(self.__fileScannerService.start)
+
+        self.__sshWorker = QThread()
+        self.__sshService = SSHService()
+        self.__sshService.moveToThread(self.__sshWorker)
+        self.__sshWorker.started.connect(self.__sshService.start)
+
+        self.__commsWorker = QThread()
+        self.__networkService = NetworkService()
+        self.__networkService.moveToThread(self.__commsWorker)
+        self.__commsWorker.started.connect(self.__networkService.start)
+
     def start(self):
-        self.__fileScannerThread.start()
-    
+        self.__fileScannerWorker.start()
+        self.__sshWorker.start()
+        self.__commsWorker.start()
+
     def stop(self):
         self.__fileScannerService.stop()
+        self.__sshWorker.stop()
+        self.__commsWorker.stop()
+
+
+class NetworkService(BaseWorkerService):
+    def start(self):
+        while self._shouldRun:
+            print("networkService working...")
+            time.sleep(2)
+
+    def stop(self):
+        self._shouldRun = False
+
+
+class SSHService(BaseWorkerService):
+    def start(self):
+        while self._shouldRun:
+            print("ssh working...")
+            time.sleep(6)
+
+    def stop(self):
+        self._shouldRun = False
