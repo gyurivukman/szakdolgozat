@@ -1,7 +1,11 @@
 import os
 from enum import IntEnum
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QLineEdit, QRadioButton
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QLabel, 
+    QHBoxLayout, QPushButton, QLineEdit, 
+    QRadioButton, QFileDialog
+)
 from PyQt5.QtCore import QSettings, Qt, pyqtSignal, pyqtSlot
 from PyQt5 import QtCore
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
@@ -150,7 +154,7 @@ class WizardProgressWidget(QWidget):
         pen = QPen(self.__activeStateColor, 6, Qt.SolidLine)
         for state in self.WIZARD_PROGRESS_STATES:
             posX = (state.value * 320) + 120
-            posY = 20
+            posY = 15
             width = 80
             height = 80
             if state <= self.__state:
@@ -162,7 +166,7 @@ class WizardProgressWidget(QWidget):
             painter.drawRect(posX, posY, width, height)
             painter.drawText(QtCore.QRect(posX, posY, width, height), Qt.AlignCenter, str(state.value + 1))
             painter.setFont(self.__stageLabelFont)
-            painter.drawText(QtCore.QRect(posX, posY + 90, width, 25), Qt.AlignCenter, state.toDisplayValue())
+            painter.drawText(QtCore.QRect(posX, posY + 90, width, 30), Qt.AlignCenter, state.toDisplayValue())
             if state > self.WIZARD_PROGRESS_STATES.WELCOME:
                 painter.drawLine(posX - 6, posY + (height / 2), posX - 234, posY + (height / 2))
 
@@ -196,7 +200,7 @@ class WizardProgressWidget(QWidget):
             return WizardProgressWidget.WIZARD_PROGRESS_STATES(self.value - 1)
 
         def toDisplayValue(self):
-            ENUM_DISPLAY_VALUES = ['Welcome', 'Network', 'Accounts', 'Summary']
+            ENUM_DISPLAY_VALUES = ['Welcome', 'Network &\nDirectory', 'Accounts', 'Summary']
             return ENUM_DISPLAY_VALUES[self.value]
 
 
@@ -266,26 +270,26 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
 class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
     def canProceed(self):
-        return self.__isConnectionOK and self.__isSshOK
+        return self.__isConnectionOK and self.__isSshOK and len(self.__chosenDirectoryPath) > 0
 
     def canGoBack(self):
         return True
 
     def _getStyle(self):
         return """
-            QLineEdit {border:1px solid #E39910;}
+            QLineEdit {border:1px solid #E39910; height:25px;}
             QLineEdit:focus {border:2px solid #E39910}
             QLineEdit:hover {border:2px solid #E39910}
+            QPushButton {width: 150px; max-width:150px; height:25px; border:0; margin-right:20px; background-color:#e36410; color:white;}
+            QPushButton#chooseSyncDir{height:27px; width:80px;max-width:80px;margin-right:40px;}
+            QPushButton:pressed {background-color:#e68a4e;}
+            
 
-            QLineEdit#hostName {max-width: 500px; height:25px; margin-right:20px;}
-            QLineEdit#hostPort {max-width: 80px; height:25px; margin-right:40px;}
-            QPushButton#testConnection {width: 150px; max-width:150px; border:0; height:25px; margin-right:20px; background-color:#e36410; color:white;}
-            QPushButton#testConnection:pressed {background-color:#e68a4e;}
+            QLineEdit#hostName, QLineEdit#syncDirectory {max-width: 500px; margin-right:20px;}
+            QLineEdit#hostPort {max-width: 80px; margin-right:40px;}
 
-            QLineEdit#sshUsername{max-width: 290px;height:25px;margin-right:20px;}
-            QLineEdit#sshPassword{max-width: 290px;height:25px;margin-right:40px;}
-            QPushButton#testSSH {width: 150px; max-width:150px; border:0; height:25px; margin-right:20px; background-color:#e36410; color:white;}
-            QPushButton#testSSH:pressed {background-color:#e68a4e;}
+            QLineEdit#sshUsername{max-width: 290px; margin-right:20px;}
+            QLineEdit#sshPassword{max-width: 290px; margin-right:40px;}
         """
 
     def _setup(self):
@@ -297,13 +301,16 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__isSshOK = False
 
         self.__network_data = {"remote": {"address": None, "port": None}, "ssh":{"username": None, "password": None}}
+        self.__chosenDirectoryPath = ""
 
         layout = QVBoxLayout()
 
-        hostLayout = self.__setupHostLayout()
-        sshLayout = self.__setupSSHLayout()
+        hostLayout = self.__createHostLayout()
+        sshLayout = self.__createSSHLayout()
+        directoryLayout = self.__createSyncDirectoryLayout()
         layout.addLayout(hostLayout)
         layout.addLayout(sshLayout)
+        layout.addLayout(directoryLayout)
         layout.setAlignment(Qt.AlignHCenter)
         layout.setContentsMargins(100, 50, 0, 0)
         layout.setSpacing(0)
@@ -311,7 +318,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
         self.setLayout(layout)
 
-    def __setupHostLayout(self):
+    def __createHostLayout(self):
         hostLayout = QVBoxLayout()
 
         hostFormLayout = QHBoxLayout()
@@ -328,7 +335,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__remoteHostNameInput = QLineEdit()
         self.__remoteHostNameInput.setObjectName("hostName")
         self.__remoteHostNameInput.setFont(QFont("Helvetica", 12))
-        self.__remoteHostNameInput.textChanged.connect(self.__onFormChanged)
+        self.__remoteHostNameInput.textChanged.connect(self.__onFormInputChanged)
         remoteHostNameInputLayout.addWidget(remoteHostNameLabel)
         remoteHostNameInputLayout.addWidget(self.__remoteHostNameInput)
 
@@ -337,7 +344,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__remotePortInput = QLineEdit()
         self.__remotePortInput.setObjectName("hostPort")
         self.__remotePortInput.setFont(self.__formInputFont)
-        self.__remotePortInput.textChanged.connect(self.__onFormChanged)
+        self.__remotePortInput.textChanged.connect(self.__onFormInputChanged)
         remoteHostPortInputLayout.addWidget(remoteHostPortLabel)
         remoteHostPortInputLayout.addWidget(self.__remotePortInput)
 
@@ -363,7 +370,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         hostLayout.setAlignment(Qt.AlignHCenter)
         return hostLayout
 
-    def __setupSSHLayout(self):
+    def __createSSHLayout(self):
         sshLayout = QVBoxLayout()
         sshFormLayout = QHBoxLayout()
         sshFormUsernameInputLayout = QVBoxLayout()
@@ -375,7 +382,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__sshUsernameInput = QLineEdit()
         self.__sshUsernameInput.setObjectName("sshUsername")
         self.__sshUsernameInput.setFont(self.__formInputFont)
-        self.__sshUsernameInput.textChanged.connect(self.__onFormChanged)
+        self.__sshUsernameInput.textChanged.connect(self.__onFormInputChanged)
         sshFormUsernameInputLayout.addWidget(sshUsernameLabel)
         sshFormUsernameInputLayout.addWidget(self.__sshUsernameInput)
 
@@ -384,7 +391,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__sshPasswordInput = QLineEdit()
         self.__sshPasswordInput.setObjectName("sshPassword")
         self.__sshPasswordInput.setFont(self.__formInputFont)
-        self.__sshPasswordInput.textChanged.connect(self.__onFormChanged)
+        self.__sshPasswordInput.textChanged.connect(self.__onFormInputChanged)
         sshFormPasswordInputLayout.addWidget(sshPasswordLabel)
         sshFormPasswordInputLayout.addWidget(self.__sshPasswordInput)
 
@@ -411,8 +418,43 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
         sshLayout.addLayout(sshFormLayout)
         sshLayout.addLayout(sshFormTestConnectionLayout)
-        sshLayout.setContentsMargins(0, 40, 0, 0)
+        sshLayout.setContentsMargins(0, 25, 0, 0)
         return sshLayout
+    
+    def __createSyncDirectoryLayout(self):
+        directoryLayout = QHBoxLayout()
+        directoryFormLayout = QVBoxLayout()
+        chooseButtonLayout = QVBoxLayout()
+
+        syncDirLabel = QLabel("Synchronization directory")
+        syncDirLabel.setFont(self.__formLabelFont)
+
+        syncDirDescription = QLabel("Choose a directory, which will be used to synchronize with the cloud services.")
+        syncDirDescription.setFont(self.__descriptionFont)
+        syncDirDescription.setAlignment(Qt.AlignBottom)
+
+        self.__syncDirInput = QLineEdit()
+        self.__syncDirInput.setObjectName("syncDirectory")
+        self.__syncDirInput.setFont(QFont("Helvetica", 12))
+        self.__syncDirInput.setEnabled(False)
+
+        chooseSyncDirButton = QPushButton("Choose")
+        chooseSyncDirButton.setObjectName("chooseSyncDir")
+        chooseSyncDirButton.clicked.connect(self.__openDirectoryBrowser)
+
+        directoryFormLayout.setContentsMargins(0, 0, 0, 0)
+        directoryFormLayout.addWidget(syncDirLabel)
+        directoryFormLayout.addWidget(self.__syncDirInput)
+
+        chooseButtonLayout.addStretch(1)
+        chooseButtonLayout.addWidget(chooseSyncDirButton)
+
+        directoryLayout.addLayout(directoryFormLayout)
+        directoryLayout.addLayout(chooseButtonLayout)
+        directoryLayout.addWidget(syncDirDescription)
+        directoryLayout.setContentsMargins(0, 25, 0, 0)
+
+        return directoryLayout
 
     def __test_connection(self):
         self.__remoteHostTestResultLabel.setStyleSheet("color:green;")
@@ -427,8 +469,13 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__isSshOK = True
 
         self.formValidityChanged.emit()
+    
+    def __openDirectoryBrowser(self):
+        self.__chosenDirectoryPath = str(QFileDialog.getExistingDirectory(self, "Select the synchronization directory"))
+        self.__syncDirInput.setText(self.__chosenDirectoryPath)
+        self.formValidityChanged.emit()
 
-    def __onFormChanged(self):
+    def __onFormInputChanged(self):
         self.__isSshOK = False
         self.__isConnectionOK = False
         self.__SSHTestResultLabel.setText("")
