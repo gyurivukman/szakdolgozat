@@ -6,6 +6,8 @@ from PyQt5.QtCore import QSettings, Qt, pyqtSignal, pyqtSlot
 from PyQt5 import QtCore
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
 
+from model.models import AccountData, AccountTypes
+
 
 class FirstStartWizard(QWidget):
     """
@@ -576,7 +578,7 @@ class AccountEditorWidget(QWidget):
         return layout
 
     def __onAccountSave(self):
-        print(self.__accountForms[self.__selectedAccountTypeIndex].getFormData())
+        print(self.__accountForms[self.__selectedAccountTypeIndex].getAccountData())
 
     @pyqtSlot(bool)
     def __onFormValidityChanged(self, value):
@@ -642,7 +644,7 @@ class AccountListWidget(QWidget):
 
 class BaseAccountFormWidget(QWidget):
 
-    _formData = {}
+    _formData = {'accountType':None, 'data':None, 'id':None}
     _formLabelFont = QFont("Helvetica", 13)
     _descriptionFont = QFont("Helvetica", 10)
     _formInputFont = QFont("Helvetica", 11)
@@ -654,8 +656,8 @@ class BaseAccountFormWidget(QWidget):
         self.setFixedSize(942, 295)
         self._setup()
 
-    def getFormData(self):
-        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'getFormData'. It should return a dictionary.")
+    def getAccountData(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'getAccountData'. It should return an instance of models.AccountData.")
 
     def isFormValid(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'isFormValid'. It should return a boolean.")
@@ -747,8 +749,8 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
             """
         )
 
-    def getFormData(self):
-        return {'token': self._tokenInput.text()}
+    def getAccountData(self):
+        return AccountData(**self._formData)
 
     def isFormValid(self):
         return len(self._tokenInput.text().strip()) > 0
@@ -756,17 +758,25 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
 
 class DropboxAccountForm(APITokenAccountFormWithHelpDialogWidget):
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._formData['accountType'] = AccountTypes.Dropbox
+
     def _createHelpFrame(self):
         return None
-    
+
     def _getTokenInputLabel(self):
         return "Dropbox API Token"
 
 
 class DriveAccountForm(APITokenAccountFormWithHelpDialogWidget):
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._formData['accountType'] = AccountTypes.Dropbox
+
     def _createHelpFrame(self):
         return None
-    
+
     def _getTokenInputLabel(self):
         return "Google Drive API Token"
