@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QMainWindow, QApplication
 from PyQt5.QtCore import Qt, QSettings, QCoreApplication
 
 from view.ConfigurationComponents import FirstStartWizard
+from control.services import TaskManager
 
 
 class MainWindow(QMainWindow):
@@ -13,6 +14,7 @@ class MainWindow(QMainWindow):
         self.setAttribute(Qt.WA_StyledBackground)
         self.setStyleSheet("background:#FFFFFF")
         self.__settings = QSettings()
+        self.__taskManager = TaskManager()
 
     def initGUI(self):
         self.setWindowTitle('CryptStorePi')
@@ -31,6 +33,8 @@ class MainWindow(QMainWindow):
         self.setFixedSize(1280, 720)
         self.__moveToCenter(screenSize)
         self.setCentralWidget(FirstStartWizard(self))
+        self.__taskManager.start()
+
 
     def __moveToCenter(self, screenSize):
         posX = (screenSize.width() / 2) - (self.width() / 2)

@@ -7,8 +7,20 @@ class AccountTypes(IntEnum):
     GoogleDrive = 1
 
 
+class TaskPriorities(IntEnum):
+    HIGH = 0
+    NORMAL = 1
+    LOW = 2
+
+
+@dataclass(order=True)
+class Task:
+    priority: int
+    data: dict
+
+
 @dataclass
-class AccountData():
+class AccountData:
     accountType: int
     data: dict
     id: int = None
