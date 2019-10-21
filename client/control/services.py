@@ -22,23 +22,13 @@ class TaskBasedWorkerService(BaseWorkerService):
         self._currentTask = None
         self._taskQueue = PriorityQueue()
 
-
-class FileScannerWorkerService(BaseWorkerService):
-    def start(self):
-        while self._shouldRun:
-            print("filescanner working...")
-            time.sleep(5)
-
-    def stop(self):
-        self._shouldRun = False
-
-
 class ErrorDisplayService:
     pass
 
 
 class TaskManager(BaseWorkerService):
     def __init__(self):
+        super().__init__()
         self.__fileScannerWorker = QThread()
         self.__fileScannerService = FileScannerWorkerService()
         self.__fileScannerService.moveToThread(self.__fileScannerWorker)
@@ -69,7 +59,7 @@ class NetworkService(BaseWorkerService):
     def start(self):
         while self._shouldRun:
             print("networkService working...")
-            time.sleep(2)
+            time.sleep(3)
 
     def stop(self):
         self._shouldRun = False
@@ -79,7 +69,17 @@ class SSHService(BaseWorkerService):
     def start(self):
         while self._shouldRun:
             print("ssh working...")
-            time.sleep(6)
+            time.sleep(3)
+
+    def stop(self):
+        self._shouldRun = False
+
+
+class FileScannerWorkerService(BaseWorkerService):
+    def start(self):
+        while self._shouldRun:
+            print("filescanner working...")
+            time.sleep(3)
 
     def stop(self):
         self._shouldRun = False

@@ -35,7 +35,6 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(FirstStartWizard(self))
         self.__taskManager.start()
 
-
     def __moveToCenter(self, screenSize):
         posX = (screenSize.width() / 2) - (self.width() / 2)
         posY = (screenSize.height() / 2) - (self.height() / 2)
