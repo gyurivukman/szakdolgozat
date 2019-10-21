@@ -518,7 +518,7 @@ class SetupAccountsWidget(FirstStartWizardMiddleWidget):
 
 
 class AccountEditorWidget(QWidget):
-    onAddAccount = pyqtSignal()
+    onAddAccount = pyqtSignal(object)
     onRemoveAccount = pyqtSignal()
 
     __accountTypeButtons = []
@@ -625,7 +625,9 @@ class AccountEditorWidget(QWidget):
         return layout
 
     def __onAccountSave(self):
-        print(self.__accountForms[self.__selectedAccountTypeIndex].getAccountData())
+        accountForm = self.__accountForms[self.__selectedAccountTypeIndex]
+        self.onAddAccount.emit(accountForm.getAccountData())
+        accountForm.reset()
 
     @pyqtSlot(bool)
     def __onFormValidityChanged(self, value):
@@ -678,8 +680,8 @@ class AccountListWidget(QWidget):
         self.__selectedAccountIndex = -1
         self.setLayout(self.__layout)
 
-    def addAccount(self):
-        account = QLabel(f'Account {len(self.__accounts)+1}')
+    def addAccount(self, account):
+        account = QLabel(account.identifier)
         self.__accounts.append(account)
         self.__layout.insertWidget(self.__layout.count() - 1, account)
 
@@ -700,46 +702,22 @@ class BaseAccountFormWidget(QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFixedSize(942, 295)
-        layout = self._createAndSetupOwnLayout()
-
-    def getAccountData(self):
-        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'getAccountData'. It should return an instance of models.AccountData.")
-
-    def isFormValid(self):
-        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'isFormValid'. It should return a boolean.")
-
-    def _createAndSetupOwnLayout(self):
-        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_createAndSetupOwnLayout'. It should return a layout.")
-
-
-class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._helpLayout = self._createHelpLayout()
-        self._setupStyle()
-
-    def _createAndSetupOwnLayout(self):
-        layout = QVBoxLayout()
-        layout.setContentsMargins(80, 0, 0, 0)
-        layout.addLayout(self.__createAccountFormLayout())
-        layout.addLayout(self.__createHelpButtonLayout())
+        layout = self._createCommonAccountFormLayout()
+        layout.addLayout(self._createAndSetupDataLayout())
         layout.addStretch(1)
         self.setLayout(layout)
-
-    def _createHelpLayout(self):
-        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_createHelpLayout'. It should create and return a layout that can be displayed in a dialog widget.")
-
-    def _getTokenInputLabel(self):
-        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_getTokenDescription'. It should create and return a Dialog widget.")
-
-    def __createAccountFormLayout(self):
+    
+    def _createCommonAccountFormLayout(self):
         layout = QVBoxLayout()
+        layout.setContentsMargins(80, 0, 0, 0)
+        layout.addLayout(self._createIdentifierLayout())
+        layout.addLayout(self._createCryptoLayout())
+        return layout
+
+    def _createIdentifierLayout(self):
         identifierFormLayout = QHBoxLayout()
         identifierInputFormLayout = QVBoxLayout()
-        tokenFormLayout = QHBoxLayout()
-        tokenInputFormLayout = QVBoxLayout()
-
+        
         identifierInputLabel = QLabel("Account identifier")
         identifierInputLabel.setFont(self._formLabelFont)
 
@@ -755,6 +733,86 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
         identifierInputFormLayout.addWidget(self._identifierInput)
         identifierFormLayout.addLayout(identifierInputFormLayout)
         identifierFormLayout.addWidget(identifierDescription)
+
+        return identifierFormLayout
+
+    def _createCryptoLayout(self):
+        cryptoFormLayout = QHBoxLayout()
+        cryptoInputFormLayout = QVBoxLayout()
+        
+        cryptoInputLabel = QLabel("Cryptographic key")
+        cryptoInputLabel.setFont(self._formLabelFont)
+
+        self._cryptoInput = QLineEdit()
+        self._cryptoInput.setFont(self._formInputFont)
+        self._cryptoInput.setMaxLength(16)
+        self._cryptoInput.textChanged.connect(self._onInputChanged)
+
+        cryptoDescription = QLabel("A valid  16 char. long AES-128 key to encode and decode\nthe file shards located on this account.")
+        cryptoDescription.setAlignment(Qt.AlignBottom)
+        cryptoDescription.setFont(self._descriptionFont)
+        
+        cryptoInputFormLayout.addWidget(cryptoInputLabel)
+        cryptoInputFormLayout.addWidget(self._cryptoInput)
+        cryptoFormLayout.addLayout(cryptoInputFormLayout)
+        cryptoFormLayout.addWidget(cryptoDescription)
+
+        return cryptoFormLayout
+    
+    def reset(self):
+        self.__resetCommonForm()
+        self._resetAccountSpecificDataForm()
+
+    def __resetCommonForm(self):
+        self._cryptoInput.setText("")
+        self._identifierInput.setText("")
+
+    def resetAccountSpecificDataForm(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_resetAccountSpecificDataForm'. It should reset all fields to empty and default values.")
+
+    def getAccountData(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'getAccountData'. It should return an instance of models.AccountData.")
+
+    def isFormValid(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'isFormValid'. It should return a boolean.")
+
+    def _createAndSetupDataLayout(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_createAndSetupDataLayout'. It should return a layout representing the specifics of an account.")
+
+
+class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._helpLayout = self._createHelpLayout()
+        self._setupStyle()
+
+    def getAccountData(self):
+        accountIdenfitifer = self._identifierInput.text().strip()
+        apiToken = self._tokenInput.text().strip()
+        return AccountData(self._accountType, accountIdenfitifer, apiToken)
+
+    def isFormValid(self):
+        return self.__validateTokenInput() and  self. __validateIdentifierInput() and self.__validateCryptoInput()
+
+    def _createAndSetupDataLayout(self):
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addLayout(self.__createAccountFormLayout())
+        layout.addLayout(self.__createHelpButtonLayout())
+        layout.addStretch(1)
+        return layout
+
+    def _createHelpLayout(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_createHelpLayout'. It should create and return a layout that can be displayed in a dialog widget.")
+
+    def _getTokenInputLabel(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_getTokenDescription'. It should create and return a Dialog widget.")
+
+    def __createAccountFormLayout(self):
+        layout = QVBoxLayout()
+        tokenFormLayout = QHBoxLayout()
+        tokenInputFormLayout = QVBoxLayout()
 
         tokenInputLabel = QLabel(self._getTokenInputLabel())
         tokenInputLabel.setFont(self._formLabelFont)
@@ -772,7 +830,6 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
         tokenFormLayout.addLayout(tokenInputFormLayout)
         tokenFormLayout.addWidget(tokenFormDescription)
 
-        layout.addLayout(identifierFormLayout)
         layout.addLayout(tokenFormLayout)
         layout.addStretch(1)
 
@@ -790,9 +847,6 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
 
     def _onInputChanged(self):
         self.formValidityChanged.emit(self.isFormValid())
-
-    def _openHelpFrame(self):
-        print("Opening help dialog!")
 
     def _setupStyle(self):
         self.setStyleSheet(
@@ -815,13 +869,17 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
             """
         )
 
-    def getAccountData(self):
-        accountIdenfitifer = self._identifierInput.text().strip()
-        apiToken = self._tokenInput.text().strip()
-        return AccountData(self._accountType, accountIdenfitifer, apiToken)
+    def _resetAccountSpecificDataForm(self):
+        self._tokenInput.setText("")
 
-    def isFormValid(self):
-        return len(self._tokenInput.text().strip()) > 0 and len(self._identifierInput.text().strip()) > 0
+    def __validateTokenInput(self):
+        return len(self._tokenInput.text().strip()) > 0
+    
+    def __validateIdentifierInput(self):
+        return len(self._identifierInput.text().strip()) > 0
+    
+    def __validateCryptoInput(self):
+        return len(self._cryptoInput.text().strip()) == 16
 
 
 class DropboxAccountForm(APITokenAccountFormWithHelpDialogWidget):
@@ -836,6 +894,9 @@ class DropboxAccountForm(APITokenAccountFormWithHelpDialogWidget):
     def _getTokenInputLabel(self):
         return "Dropbox API Token"
 
+    def _openHelpFrame(self):
+        print("Opening dropbox help dialog!")
+
 
 class DriveAccountForm(APITokenAccountFormWithHelpDialogWidget):
 
@@ -848,3 +909,6 @@ class DriveAccountForm(APITokenAccountFormWithHelpDialogWidget):
 
     def _getTokenInputLabel(self):
         return "Google Drive API Token"
+    
+    def _openHelpFrame(self):
+        print("Opening drive help dialog!")
