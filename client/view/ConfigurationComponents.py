@@ -588,17 +588,24 @@ class AccountEditorWidget(QWidget):
         return [dropboxButton, driveButton]
 
     def __onAccountTypeSelected(self, index):
+        if index != self.__selectedAccountTypeIndex:
+            self.__updateAccountTypeButtons(index)
+            self.__displayNewAccountForm(index)
+            self.__selectedAccountTypeIndex = index
+            self.__saveAccountButton.setEnabled(self.__accountForms[self.__selectedAccountTypeIndex].isFormValid())
+
+    def __updateAccountTypeButtons(self, index):
         self.__accountTypeButtons[self.__selectedAccountTypeIndex].setStyleSheet(self.__inactiveButtonStyle)
         self.__accountTypeButtons[index].setStyleSheet(self.__activeButtonStyle)
+    
+    def __displayNewAccountForm(self, index):
         self.__accountForms[self.__selectedAccountTypeIndex].hide()
         self.__selectedAccountTypeIndex = index
         self.__accountForms[index].show()
-        self.__saveAccountButton.setEnabled(self.__accountForms[self.__selectedAccountTypeIndex].isFormValid())
 
     def __addAccountClicked(self):
         accountForm = self.__accountForms[self.__selectedAccountTypeIndex]
         accountData = accountForm.getAccountData()
-        # accountForm.reset()
         self.onAddAccount.emit(accountData)
 
     def __removeAccountClicked(self):
@@ -639,7 +646,10 @@ class AccountEditorWidget(QWidget):
             self.__saveAccountButton.setDisabled(not value)
     
     def setAccountData(self, accountData):
-        print(accountData)
+        index = 0 if accountData.accountType == AccountTypes.Dropbox else 1
+        self.__updateAccountTypeButtons(index)
+        self.__displayNewAccountForm(index)
+        self.__accountForms[index].setAccountData(accountData)
 
 
 class AccountEditorSectionSeparatorWidget(QWidget):
@@ -795,6 +805,9 @@ class BaseAccountFormWidget(QWidget):
     def getAccountData(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'getAccountData'. It should return an instance of models.AccountData.")
 
+    def setAccountData(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'setAccountData'. It should return an instance of models.AccountData.")
+
     def isFormValid(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'isFormValid'. It should return a boolean.")
 
@@ -812,7 +825,13 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
     def getAccountData(self):
         accountIdenfitifer = self._identifierInput.text().strip()
         apiToken = self._tokenInput.text().strip()
-        return AccountData(self._accountType, accountIdenfitifer, apiToken)
+        cryptoKey = self._cryptoInput.text().strip()
+        return AccountData(self._accountType, accountIdenfitifer, cryptoKey, {'apiToken': apiToken})
+
+    def setAccountData(self, accountData):
+        self._identifierInput.setText(accountData.identifier)
+        self._cryptoInput.setText(accountData.cryptoKey)
+        self._tokenInput.setText(accountData.data['apiToken'])
 
     def isFormValid(self):
         return self.__validateTokenInput() and  self. __validateIdentifierInput() and self.__validateCryptoInput()
@@ -924,7 +943,7 @@ class DriveAccountForm(APITokenAccountFormWithHelpDialogWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._accountType = AccountTypes.Dropbox
+        self._accountType = AccountTypes.GoogleDrive
 
     def _createHelpLayout(self):
         return None

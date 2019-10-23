@@ -23,5 +23,6 @@ class Task:
 class AccountData:
     accountType: int
     identifier: str
+    cryptoKey: str
     data: dict
     id: int = None
