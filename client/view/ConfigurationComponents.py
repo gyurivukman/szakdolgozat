@@ -510,6 +510,7 @@ class SetupAccountsWidget(FirstStartWizardMiddleWidget):
     def __createAccountListLayout(self):
         layout = QVBoxLayout()
         self.__accountListWidget = AccountListWidget()
+        self.__accountListWidget.accountSelected.connect(self.__accountEditorWidget.setAccountData)
         self.__accountEditorWidget.onAddAccount.connect(self.__accountListWidget.addAccount)
         self.__accountEditorWidget.onRemoveAccount.connect(self.__accountListWidget.removeAccount)
         layout.addWidget(self.__accountListWidget)
@@ -537,6 +538,7 @@ class AccountEditorWidget(QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setAttribute(Qt.WA_StyledBackground)
+        self.setFixedSize(960, 480)
         self.setObjectName("accountEditor")
         self.setStyleSheet("QWidget#accountEditor{border-right:2px solid #777777}")
         self.__accountForms = self.__createAccountForms()
@@ -561,7 +563,7 @@ class AccountEditorWidget(QWidget):
 
     def __createAccountTypeLayout(self):
         accountTypeLayout = QHBoxLayout()
-        accountTypeLayout.setContentsMargins(0, 0, 0, 0)
+        accountTypeLayout.setContentsMargins(0, 15, 0, 15)
         self.__accountTypeButtons = self.__createAccountButtons()
         accountTypeLayout.addWidget(self.__accountTypeButtons[0])
         accountTypeLayout.addWidget(self.__accountTypeButtons[1])
@@ -594,7 +596,10 @@ class AccountEditorWidget(QWidget):
         self.__saveAccountButton.setEnabled(self.__accountForms[self.__selectedAccountTypeIndex].isFormValid())
 
     def __addAccountClicked(self):
-        self.onAddAccount.emit()
+        accountForm = self.__accountForms[self.__selectedAccountTypeIndex]
+        accountData = accountForm.getAccountData()
+        # accountForm.reset()
+        self.onAddAccount.emit(accountData)
 
     def __removeAccountClicked(self):
         self.onRemoveAccount.emit()
@@ -627,12 +632,14 @@ class AccountEditorWidget(QWidget):
     def __onAccountSave(self):
         accountForm = self.__accountForms[self.__selectedAccountTypeIndex]
         self.onAddAccount.emit(accountForm.getAccountData())
-        accountForm.reset()
 
     @pyqtSlot(bool)
     def __onFormValidityChanged(self, value):
         if self.__saveAccountButton.isEnabled() != value:
             self.__saveAccountButton.setDisabled(not value)
+    
+    def setAccountData(self, accountData):
+        print(accountData)
 
 
 class AccountEditorSectionSeparatorWidget(QWidget):
@@ -665,6 +672,9 @@ class AccountEditorSectionSeparatorWidget(QWidget):
 
 
 class AccountListWidget(QWidget):
+    accountSelected = pyqtSignal(object)
+    __selectedAccountIndex = 0
+    __accountCards = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -673,22 +683,33 @@ class AccountListWidget(QWidget):
 
     def __setup(self):
         self.__layout = QVBoxLayout()
-        self.__layout.setContentsMargins(0, 0, 0, 0)
+        self.__layout.setContentsMargins(2, 2, 2, 0)
+        self.__layout.setSpacing(2)
         self.__layout.setAlignment(Qt.AlignTop)
         self.__layout.addStretch(1)
-        self.__accounts = []
-        self.__selectedAccountIndex = -1
         self.setLayout(self.__layout)
 
     def addAccount(self, account):
-        account = QLabel(account.identifier)
-        self.__accounts.append(account)
-        self.__layout.insertWidget(self.__layout.count() - 1, account)
+        index = self.__layout.count() - 1
+        accountCard = AccountCard(accountData=account)
+        accountCard.mouseReleaseEvent = lambda event:self.__selectAccount(index)
+        if index == 0:
+            accountCard.setSelected(True)
+        
+        self.__accountCards.append(accountCard)
+        self.__layout.insertWidget(index, accountCard, Qt.AlignHCenter)
 
     def removeAccount(self):
-        self.__accounts[-1].hide()
-        self.__layout.removeWidget(self.__accounts[-1])
-        del self.__accounts[-1]
+        self.__accountCards[-1].hide()
+        self.__layout.removeWidget(self.__accountCards[-1])
+        del self.__accountCards[-1]
+
+    def __selectAccount(self, index):
+        if index != self.__selectedAccountIndex:
+            self.__accountCards[self.__selectedAccountIndex].setSelected(False)
+            self.__accountCards[index].setSelected(True)
+            self.__selectedAccountIndex = index
+            self.accountSelected.emit(self.__accountCards[index].getAccountData())
 
 
 class BaseAccountFormWidget(QWidget):
@@ -722,6 +743,7 @@ class BaseAccountFormWidget(QWidget):
         identifierInputLabel.setFont(self._formLabelFont)
 
         self._identifierInput = QLineEdit()
+        self._identifierInput.setMaxLength(40)
         self._identifierInput.setFont(self._formInputFont)
         self._identifierInput.textChanged.connect(self._onInputChanged)
 
@@ -892,7 +914,7 @@ class DropboxAccountForm(APITokenAccountFormWithHelpDialogWidget):
         return None
 
     def _getTokenInputLabel(self):
-        return "Dropbox API Token"
+        return "Dropbox API Access Token"
 
     def _openHelpFrame(self):
         print("Opening dropbox help dialog!")
@@ -908,7 +930,28 @@ class DriveAccountForm(APITokenAccountFormWithHelpDialogWidget):
         return None
 
     def _getTokenInputLabel(self):
-        return "Google Drive API Token"
+        return "Google Drive API Access Token"
     
     def _openHelpFrame(self):
         print("Opening drive help dialog!")
+
+
+class AccountCard(QWidget):
+    __unselectedStyle = ":hover{border: 2px solid #e36410;} QWidget{border: 1px solid #e36410;}"
+    __selectedStyle = "border: 2px solid #e36410;"
+
+    def __init__(self, *args, **kwargs):
+        self.__accountData = kwargs.pop('accountData')
+        super().__init__(*args, **kwargs)
+        self.setFixedSize(318, 45)
+        self.setStyleSheet(self.__unselectedStyle)
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(QLabel(self.__accountData.identifier))
+        self.setLayout(layout)
+    
+    def setSelected(self, selected):
+        self.setStyleSheet(self.__selectedStyle) if selected else self.setStyleSheet(self.__unselectedStyle)
+    
+    def getAccountData(self):
+        return self.__accountData
