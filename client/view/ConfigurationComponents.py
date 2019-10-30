@@ -1,16 +1,63 @@
 import os
 from enum import IntEnum
+import PyQt5
 
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, 
+    QWidget, QVBoxLayout, QLabel, QDialog,
     QHBoxLayout, QPushButton, QLineEdit, 
-    QRadioButton, QFileDialog
+    QRadioButton, QFileDialog,QScrollArea
 )
 from PyQt5.QtCore import QSettings, Qt, pyqtSignal, pyqtSlot
 from PyQt5 import QtCore
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
 
 from model.models import AccountData, AccountTypes
+
+
+class HelpDialog(QDialog):
+
+    def __init__(self, *args, **kwargs):
+        scrollWidget = kwargs.pop('scrollWidget')
+        super().__init__(*args, **kwargs)
+        self.setObjectName("self")
+        self.setStyleSheet(
+            """
+                QDialog#self{background-color:white;}
+                QPushButton#closeHelpButton{
+                    background-color:#e36410;
+                    color:white;
+                    width:150px;
+                    border:0px;
+                    height:30px;
+                    margin-right:5px;
+                }
+                QPushButton#closeHelpButton:pressed {background-color:#e68a4e;}
+                QLabel, QScrollArea{background-color:white;border:0px;}
+            """
+        )
+        self.setFixedSize(480, 720)
+        self._setup(scrollWidget)
+    
+    def _setup(self, scrollWidget):
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0,0,0,0)
+
+        scroll = QScrollArea()
+        scroll.setWidget(scrollWidget)
+        scroll.setWidgetResizable(False)
+        scroll.setFixedHeight(680)
+        
+        controlLayout = QHBoxLayout()
+        closeButton = QPushButton("Close")
+        closeButton.clicked.connect(self.hide)
+        closeButton.setObjectName("closeHelpButton")
+        controlLayout.setAlignment(Qt.AlignRight)
+        controlLayout.addWidget(closeButton)
+
+        layout.addWidget(scroll)
+        layout.addLayout(controlLayout)
+        layout.addStretch(1)
+        self.setLayout(layout)
 
 
 class FirstStartWizard(QWidget):
@@ -819,7 +866,6 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._helpLayout = self._createHelpLayout()
         self._setupStyle()
 
     def getAccountData(self):
@@ -843,9 +889,6 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
         layout.addLayout(self.__createHelpButtonLayout())
         layout.addStretch(1)
         return layout
-
-    def _createHelpLayout(self):
-        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_createHelpLayout'. It should create and return a layout that can be displayed in a dialog widget.")
 
     def _getTokenInputLabel(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_getTokenDescription'. It should create and return a Dialog widget.")
@@ -910,6 +953,9 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
             """
         )
 
+    def _openHelpFrame(self):
+        self._helpDialog.show()
+
     def _resetAccountSpecificDataForm(self):
         self._tokenInput.setText("")
 
@@ -928,15 +974,11 @@ class DropboxAccountForm(APITokenAccountFormWithHelpDialogWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._accountType = AccountTypes.Dropbox
-
-    def _createHelpLayout(self):
-        return None
+        self._helpDialog = HelpDialog(scrollWidget=QLabel("SOME HELP LABEL LOL."))
+        self._helpDialog.setWindowTitle("How to get a Dropbox API token?")
 
     def _getTokenInputLabel(self):
         return "Dropbox API Access Token"
-
-    def _openHelpFrame(self):
-        print("Opening dropbox help dialog!")
 
 
 class DriveAccountForm(APITokenAccountFormWithHelpDialogWidget):
@@ -944,9 +986,6 @@ class DriveAccountForm(APITokenAccountFormWithHelpDialogWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._accountType = AccountTypes.GoogleDrive
-
-    def _createHelpLayout(self):
-        return None
 
     def _getTokenInputLabel(self):
         return "Google Drive API Access Token"

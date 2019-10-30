@@ -1,6 +1,6 @@
 from pprint import pprint
 
-from PyQt5.QtWidgets import QMainWindow, QApplication
+from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton
 from PyQt5.QtCore import Qt, QSettings, QCoreApplication
 
 from view.ConfigurationComponents import FirstStartWizard
@@ -46,3 +46,5 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         event.ignore()
         self.hide()
+
+
