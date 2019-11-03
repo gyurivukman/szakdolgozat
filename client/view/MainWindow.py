@@ -14,7 +14,7 @@ class MainWindow(QMainWindow):
         self.setAttribute(Qt.WA_StyledBackground)
         self.setStyleSheet("background:#FFFFFF")
         self.__settings = QSettings()
-        self.__taskManager = TaskManager()
+        self.__taskManager = TaskManager.getInstance()
 
     def initGUI(self):
         self.setWindowTitle('CryptStorePi')
@@ -46,5 +46,3 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         event.ignore()
         self.hide()
-
-

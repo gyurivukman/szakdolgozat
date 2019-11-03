@@ -1,5 +1,8 @@
+import types
+
 from dataclasses import dataclass
 from enum import IntEnum
+
 
 
 class AccountTypes(IntEnum):
@@ -13,10 +16,17 @@ class TaskPriorities(IntEnum):
     LOW = 2
 
 
+class TaskTypes(IntEnum):
+    GET_ACCOUNTS = 0
+
+
 @dataclass(order=True)
 class Task:
     priority: int
-    data: dict
+    taskType:int
+    data: dict = None
+    success: types.FunctionType = None
+    error: types.FunctionType = None
 
 
 @dataclass

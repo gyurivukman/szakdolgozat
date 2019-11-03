@@ -1,17 +1,18 @@
 import os
 from enum import IntEnum
-import PyQt5
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QDialog,
     QHBoxLayout, QPushButton, QLineEdit, 
     QRadioButton, QFileDialog,QScrollArea
 )
-from PyQt5.QtCore import QSettings, Qt, pyqtSignal, pyqtSlot
-from PyQt5 import QtCore
+
+from PyQt5.QtCore import QSettings, Qt, pyqtSignal, pyqtSlot, QRect, QSize
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
 
 from model.models import AccountData, AccountTypes
+from control.services import TaskManager
+from view.Utils import LoadingWidget
 
 
 class HelpDialog(QDialog):
@@ -154,7 +155,9 @@ class FirstStartWizard(QWidget):
         self.__widgetMap[self.__state].hide()
         self.__state = self.__progressWidget.toNextState()
         self.__widgetMap[self.__state].show()
+        self.__widgetMap[self.__state].initData()
         self.__update()
+        
 
     def __goBack(self):
         self.__widgetMap[self.__state].hide()
@@ -211,9 +214,9 @@ class WizardProgressWidget(QWidget):
             painter.setPen(pen)
             painter.setFont(self.__stageIndexFont)
             painter.drawRect(posX, posY, width, height)
-            painter.drawText(QtCore.QRect(posX, posY, width, height), Qt.AlignCenter, str(state.value + 1))
+            painter.drawText(QRect(posX, posY, width, height), Qt.AlignCenter, str(state.value + 1))
             painter.setFont(self.__stageLabelFont)
-            painter.drawText(QtCore.QRect(posX, posY + 90, width, 30), Qt.AlignCenter, state.toDisplayValue())
+            painter.drawText(QRect(posX, posY + 90, width, 30), Qt.AlignCenter, state.toDisplayValue())
             if state > self.WIZARD_PROGRESS_STATES.WELCOME:
                 painter.drawLine(posX - 6, posY + (height / 2), posX - 234, posY + (height / 2))
 
@@ -277,6 +280,9 @@ class FirstStartWizardMiddleWidget(QWidget):
     def canGoBack(self):
         raise NotImplementedError('Derived class must implement method "canGoBack" it should return a bool.')
 
+    def initData(self):
+        pass
+
 
 class WelcomeWidget(FirstStartWizardMiddleWidget):
 
@@ -311,12 +317,13 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
 
     def _getStyle(self):
         self.setObjectName("welcomeWidget")
-        return "QWidget#welcomeWidget{background-image:url(./view/assets/encryptionBackground.png);background-repeat:no-repeat;background-position:center;}"
+        return "#welcomeWidget{background-image:url(./view/assets/encryptionBackground.png);background-repeat:no-repeat;background-position:center;}"
 
 
 class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
     def canProceed(self):
+        return True
         return self.__isConnectionOK and self.__isSshOK and len(self.__chosenDirectoryPath) > 0
 
     def canGoBack(self):
@@ -531,6 +538,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
 
 class SetupAccountsWidget(FirstStartWizardMiddleWidget):
+    __inited = False
 
     def canProceed(self):
         return len(self.__formData) > 0
@@ -538,37 +546,89 @@ class SetupAccountsWidget(FirstStartWizardMiddleWidget):
     def canGoBack(self):
         return True
 
+    def initData(self):
+        if not self.__inited:
+            self.__formData = []
+            taskManager = TaskManager.getInstance()
+            taskManager.retrieveAccounts(self.__onAccountsRetrieved)
+
     def _getStyle(self):
         return ""
 
     def _setup(self):
-        self.__setupMembers()
+        self.__layout = QVBoxLayout()
+        self.__layout.setAlignment(Qt.AlignHCenter|Qt.AlignVCenter)
+
+        self.__loadingWidget = LoadingWidget()
+        self.__accountsWidget = AccountsWidget()
+
+        self.__layout.addWidget(self.__loadingWidget)
+        self.__layout.addWidget(self.__accountsWidget)
+        self.__accountsWidget.hide()
+        self.setLayout(self.__layout)
+
+    def __onAccountsRetrieved(self, accounts):
+        self.__inited = True
+        self.__accountsWidget.setAccountData(accounts)
+        self.__loadingWidget.hide()
+        self.__accountsWidget.show()
+
+
+class AccountsWidget(QWidget):
+
+    __hasAccountData = False
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setFixedSize(1280, 480)
+        self.setStyleSheet("QWidget#noAccountsWidget{border-right:2px solid #777777;}")
+        self.__setup()
+    
+    def __setup(self):
+        self.__noAccountsWidget = QLabel("No accounts could be found, please create new accounts by clicking the 'Add new account' button on the right hand side. \nYou can have a total of 8 accounts.")
+        self.__noAccountsWidget.setFont(QFont("Helvetica", 13, False))
+        self.__noAccountsWidget.setAlignment(Qt.AlignHCenter|Qt.AlignVCenter)
+        self.__noAccountsWidget.setObjectName("noAccountsWidget")
+
+        self.__accountEditorWidget = AccountEditorWidget()
+        self.__accountEditorWidget.hide()
+        self.__accountListWidget = AccountListWidget()
+
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+
+        layout.addWidget(self.__noAccountsWidget)
         layout.addWidget(self.__accountEditorWidget)
         layout.addLayout(self.__createAccountListLayout())
-        self.setLayout(layout)
 
-    def __setupMembers(self):
-        self.__formData = []
-        self.__accountEditorWidget = AccountEditorWidget()
+        self.setLayout(layout)
 
     def __createAccountListLayout(self):
         layout = QVBoxLayout()
-        self.__accountListWidget = AccountListWidget()
         self.__accountListWidget.accountSelected.connect(self.__accountEditorWidget.setAccountData)
-        self.__accountEditorWidget.onAddAccount.connect(self.__accountListWidget.addAccount)
+        self.__accountListWidget.accountSelected.connect(self.__onAccountSelected)
+        self.__accountEditorWidget.onSaveAccount.connect(self.__accountListWidget.updateCurrentlySelectedAccount)
         self.__accountEditorWidget.onRemoveAccount.connect(self.__accountListWidget.removeAccount)
         layout.addWidget(self.__accountListWidget)
         layout.addStretch(1)
         return layout
 
+    def __onAccountSelected(self, _):
+        if not self.__hasAccountData:
+            self.__hasAccountData = True
+            self.__noAccountsWidget.hide()
+            self.__accountEditorWidget.show()
+
+    def setAccountData(self, accounts):
+        self.__accountListWidget.setAccounts(accounts)
+
 
 class AccountEditorWidget(QWidget):
-    onAddAccount = pyqtSignal(object)
+    onSaveAccount = pyqtSignal(object)
     onRemoveAccount = pyqtSignal()
 
+    __hasAccountData = False
     __accountTypeButtons = []
     __selectedAccountTypeIndex = 0
     __accountForms = []
@@ -586,9 +646,9 @@ class AccountEditorWidget(QWidget):
         super().__init__(*args, **kwargs)
         self.setAttribute(Qt.WA_StyledBackground)
         self.setFixedSize(960, 480)
-        self.setObjectName("accountEditor")
-        self.setStyleSheet("QWidget#accountEditor{border-right:2px solid #777777}")
         self.__accountForms = self.__createAccountForms()
+        self.setObjectName("accountEditor")
+        self.setStyleSheet("#accountEditor{border-right:2px solid #777777;}")
         self.__setup()
 
     def __createAccountForms(self):
@@ -618,7 +678,7 @@ class AccountEditorWidget(QWidget):
         return accountTypeLayout
 
     def __createAccountButtons(self):
-        accountIconSize = QtCore.QSize(35, 35)
+        accountIconSize = QSize(35, 35)
 
         dropboxButton = QPushButton("Dropbox")
         dropboxButton.setIcon(QIcon('./view/assets/dropbox.png'))
@@ -650,11 +710,6 @@ class AccountEditorWidget(QWidget):
         self.__selectedAccountTypeIndex = index
         self.__accountForms[index].show()
 
-    def __addAccountClicked(self):
-        accountForm = self.__accountForms[self.__selectedAccountTypeIndex]
-        accountData = accountForm.getAccountData()
-        self.onAddAccount.emit(accountData)
-
     def __removeAccountClicked(self):
         self.onRemoveAccount.emit()
 
@@ -685,7 +740,7 @@ class AccountEditorWidget(QWidget):
 
     def __onAccountSave(self):
         accountForm = self.__accountForms[self.__selectedAccountTypeIndex]
-        self.onAddAccount.emit(accountForm.getAccountData())
+        self.onSaveAccount.emit(accountForm.getAccountData())
 
     @pyqtSlot(bool)
     def __onFormValidityChanged(self, value):
@@ -722,7 +777,7 @@ class AccountEditorSectionSeparatorWidget(QWidget):
 
         painter.setFont(self.__sectionFont)
         painter.setPen(QPen(self.__sectionFontColor, 1, Qt.SolidLine))
-        painter.drawText(QtCore.QRect(480 - (width / 2), 0, width, height), Qt.AlignCenter, self.__sectionText)
+        painter.drawText(QRect(480 - (width / 2), 0, width, height), Qt.AlignCenter, self.__sectionText)
         painter.setPen(QPen(self.__sectionLineColor, 1, Qt.SolidLine))
         painter.drawLine(0, (height / 2) + 1, 480 - (width / 2 + 5), (height / 2) + 1)
         painter.drawLine(485 + (width / 2), (height / 2) + 1, 940, (height / 2) + 1)
@@ -730,29 +785,48 @@ class AccountEditorSectionSeparatorWidget(QWidget):
 
 class AccountListWidget(QWidget):
     accountSelected = pyqtSignal(object)
-    __selectedAccountIndex = 0
+    __selectedAccountIndex = -1
     __accountCards = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFixedSize(320, 480)
+        self.setAttribute(Qt.WA_StyledBackground)   
+        self.setStyleSheet(
+            """
+                QPushButton#newAccountButton{height: 25px; border:1px dashed #e36410;width:300px; max-width:300px;}
+                QPushButton#newAccountButton:hover{border:2px dashed #e36410; width:300px; max-width:300px;}
+            """
+        )
         self.__setup()
 
     def __setup(self):
         self.__layout = QVBoxLayout()
-        self.__layout.setContentsMargins(2, 2, 2, 0)
         self.__layout.setSpacing(2)
+        self.__layout.setContentsMargins(2,2,2,0)
         self.__layout.setAlignment(Qt.AlignTop)
+
+        self.__newAccountButton = QPushButton("Add new account")
+        self.__newAccountButton.setFont(QFont("Helvetica", 10))
+        self.__newAccountButton.setObjectName("newAccountButton")
+        self.__newAccountButton.clicked.connect(self.__addBlankAccount)
+
+        self.__layout.addWidget(self.__newAccountButton)
         self.__layout.addStretch(1)
         self.setLayout(self.__layout)
 
-    def addAccount(self, account):
-        index = self.__layout.count() - 1
+    def __addBlankAccount(self):
+        blankAccount = AccountData(AccountTypes.Dropbox, "New Account", "", {"apiToken":""})
+        self.__addAccount(blankAccount)
+        self.__selectAccount(len(self.__accountCards) - 1)
+        if len(self.__accountCards) == 8:
+            self.__newAccountButton.hide()
+
+    def __addAccount(self, account):
+        index = self.__layout.count() - 2
         accountCard = AccountCard(accountData=account)
         accountCard.mouseReleaseEvent = lambda event:self.__selectAccount(index)
-        if index == 0:
-            accountCard.setSelected(True)
-        
+
         self.__accountCards.append(accountCard)
         self.__layout.insertWidget(index, accountCard, Qt.AlignHCenter)
 
@@ -761,9 +835,26 @@ class AccountListWidget(QWidget):
         self.__layout.removeWidget(self.__accountCards[-1])
         del self.__accountCards[-1]
 
+    def updateCurrentlySelectedAccount(self, account):
+        self.__accountCards[self.__selectedAccountIndex].setAccountData(account)
+
+    def setAccounts(self, accounts):
+        if self.__layout.count() > 2:
+            self.__removeAllAccounts()
+
+        for account in accounts:
+            self.addAccount(account)
+
+    def __removeAllAccounts(self):
+        for account, index in zip(self.__accountCards, range(0, len(self.__accountCards))):
+            account.hide()
+            self.__layout.removeWidget(account)
+        self.__accounts = []
+
     def __selectAccount(self, index):
         if index != self.__selectedAccountIndex:
-            self.__accountCards[self.__selectedAccountIndex].setSelected(False)
+            if self.__selectedAccountIndex > -1:
+                self.__accountCards[self.__selectedAccountIndex].setSelected(False)
             self.__accountCards[index].setSelected(True)
             self.__selectedAccountIndex = index
             self.accountSelected.emit(self.__accountCards[index].getAccountData())
@@ -995,21 +1086,57 @@ class DriveAccountForm(APITokenAccountFormWithHelpDialogWidget):
 
 
 class AccountCard(QWidget):
-    __unselectedStyle = ":hover{border: 2px solid #e36410;} QWidget{border: 1px solid #e36410;}"
-    __selectedStyle = "border: 2px solid #e36410;"
+    __unselectedStyle = """
+        QWidget#accountCard:hover {border:2px solid #e36410;}
+        QWidget#accountCard{border:1px solid #e36410;}
+    """
+    __selectedStyle = """
+        QWidget#accountCard{border:2px solid #e36410;}
+    """
 
     def __init__(self, *args, **kwargs):
         self.__accountData = kwargs.pop('accountData')
         super().__init__(*args, **kwargs)
-        self.setFixedSize(318, 45)
+        self.__setup()
+
+    def __setup(self):
+        self.setFixedSize(300, 45)
         self.setStyleSheet(self.__unselectedStyle)
+        self.setObjectName("accountCard")
+        self.setAttribute(Qt.WA_StyledBackground)   
+
+        self.__accountIcon = QLabel()
+        self.__accountIcon.setPixmap(self.__getIconPixmap())
+        self.__identifierLabel = QLabel(self.__accountData.identifier)
+        self.__identifierLabel.setFont(QFont("Helvetica", 11, False))
+
         layout = QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(QLabel(self.__accountData.identifier))
+        layout.setSpacing(5)
+        layout.setAlignment(Qt.AlignLeft)
+        layout.addWidget(self.__accountIcon)
+        layout.addWidget(self.__identifierLabel)
+
         self.setLayout(layout)
-    
+
     def setSelected(self, selected):
         self.setStyleSheet(self.__selectedStyle) if selected else self.setStyleSheet(self.__unselectedStyle)
-    
+
     def getAccountData(self):
         return self.__accountData
+
+    def setAccountData(self, accountData):
+        self.__accountData = accountData
+        self.__identifierLabel.setText(accountData.identifier)
+        self.__updateAccountTypeIcon()
+
+    def __getIconPath(self):
+        return "./view/assets/dropbox.png" if self.__accountData.accountType == AccountTypes.Dropbox else "./view/assets/googledrive.png"
+
+    def __getIconPixmap(self):
+        pixmap = QPixmap(self.__getIconPath())
+        pixmap = pixmap.scaled(25, 25, Qt.IgnoreAspectRatio)
+        
+        return pixmap
+    
+    def __updateAccountTypeIcon(self):
+        self.__accountIcon.setPixmap(self.__getIconPixmap())

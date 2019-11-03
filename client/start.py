@@ -3,7 +3,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from PyQt5.QtCore import QCoreApplication, QSettings
 from PyQt5.QtGui import QIcon
-from view.FramedViews import MainWindow
+from view.MainWindow import MainWindow
 
 app = None
 mainWindow = None
