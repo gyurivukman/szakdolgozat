@@ -1,4 +1,5 @@
 import sys
+import logging
 
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from PyQt5.QtCore import QCoreApplication, QSettings
@@ -57,6 +58,7 @@ def iconActivated(reason):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
     app = QApplication(sys.argv)
     setupOrganization()
     trayIcon = createTrayIcon()

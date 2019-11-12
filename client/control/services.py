@@ -1,7 +1,9 @@
 import time
+import logging
 from queue import PriorityQueue
+from queue import Empty
 
-from PyQt5.QtCore import QThread, QObject
+from PyQt5.QtCore import QThread, QObject, pyqtSignal
 
 from model.models import Task, TaskPriorities, TaskTypes
 
@@ -37,33 +39,25 @@ class ErrorDisplayService:
 
 class TaskManager(BaseWorkerService):
     __instance = None
+    channels = {
+        "fileEvents":pyqtSignal(object)
+    }
 
     @staticmethod 
     def getInstance():
-        if TaskManager.__instance == None:
+        if TaskManager.__instance is None:
             TaskManager()
         return TaskManager.__instance
 
     def __init__(self):
-        if TaskManager.__instance != None:
+        if TaskManager.__instance is not None:
             raise Exception("This class is a singleton! use TaskManager.getInstance() instead!")
         else:
             TaskManager.__instance = self
             super().__init__()
-            self.__fileScannerWorker = QThread()
-            self.__fileScannerService = FileScannerWorkerService()
-            self.__fileScannerService.moveToThread(self.__fileScannerWorker)
-            self.__fileScannerWorker.started.connect(self.__fileScannerService.start)
-
-            self.__sshWorker = QThread()
-            self.__sshService = SSHService()
-            self.__sshService.moveToThread(self.__sshWorker)
-            self.__sshWorker.started.connect(self.__sshService.start)
-
-            self.__commsWorker = QThread()
-            self.__networkService = NetworkService()
-            self.__networkService.moveToThread(self.__commsWorker)
-            self.__commsWorker.started.connect(self.__networkService.start)
+            self.__initFileScanner()
+            self.__initSshService()
+            self.__initNetworkService()
 
     def start(self):
         self.__fileScannerWorker.start()
@@ -79,12 +73,31 @@ class TaskManager(BaseWorkerService):
         task = Task(TaskPriorities.HIGH, TaskTypes.GET_ACCOUNTS, None, callBack)
         self.__networkService.enqueTask(task)
 
+    def __initFileScanner(self):
+        self.__fileScannerWorker = QThread()
+        self.__fileScannerService = FileScannerWorkerService()
+        self.__fileScannerService.moveToThread(self.__fileScannerWorker)
+        self.__fileScannerWorker.started.connect(self.__fileScannerService.start)
+
+    def __initSshService(self):
+        self.__sshWorker = QThread()
+        self.__sshService = SSHService()
+        self.__sshService.moveToThread(self.__sshWorker)
+        self.__sshWorker.started.connect(self.__sshService.start)
+
+    def __initNetworkService(self):
+        self.__commsWorker = QThread()
+        self.__networkService = NetworkService()
+        self.__networkService.moveToThread(self.__commsWorker)
+        self.__commsWorker.started.connect(self.__networkService.start)
+
 
 class NetworkService(BaseWorkerService, TaskBasedServiceWithPriorityQueue):
 
     def __init__(self):
         super().__init__()
         self.__taskHandlers = self.__createTaskHandlers()
+        self.__logger = logging.getLogger('[Network service]')
 
     def __createTaskHandlers(self):
         return {
@@ -93,9 +106,13 @@ class NetworkService(BaseWorkerService, TaskBasedServiceWithPriorityQueue):
 
     def start(self):
         while self._shouldRun:
-            if not self._currentTask:
-                self._currentTask = self._taskQueue.get()
-            self._handleCurrentTask()
+            try:
+                if not self._currentTask:
+                        self._currentTask = self._taskQueue.get(True, 1.0)
+                self._handleCurrentTask()
+            except Empty as e:
+                self.__logger.debug("No tasks, sleeping...")
+                time.sleep(1.0)
 
     def stop(self):
         self._shouldRun = False
