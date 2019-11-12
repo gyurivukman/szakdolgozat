@@ -13,7 +13,7 @@ class AESFileCipher():
     def encryptFile(self, file_name):
         file_size = int(os.stat(file_name)[6])
         remainder_part_size = file_size%self.__part_count
-        uniform_whole_part_size = int((file_size - remainder_part_size)/self.__part_count) #3 byte pl...
+        uniform_whole_part_size = int((file_size - remainder_part_size)/self.__part_count)
 
         with open(file_name, 'rb') as source:
             for key, index in zip(self.__keys, range(0, self.__part_count)):
@@ -55,6 +55,11 @@ class AESFileCipher():
                         decoded_chunk = cipher.decrypt(raw_chunk)
                         target.write(unpad(decoded_chunk, AES.block_size))
                         raw_chunk = encoded_source.read(AES.block_size)
+
+
+class AESMessageCipher():
+    __key = None
+    def __init__(self, )
 
 if __name__ == "__main__":
     operation = sys.argv[1]
