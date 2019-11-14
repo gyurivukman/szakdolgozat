@@ -1,5 +1,3 @@
-from pprint import pprint
-
 from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton
 from PyQt5.QtCore import Qt, QSettings, QCoreApplication, QSize
 

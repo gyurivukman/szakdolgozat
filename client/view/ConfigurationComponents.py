@@ -1,4 +1,4 @@
-import os
+import os, re, json
 from enum import IntEnum
 
 from PyQt5.QtWidgets import (
@@ -699,6 +699,7 @@ class AccountEditorWidget(QWidget):
             self.__updateAccountTypeButtons(index)
             self.__displayNewAccountForm(index)
             self.__selectedAccountTypeIndex = index
+            self.__accountForms[index].reset()
             self.__saveAccountButton.setEnabled(self.__accountForms[self.__selectedAccountTypeIndex].isFormValid())
 
     def __updateAccountTypeButtons(self, index):
@@ -803,7 +804,7 @@ class AccountListWidget(QWidget):
     def __setup(self):
         self.__layout = QVBoxLayout()
         self.__layout.setSpacing(2)
-        self.__layout.setContentsMargins(2,2,2,0)
+        self.__layout.setContentsMargins(2,2,2,2)
         self.__layout.setAlignment(Qt.AlignTop)
 
         self.__newAccountButton = QPushButton("Add new account")
@@ -865,11 +866,13 @@ class BaseAccountFormWidget(QWidget):
     _formLabelFont = QFont("Helvetica", 13)
     _descriptionFont = QFont("Helvetica", 10)
     _formInputFont = QFont("Helvetica", 11)
+    _onInputChanged = pyqtSignal()
 
     formValidityChanged = pyqtSignal(bool)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setAttribute(Qt.WA_StyledBackground)   
         self.setFixedSize(942, 295)
         layout = self._createCommonAccountFormLayout()
         layout.addLayout(self._createAndSetupDataLayout())
@@ -893,7 +896,7 @@ class BaseAccountFormWidget(QWidget):
         self._identifierInput = QLineEdit()
         self._identifierInput.setMaxLength(40)
         self._identifierInput.setFont(self._formInputFont)
-        self._identifierInput.textChanged.connect(self._onInputChanged)
+        self._identifierInput.textChanged.connect(self._baseInputChanged)
 
         identifierDescription = QLabel("An arbitrary name to easily identify your cloud account\nin cryptStorePi. This is NOT the username!")
         identifierDescription.setAlignment(Qt.AlignBottom)
@@ -916,7 +919,7 @@ class BaseAccountFormWidget(QWidget):
         self._cryptoInput = QLineEdit()
         self._cryptoInput.setFont(self._formInputFont)
         self._cryptoInput.setMaxLength(16)
-        self._cryptoInput.textChanged.connect(self._onInputChanged)
+        self._cryptoInput.textChanged.connect(self._baseInputChanged)
 
         cryptoDescription = QLabel("A valid  16 char. long AES-128 key to encode and decode\nthe file shards located on this account.")
         cryptoDescription.setAlignment(Qt.AlignBottom)
@@ -928,10 +931,14 @@ class BaseAccountFormWidget(QWidget):
         cryptoFormLayout.addWidget(cryptoDescription)
 
         return cryptoFormLayout
-    
+
+    def _baseInputChanged(self):
+        self.formValidityChanged.emit(self.isFormValid())
+
     def reset(self):
         self.__resetCommonForm()
         self._resetAccountSpecificDataForm()
+        self.formValidityChanged.emit(self.isFormValid())
 
     def __resetCommonForm(self):
         self._cryptoInput.setText("")
@@ -945,18 +952,27 @@ class BaseAccountFormWidget(QWidget):
 
     def setAccountData(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'setAccountData'. It should return an instance of models.AccountData.")
-
+    
     def isFormValid(self):
-        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'isFormValid'. It should return a boolean.")
+        cryptoKey = self._cryptoInput.text().strip()
+        identifier = self._identifierInput.text().strip()
+
+        return self._validateAccountSpecificForm() and len(identifier) > 0 and len(cryptoKey) == 16
+
+    def _validateAccountSpecificForm(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_validateAccountSpecificForm'. It should return a boolean.")
 
     def _createAndSetupDataLayout(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_createAndSetupDataLayout'. It should return a layout representing the specifics of an account.")
 
 
-class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
+class DropboxAccountForm(BaseAccountFormWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._accountType = AccountTypes.Dropbox
+        self.__helpDialog = HelpDialog(scrollWidget=QLabel("SOME HELP LABEL LOL.")) #TODO for dropbox
+        self.__helpDialog.setWindowTitle("How to get a Dropbox API token?")
         self._setupStyle()
 
     def getAccountData(self):
@@ -970,8 +986,9 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
         self._cryptoInput.setText(accountData.cryptoKey)
         self._tokenInput.setText(accountData.data['apiToken'])
 
-    def isFormValid(self):
-        return self.__validateTokenInput() and  self. __validateIdentifierInput() and self.__validateCryptoInput()
+    def _validateAccountSpecificForm(self):
+        token = self._tokenInput.text().strip() 
+        return len(token) > 0 and re.match("[ -~]", token)
 
     def _createAndSetupDataLayout(self):
         layout = QVBoxLayout()
@@ -981,20 +998,17 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
         layout.addStretch(1)
         return layout
 
-    def _getTokenInputLabel(self):
-        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_getTokenDescription'. It should create and return a Dialog widget.")
-
     def __createAccountFormLayout(self):
         layout = QVBoxLayout()
         tokenFormLayout = QHBoxLayout()
         tokenInputFormLayout = QVBoxLayout()
 
-        tokenInputLabel = QLabel(self._getTokenInputLabel())
+        tokenInputLabel = QLabel("Dropbox API Access Token")
         tokenInputLabel.setFont(self._formLabelFont)
 
         self._tokenInput = QLineEdit()
         self._tokenInput.setFont(self._formInputFont)
-        self._tokenInput.textChanged.connect(self._onInputChanged)
+        self._tokenInput.textChanged.connect(self._baseInputChanged)
 
         tokenFormDescription = QLabel("For help, click the 'How to get a token?' button!")
         tokenFormDescription.setAlignment(Qt.AlignBottom)
@@ -1010,19 +1024,6 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
 
         return layout
 
-    def __createHelpButtonLayout(self):
-        layout = QHBoxLayout()
-        layout.setContentsMargins(-50, 50, 0, 0)
-        helpButton = QPushButton("How to get an access token?")
-        helpButton.setObjectName("helpButton")
-        helpButton.clicked.connect(self._openHelpFrame)
-        layout.addWidget(helpButton, Qt.AlignLeading)
-
-        return layout
-
-    def _onInputChanged(self):
-        self.formValidityChanged.emit(self.isFormValid())
-
     def _setupStyle(self):
         self.setStyleSheet(
             """
@@ -1033,7 +1034,7 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
                 QPushButton#helpButton {
                     background-color:#e36410;
                     color:white;
-                    max-width:150px;
+                    max-width:160px;
                     border:0px;
                     height:30px;
                 }
@@ -1049,40 +1050,194 @@ class APITokenAccountFormWithHelpDialogWidget(BaseAccountFormWidget):
 
     def _resetAccountSpecificDataForm(self):
         self._tokenInput.setText("")
-
-    def __validateTokenInput(self):
-        return len(self._tokenInput.text().strip()) > 0
     
-    def __validateIdentifierInput(self):
-        return len(self._identifierInput.text().strip()) > 0
-    
-    def __validateCryptoInput(self):
-        return len(self._cryptoInput.text().strip()) == 16
+    def __createHelpButtonLayout(self):
+        layout = QHBoxLayout()
+        layout.setContentsMargins(-50, 50, 0, 0)
+        helpButton = QPushButton("How to get an access token?")
+        helpButton.setObjectName("helpButton")
+        helpButton.clicked.connect(self._openHelpFrame)
+        layout.addWidget(helpButton, Qt.AlignLeading)
+
+        return layout
 
 
-class DropboxAccountForm(APITokenAccountFormWithHelpDialogWidget):
+class DriveAccountForm(BaseAccountFormWidget):
 
     def __init__(self, *args, **kwargs):
+        self.__credentialsLabels = self.__createCredentialsDataLabels()
         super().__init__(*args, **kwargs)
-        self._accountType = AccountTypes.Dropbox
-        self._helpDialog = HelpDialog(scrollWidget=QLabel("SOME HELP LABEL LOL."))
-        self._helpDialog.setWindowTitle("How to get a Dropbox API token?")
-
-    def _getTokenInputLabel(self):
-        return "Dropbox API Access Token"
-
-
-class DriveAccountForm(APITokenAccountFormWithHelpDialogWidget):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        self.__formData = {}
         self._accountType = AccountTypes.GoogleDrive
-
-    def _getTokenInputLabel(self):
-        return "Google Drive API Access Token"
+        self.__INVALID_CREDENTIALS_TEXT = "Invalid service account credentials!"
+        self.__helpDialog = HelpDialog(scrollWidget=QLabel("SOME HELP LABEL FOR DRIVE LOL.")) #TODO for drive
+        self.__helpDialog.setWindowTitle("How to set up google drive for CryptStorePi")
+        self._setupStyle()
     
+    def __createCredentialsDataLabels(self):
+        errorLabel = QLabel()
+        errorLabel.setFont(self._descriptionFont)
+        errorLabel.setObjectName("errorLabel")
+
+        projectIDLabel = QLabel()
+        projectIDLabel.setFont(self._descriptionFont)
+        projectIDLabel.setObjectName("projectIDLabel")
+
+        clientEmailLabel = QLabel()
+        clientEmailLabel.setFont(self._descriptionFont)
+        clientEmailLabel.setObjectName("clientEmailLabel")
+
+        clientIDLabel = QLabel()
+        clientIDLabel.setFont(self._descriptionFont)
+        clientIDLabel.setObjectName("clientIDLabel")
+
+        disclaimerLabel = QLabel("Note: Only a small subset of the credentials data is shown here.")
+        disclaimerLabel.setFont(self._descriptionFont)
+        disclaimerLabel.setObjectName("disclaimerLabel")
+        disclaimerLabel.hide()
+
+        return {
+            "errorLabel": errorLabel,
+            "projectIDLabel": projectIDLabel,
+            "clientEmailLabel": clientEmailLabel,
+            "clientIDLabel": clientIDLabel,
+            "disclaimerLabel": disclaimerLabel
+        }
+
+    def _setupStyle(self):
+        self.setStyleSheet(
+            """
+                QLineEdit {border:1px solid #E39910; height:25px; width: 400px; max-width: 400px; margin-right:40px;}
+                QLineEdit:focus {border:2px solid #E39910}
+                QLineEdit:hover {border:2px solid #E39910}
+                QPushButton#helpButton, QPushButton#openCredentials {
+                    background-color:#e36410;
+                    color:white;
+                    width:160px;
+                    border:0px;
+                    height:30px;
+                }
+                QPushButton#helpButton:pressed, QPushButton#openCredentials:pressed {
+                    background-color:#e68a4e;
+                }
+                QWidget#credentialsData{
+                    background-color:#ECECEC;
+                    border:1px solid #E8E8E8;
+                }
+                QLabel#disclaimerLabel, QLabel#projectIDLabel, QLabel#clientEmailLabel, QLabel#clientIDLabel{background-color:#ECECEC;}
+                QLabel#errorLabel, QLabel#disclaimerLabel{color:red;}
+            """
+        )
+
     def _openHelpFrame(self):
-        print("Opening drive help dialog!")
+        self.__helpDialog.show()
+    
+    def _resetAccountSpecificDataForm(self):
+        self.__formData = {}
+        self.__resetCredentialLabels()
+
+    def getAccountData(self):
+        accountIdenfitifer = self._identifierInput.text().strip()
+        cryptoKey = self._cryptoInput.text().strip()
+        return AccountData(self._accountType, accountIdenfitifer, cryptoKey, {'service_account_credentials': self.__formData['data']})
+
+    def setAccountData(self):
+        #TODO amikor megvan már a layout.
+        pass
+
+    def _validateAccountSpecificForm(self):
+        return self.__formData is not None
+
+    def _createAndSetupDataLayout(self):
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        layout.addLayout(self.__createControlsLayout())
+        layout.addWidget(self.__createDriveCredentialsWidget())
+        layout.addStretch(1)
+        return layout
+
+    def __createControlsLayout(self):
+        controlsLayout = QHBoxLayout()
+        controlsLayout.setAlignment(Qt.AlignLeading)
+        controlsLayout.setContentsMargins(0, 0, 0, 0)
+        controlsLayout.setSpacing(5)
+
+        openCredentialsButton = QPushButton("Open Credentials File")
+        openCredentialsButton.setObjectName("openCredentials")
+        openCredentialsButton.clicked.connect(self.__openCredentialsBrowser)
+        controlsLayout.addWidget(openCredentialsButton)
+
+        openHelpButton = QPushButton("How to get credentials?")
+        openHelpButton.setObjectName("helpButton")
+        openHelpButton.clicked.connect(self._openHelpFrame)
+        controlsLayout.addWidget(openHelpButton)
+
+        controlsLayout.addWidget(self.__credentialsLabels['errorLabel'])
+
+        return controlsLayout
+
+    def __openCredentialsBrowser(self):
+        credentials_file = QFileDialog.getOpenFileUrl(self, "Select the service account credentials json")[0]
+        self.__readCredentialsFile(credentials_file)
+        self.formValidityChanged.emit(self.isFormValid())
+
+    def __readCredentialsFile(self, credentials_file):
+        credentials_file_path = credentials_file.toLocalFile()
+        if credentials_file_path:
+            credentials_size = os.stat(credentials_file_path)[6]
+            file_extension = credentials_file.fileName().split(".")[-1]
+            if credentials_size > 0 and credentials_size < 5000 and file_extension == "json":
+                try:
+                    with open(credentials_file_path, 'r') as f:
+                        credentials = json.loads(f.read())
+                        self.__formData['data'] = credentials
+                        self.__credentialsLabels['errorLabel'].setText("")
+                        self.__credentialsLabels['projectIDLabel'].setText(f"Project ID: {self.__formData['data']['project_id']}")
+                        self.__credentialsLabels['clientEmailLabel'].setText(f"Client Email: {self.__formData['data']['client_email']}")
+                        self.__credentialsLabels['clientIDLabel'].setText(f"Client ID: {self.__formData['data']['client_id']}")
+                        self.__credentialsLabels['disclaimerLabel'].show()
+                except json.decoder.JSONDecodeError:
+                    self.__credentialsLabels['errorLabel'].setText(self.__INVALID_CREDENTIALS_TEXT)
+            else:
+                self.__credentialsLabels['errorLabel'].setText(self.__INVALID_CREDENTIALS_TEXT)
+
+    def __createDriveCredentialsWidget(self):
+        widget = QWidget()
+        widget.setFixedSize(942, 80)
+        widget.setAttribute(Qt.WA_StyledBackground)   
+        widget.setObjectName("credentialsData")
+        widget.setLayout(self.__createDriveCredentialsLayout())
+
+        return widget
+
+    def __createDriveCredentialsLayout(self):
+        mainLayout = QVBoxLayout()
+        mainLayout.setContentsMargins(5, 5, 5, 5)
+
+        firstRowLayout = QHBoxLayout()
+        firstRowLayout.addWidget(self.__credentialsLabels['projectIDLabel'])
+
+        secondRowLayout = QHBoxLayout()
+        secondRowLayout.addWidget(self.__credentialsLabels['clientEmailLabel'])
+        secondRowLayout.addWidget(self.__credentialsLabels['clientIDLabel'])
+
+        mainLayout.addLayout(firstRowLayout)
+        mainLayout.addLayout(secondRowLayout)
+        mainLayout.addWidget(self.__credentialsLabels['disclaimerLabel'])
+        mainLayout.addStretch(1)
+
+        return mainLayout
+
+    def __createHelpButtonLayout(self):
+        pass
+
+    def __resetCredentialLabels(self):
+        self.__credentialsLabels['errorLabel'].setText("")
+        self.__credentialsLabels['projectIDLabel'].setText("")
+        self.__credentialsLabels['clientIDLabel'].setText("")
+        self.__credentialsLabels['clientEmailLabel'].setText("")
+        self.__credentialsLabels['disclaimerLabel'].hide()
 
 
 class AccountCard(QWidget):
