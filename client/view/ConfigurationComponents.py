@@ -24,7 +24,7 @@ class HelpDialog(QDialog):
         self.setObjectName("self")
         self.setStyleSheet(
             """
-                QDialog#self, QScrollArea{background-color:white;}
+                QDialog#self, QScrollArea{background-color:white;border:none;}
                 QPushButton#closeHelpButton{
                     background-color:#e36410;
                     color:white;
@@ -1069,12 +1069,13 @@ class DropboxHelpPage(QWidget):
     def __init__(self):
         super().__init__()
         self.setAttribute(Qt.WA_StyledBackground)
-        self.setStyleSheet("background-color:white;")
+        self.setStyleSheet("background-color:white;border:none;")
         self.__setup()
     
     def __setup(self):
         layout = QHBoxLayout()
-        firstStep = QLabel('1. If you don\'t have an account, go to lofasz, and create an account')
+        firstStep = QLabel('1. If you don\'t have an account, go to <a href="www.dropbox.com">www.dropbox.com</a>, and create an account')
+        firstStep.setOpenExternalLinks(True)
         layout.addWidget(firstStep)
         self.setLayout(layout)
     
