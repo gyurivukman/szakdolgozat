@@ -4,7 +4,7 @@ from enum import IntEnum
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QDialog,
     QHBoxLayout, QPushButton, QLineEdit, 
-    QRadioButton, QFileDialog,QScrollArea
+    QRadioButton, QFileDialog, QScrollArea
 )
 
 from PyQt5.QtCore import QSettings, Qt, pyqtSignal, pyqtSlot, QRect, QSize
@@ -20,10 +20,11 @@ class HelpDialog(QDialog):
     def __init__(self, *args, **kwargs):
         scrollWidget = kwargs.pop('scrollWidget')
         super().__init__(*args, **kwargs)
+        self.setAttribute(Qt.WA_StyledBackground)
         self.setObjectName("self")
         self.setStyleSheet(
             """
-                QDialog#self{background-color:white;}
+                QDialog#self, QScrollArea{background-color:white;}
                 QPushButton#closeHelpButton{
                     background-color:#e36410;
                     color:white;
@@ -33,7 +34,6 @@ class HelpDialog(QDialog):
                     margin-right:5px;
                 }
                 QPushButton#closeHelpButton:pressed {background-color:#e68a4e;}
-                QLabel, QScrollArea{background-color:white;border:0px;}
             """
         )
         self.setFixedSize(480, 720)
@@ -44,6 +44,7 @@ class HelpDialog(QDialog):
         layout.setContentsMargins(0,0,0,0)
 
         scroll = QScrollArea()
+        # scroll.setStyleSheet("background-color:white;")
         scroll.setWidget(scrollWidget)
         scroll.setWidgetResizable(False)
         scroll.setFixedHeight(680)
@@ -898,7 +899,7 @@ class BaseAccountFormWidget(QWidget):
         self._identifierInput.setFont(self._formInputFont)
         self._identifierInput.textChanged.connect(self._baseInputChanged)
 
-        identifierDescription = QLabel("An arbitrary name to easily identify your cloud account\nin cryptStorePi. This is NOT the username!")
+        identifierDescription = QLabel("An arbitrary name to easily identify your cloud account\nin cryptStorePi. This is NOT the username! (max 40 chars.)")
         identifierDescription.setAlignment(Qt.AlignBottom)
         identifierDescription.setFont(self._descriptionFont)
         
@@ -970,9 +971,10 @@ class DropboxAccountForm(BaseAccountFormWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setAttribute(Qt.WA_StyledBackground)
         self._accountType = AccountTypes.Dropbox
-        self.__helpDialog = HelpDialog(scrollWidget=QLabel("SOME HELP LABEL LOL.")) #TODO for dropbox
-        self.__helpDialog.setWindowTitle("How to get a Dropbox API token?")
+        self._helpDialog = HelpDialog(scrollWidget=DropboxHelpPage())
+        self._helpDialog.setWindowTitle("How to get a Dropbox API token?")
         self._setupStyle()
 
     def getAccountData(self):
@@ -996,32 +998,6 @@ class DropboxAccountForm(BaseAccountFormWidget):
         layout.addLayout(self.__createAccountFormLayout())
         layout.addLayout(self.__createHelpButtonLayout())
         layout.addStretch(1)
-        return layout
-
-    def __createAccountFormLayout(self):
-        layout = QVBoxLayout()
-        tokenFormLayout = QHBoxLayout()
-        tokenInputFormLayout = QVBoxLayout()
-
-        tokenInputLabel = QLabel("Dropbox API Access Token")
-        tokenInputLabel.setFont(self._formLabelFont)
-
-        self._tokenInput = QLineEdit()
-        self._tokenInput.setFont(self._formInputFont)
-        self._tokenInput.textChanged.connect(self._baseInputChanged)
-
-        tokenFormDescription = QLabel("For help, click the 'How to get a token?' button!")
-        tokenFormDescription.setAlignment(Qt.AlignBottom)
-        tokenFormDescription.setFont(self._descriptionFont)
-
-        tokenInputFormLayout.addWidget(tokenInputLabel)
-        tokenInputFormLayout.addWidget(self._tokenInput)
-        tokenFormLayout.addLayout(tokenInputFormLayout)
-        tokenFormLayout.addWidget(tokenFormDescription)
-
-        layout.addLayout(tokenFormLayout)
-        layout.addStretch(1)
-
         return layout
 
     def _setupStyle(self):
@@ -1050,7 +1026,33 @@ class DropboxAccountForm(BaseAccountFormWidget):
 
     def _resetAccountSpecificDataForm(self):
         self._tokenInput.setText("")
-    
+
+    def __createAccountFormLayout(self):
+        layout = QVBoxLayout()
+        tokenFormLayout = QHBoxLayout()
+        tokenInputFormLayout = QVBoxLayout()
+
+        tokenInputLabel = QLabel("Dropbox API Access Token")
+        tokenInputLabel.setFont(self._formLabelFont)
+
+        self._tokenInput = QLineEdit()
+        self._tokenInput.setFont(self._formInputFont)
+        self._tokenInput.textChanged.connect(self._baseInputChanged)
+
+        tokenFormDescription = QLabel("For help, click the 'How to get a token?' button!")
+        tokenFormDescription.setAlignment(Qt.AlignBottom)
+        tokenFormDescription.setFont(self._descriptionFont)
+
+        tokenInputFormLayout.addWidget(tokenInputLabel)
+        tokenInputFormLayout.addWidget(self._tokenInput)
+        tokenFormLayout.addLayout(tokenInputFormLayout)
+        tokenFormLayout.addWidget(tokenFormDescription)
+
+        layout.addLayout(tokenFormLayout)
+        layout.addStretch(1)
+
+        return layout
+
     def __createHelpButtonLayout(self):
         layout = QHBoxLayout()
         layout.setContentsMargins(-50, 50, 0, 0)
@@ -1062,11 +1064,26 @@ class DropboxAccountForm(BaseAccountFormWidget):
         return layout
 
 
+class DropboxHelpPage(QWidget):
+
+    def __init__(self):
+        super().__init__()
+        self.setAttribute(Qt.WA_StyledBackground)
+        self.setStyleSheet("background-color:white;")
+        self.__setup()
+    
+    def __setup(self):
+        layout = QHBoxLayout()
+        firstStep = QLabel('1. If you don\'t have an account, go to lofasz, and create an account')
+        layout.addWidget(firstStep)
+        self.setLayout(layout)
+    
+
 class DriveAccountForm(BaseAccountFormWidget):
 
     def __init__(self, *args, **kwargs):
-        self.__credentialsLabels = self.__createCredentialsDataLabels()
         super().__init__(*args, **kwargs)
+        self.setAttribute(Qt.WA_StyledBackground)
         self.__formData = {}
         self._accountType = AccountTypes.GoogleDrive
         self.__INVALID_CREDENTIALS_TEXT = "Invalid service account credentials!"
@@ -1141,14 +1158,22 @@ class DriveAccountForm(BaseAccountFormWidget):
         cryptoKey = self._cryptoInput.text().strip()
         return AccountData(self._accountType, accountIdenfitifer, cryptoKey, {'service_account_credentials': self.__formData['data']})
 
-    def setAccountData(self):
-        #TODO amikor megvan már a layout.
-        pass
+    def setAccountData(self, accountData):
+        self._identifierInput.setText(accountData.identifier)
+        self._cryptoInput.setText(accountData.cryptoKey)
+        self.__formData = accountData.data['service_account_credentials']
+
+        self.__credentialsLabels['errorLabel'].setText("")
+        self.__credentialsLabels['projectIDLabel'].setText(f"Project ID: {self.__formData['project_id']}")
+        self.__credentialsLabels['clientEmailLabel'].setText(f"Client Email: {self.__formData['client_email']}")
+        self.__credentialsLabels['clientIDLabel'].setText(f"Client ID: {self.__formData['client_id']}")
+        self.__credentialsLabels['disclaimerLabel'].show()
 
     def _validateAccountSpecificForm(self):
-        return self.__formData is not None
+        return len(self.__formData.keys())>0
 
     def _createAndSetupDataLayout(self):
+        self.__credentialsLabels = self.__createCredentialsDataLabels()
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -1160,7 +1185,7 @@ class DriveAccountForm(BaseAccountFormWidget):
     def __createControlsLayout(self):
         controlsLayout = QHBoxLayout()
         controlsLayout.setAlignment(Qt.AlignLeading)
-        controlsLayout.setContentsMargins(0, 0, 0, 0)
+        controlsLayout.setContentsMargins(0, 10, 0, 0)
         controlsLayout.setSpacing(5)
 
         openCredentialsButton = QPushButton("Open Credentials File")
@@ -1295,3 +1320,4 @@ class AccountCard(QWidget):
     
     def __updateAccountTypeIcon(self):
         self.__accountIcon.setPixmap(self.__getIconPixmap())
+
