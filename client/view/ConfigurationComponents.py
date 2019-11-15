@@ -4,19 +4,19 @@ from enum import IntEnum
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QDialog,
     QHBoxLayout, QPushButton, QLineEdit, 
-    QRadioButton, QFileDialog, QScrollArea
+    QRadioButton, QFileDialog, QScrollArea,
+    QCheckBox
 )
 
 from PyQt5.QtCore import QSettings, Qt, pyqtSignal, pyqtSlot, QRect, QSize
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
 
-from model.models import AccountData, AccountTypes
+from model.models import AccountData, AccountTypes, AccountListChangeEvent
 from control.services import TaskManager
 from view.Utils import LoadingWidget
 
 
 class HelpDialog(QDialog):
-
     def __init__(self, *args, **kwargs):
         scrollWidget = kwargs.pop('scrollWidget')
         super().__init__(*args, **kwargs)
@@ -63,11 +63,6 @@ class HelpDialog(QDialog):
 
 
 class FirstStartWizard(QWidget):
-    """
-        This is the wizard widget that is being shown if the user hasn't configured the software yet.
-        Inherits from QWidget.
-        Displays the first start setup widget, the current stage and controls for moving between stages.
-    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__settings = QSettings()
@@ -84,7 +79,7 @@ class FirstStartWizard(QWidget):
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.NETWORK] = setupNetworkWidget
 
         setupAccountsWidget = SetupAccountsWidget()
-        setupAccountsWidget.formValidityChanged.connect(self.__checkCanProceed)
+        setupAccountsWidget.accountListChanged.connect(self.__checkCanProceed)
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS] = setupAccountsWidget
 
         summaryWidget = SetupNetworkWidget()
@@ -174,12 +169,6 @@ class FirstStartWizard(QWidget):
 
 
 class WizardProgressWidget(QWidget):
-    """
-        This widget shows the progress of the FirstStartWizard widget.
-        Inherits from QWidget.
-        It has an inner enum class for state tracking.
-        The widget itself is rendered manually via a custom paint method.
-    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -295,15 +284,15 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
 
         welcomeLabel = QLabel("Welcome to CryptStorePi!")
         welcomeLabel.setAttribute(Qt.WA_TranslucentBackground)
-        welcomeLabelFont = QFont('Helvetica', 42, QFont.Normal)
+        welcomeLabelFont = QFont('Nimbus Sans L', 42, QFont.Normal)
         welcomeLabelFont.setUnderline(True)
         welcomeLabel.setFont(welcomeLabelFont)
 
         welcomeInstructionsLabel = QLabel("This wizard will guide you through the first setup of this application.")
-        welcomeInstructionsLabel.setFont(QFont('Helvetica', 22, QFont.Normal))
+        welcomeInstructionsLabel.setFont(QFont('Nimbus Sans L', 22, QFont.Normal))
         welcomeInstructionsLabel.setAttribute(Qt.WA_TranslucentBackground)
         continueInstructionLabel = QLabel("To start, click 'Next'!")
-        continueInstructionLabel.setFont(QFont('Helvetica', 16, QFont.Normal))
+        continueInstructionLabel.setFont(QFont('Nimbus Sans L', 16, QFont.Normal))
         continueInstructionLabel.setAttribute(Qt.WA_TranslucentBackground)
         layout.addWidget(welcomeLabel, 0, Qt.AlignHCenter | Qt.AlignTop)
         layout.addWidget(welcomeInstructionsLabel, 0, Qt.AlignHCenter)
@@ -348,9 +337,9 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         """
 
     def _setup(self):
-        self.__formLabelFont = QFont("Helvetica", 13)
-        self.__descriptionFont = QFont("Helvetica", 10)
-        self.__formInputFont = QFont("Helvetica", 11)
+        self.__formLabelFont = QFont("Nimbus Sans L", 13)
+        self.__descriptionFont = QFont("Nimbus Sans L", 10)
+        self.__formInputFont = QFont("Nimbus Sans L", 11)
 
         self.__isConnectionOK = False
         self.__isSshOK = False
@@ -389,7 +378,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
         self.__remoteHostNameInput = QLineEdit()
         self.__remoteHostNameInput.setObjectName("hostName")
-        self.__remoteHostNameInput.setFont(QFont("Helvetica", 12))
+        self.__remoteHostNameInput.setFont(QFont("Nimbus Sans L", 12))
         self.__remoteHostNameInput.textChanged.connect(self.__onFormInputChanged)
         remoteHostNameInputLayout.addWidget(remoteHostNameLabel)
         remoteHostNameInputLayout.addWidget(self.__remoteHostNameInput)
@@ -443,11 +432,21 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
         sshPasswordLabel = QLabel("SSH Password")
         sshPasswordLabel.setFont(self.__formLabelFont)
+        self.__showPasswordCheckbox = QCheckBox("Show password")
+        self.__showPasswordCheckbox.stateChanged.connect(self.__checkboxStateChanged)
+        sshPasswordLabelsLayout = QHBoxLayout()
+        sshPasswordLabelsLayout.setSpacing(50)
+        sshPasswordLabelsLayout.setAlignment(Qt.AlignLeading)
+        sshPasswordLabelsLayout.addWidget(sshPasswordLabel)
+        sshPasswordLabelsLayout.addWidget(self.__showPasswordCheckbox)
+
         self.__sshPasswordInput = QLineEdit()
         self.__sshPasswordInput.setObjectName("sshPassword")
         self.__sshPasswordInput.setFont(self.__formInputFont)
+        self.__sshPasswordInput.setEchoMode(QLineEdit.Password)
         self.__sshPasswordInput.textChanged.connect(self.__onFormInputChanged)
-        sshFormPasswordInputLayout.addWidget(sshPasswordLabel)
+
+        sshFormPasswordInputLayout.addLayout(sshPasswordLabelsLayout)
         sshFormPasswordInputLayout.addWidget(self.__sshPasswordInput)
 
         self.__SSHTestResultLabel = QLabel()
@@ -490,7 +489,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
         self.__syncDirInput = QLineEdit()
         self.__syncDirInput.setObjectName("syncDirectory")
-        self.__syncDirInput.setFont(QFont("Helvetica", 12))
+        self.__syncDirInput.setFont(QFont("Nimbus Sans L", 12))
         self.__syncDirInput.setEnabled(False)
 
         chooseSyncDirButton = QPushButton("Choose")
@@ -537,9 +536,14 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__remoteHostTestResultLabel.setText("")
         self.formValidityChanged.emit()
 
+    def __checkboxStateChanged(self, state):
+        echoMode = QLineEdit.Normal if state == Qt.Checked else QLineEdit.Password
+        self.__sshPasswordInput.setEchoMode(echoMode) 
+
 
 class SetupAccountsWidget(FirstStartWizardMiddleWidget):
     __inited = False
+    accountListChanged = pyqtSignal(object)
 
     def canProceed(self):
         return len(self.__formData) > 0
@@ -562,6 +566,7 @@ class SetupAccountsWidget(FirstStartWizardMiddleWidget):
 
         self.__loadingWidget = LoadingWidget()
         self.__accountsWidget = AccountsWidget()
+        self.__accountsWidget.accountListChanged.connect(self.__onAccountListChanged)
 
         self.__layout.addWidget(self.__loadingWidget)
         self.__layout.addWidget(self.__accountsWidget)
@@ -575,8 +580,14 @@ class SetupAccountsWidget(FirstStartWizardMiddleWidget):
         self.__accountsWidget.show()
 
 
-class AccountsWidget(QWidget):
+    def __onAccountListChanged(self, event):
+        if event.event == AccountListChangeEvent.CREATE_OR_UPDATE:
+            self.__formData.append(event.account)
+        self.accountListChanged.emit(event)
 
+
+class AccountsWidget(QWidget):
+    accountListChanged = pyqtSignal(object)
     __hasAccountData = False
 
     def __init__(self, *args, **kwargs):
@@ -587,7 +598,7 @@ class AccountsWidget(QWidget):
     
     def __setup(self):
         self.__noAccountsWidget = QLabel("No accounts could be found, please create new accounts by clicking the 'Add new account' button on the right hand side. \nYou can have a total of 8 accounts.")
-        self.__noAccountsWidget.setFont(QFont("Helvetica", 13, False))
+        self.__noAccountsWidget.setFont(QFont("Nimbus Sans L", 13, False))
         self.__noAccountsWidget.setAlignment(Qt.AlignHCenter|Qt.AlignVCenter)
         self.__noAccountsWidget.setObjectName("noAccountsWidget")
 
@@ -609,7 +620,7 @@ class AccountsWidget(QWidget):
         layout = QVBoxLayout()
         self.__accountListWidget.accountSelected.connect(self.__accountEditorWidget.setAccountData)
         self.__accountListWidget.accountSelected.connect(self.__onAccountSelected)
-        self.__accountEditorWidget.onSaveAccount.connect(self.__accountListWidget.updateCurrentlySelectedAccount)
+        self.__accountEditorWidget.onSaveAccount.connect(self.__onAccountSaveClicked)
         self.__accountEditorWidget.onRemoveAccount.connect(self.__accountListWidget.removeAccount)
         layout.addWidget(self.__accountListWidget)
         layout.addStretch(1)
@@ -623,6 +634,10 @@ class AccountsWidget(QWidget):
 
     def setAccountData(self, accounts):
         self.__accountListWidget.setAccounts(accounts)
+
+    def __onAccountSaveClicked(self, account):
+        self.__accountListWidget.updateCurrentlySelectedAccount(account)
+        self.accountListChanged.emit(AccountListChangeEvent(AccountListChangeEvent.CREATE_OR_UPDATE, account))
 
 
 class AccountEditorWidget(QWidget):
@@ -760,7 +775,7 @@ class AccountEditorSectionSeparatorWidget(QWidget):
 
     def __init__(self, *args, **kwargs):
         self.__sectionText = kwargs.pop("sectionName")
-        self.__sectionFont = QFont(QFont('Helvetica', 12, QFont.Bold))
+        self.__sectionFont = QFont(QFont('Nimbus Sans L', 12, QFont.Bold))
         self.__sectionFontColor = QColor("#777777")
         self.__sectionLineColor = QColor("#ECECEC")
         self.__sectionFontMetrics = QFontMetrics(self.__sectionFont)
@@ -809,7 +824,7 @@ class AccountListWidget(QWidget):
         self.__layout.setAlignment(Qt.AlignTop)
 
         self.__newAccountButton = QPushButton("Add new account")
-        self.__newAccountButton.setFont(QFont("Helvetica", 10))
+        self.__newAccountButton.setFont(QFont("Nimbus Sans L", 10))
         self.__newAccountButton.setObjectName("newAccountButton")
         self.__newAccountButton.clicked.connect(self.__addBlankAccount)
 
@@ -826,16 +841,28 @@ class AccountListWidget(QWidget):
 
     def __addAccount(self, account):
         index = self.__layout.count() - 2
-        accountCard = AccountCard(accountData=account)
+        accountCard = AccountCard(accountData=account, index=index)
         accountCard.mouseReleaseEvent = lambda event:self.__selectAccount(index)
+        accountCard.removeButtonClicked.connect(self.removeAccount)
 
         self.__accountCards.append(accountCard)
         self.__layout.insertWidget(index, accountCard, Qt.AlignHCenter)
 
-    def removeAccount(self):
-        self.__accountCards[-1].hide()
-        self.__layout.removeWidget(self.__accountCards[-1])
-        del self.__accountCards[-1]
+    def removeAccount(self, index):
+        self.__accountCards[index].hide()
+        self.__layout.removeWidget(self.__accountCards[index])
+        del self.__accountCards[index]
+
+        accountCount = len(self.__accountCards)
+        if accountCount > 0:
+            for i in range(0, accountCount):
+                self.__accountCards[i].setIndex(i)
+                self.__accountCards[i].mouseReleaseEvent = lambda event:self.__selectAccount(i)
+            if index == self.__selectedAccountIndex:
+                self.__selectedAccountIndex = 0
+                self.__accountCards[0].setSelected(True)
+        else:
+            self.__selectedAccountIndex = -1
 
     def updateCurrentlySelectedAccount(self, account):
         self.__accountCards[self.__selectedAccountIndex].setAccountData(account)
@@ -864,9 +891,9 @@ class AccountListWidget(QWidget):
 
 class BaseAccountFormWidget(QWidget):
     _accountType = None
-    _formLabelFont = QFont("Helvetica", 13)
-    _descriptionFont = QFont("Helvetica", 10)
-    _formInputFont = QFont("Helvetica", 11)
+    _formLabelFont = QFont("Nimbus Sans L", 13)
+    _descriptionFont = QFont("Nimbus Sans L", 10)
+    _formInputFont = QFont("Nimbus Sans L", 11)
     _onInputChanged = pyqtSignal()
 
     formValidityChanged = pyqtSignal(bool)
@@ -1010,7 +1037,7 @@ class DropboxAccountForm(BaseAccountFormWidget):
                 QPushButton#helpButton {
                     background-color:#e36410;
                     color:white;
-                    max-width:160px;
+                    max-width:200px;
                     border:0px;
                     height:30px;
                 }
@@ -1131,7 +1158,7 @@ class DriveAccountForm(BaseAccountFormWidget):
                 QPushButton#helpButton, QPushButton#openCredentials {
                     background-color:#e36410;
                     color:white;
-                    width:160px;
+                    width:180px;
                     border:0px;
                     height:30px;
                 }
@@ -1267,6 +1294,8 @@ class DriveAccountForm(BaseAccountFormWidget):
 
 
 class AccountCard(QWidget):
+    removeButtonClicked = pyqtSignal(int)
+
     __unselectedStyle = """
         QWidget#accountCard:hover {border:2px solid #e36410;}
         QWidget#accountCard{border:1px solid #e36410;}
@@ -1276,28 +1305,45 @@ class AccountCard(QWidget):
     """
 
     def __init__(self, *args, **kwargs):
-        self.__accountData = kwargs.pop('accountData')
+        self.__accountData = kwargs.pop("accountData")
+        self.__index = kwargs.pop("index")
         super().__init__(*args, **kwargs)
         self.__setup()
 
     def __setup(self):
         self.setFixedSize(300, 45)
+        self.setAttribute(Qt.WA_StyledBackground)
         self.setStyleSheet(self.__unselectedStyle)
-        self.setObjectName("accountCard")
-        self.setAttribute(Qt.WA_StyledBackground)   
 
         self.__accountIcon = QLabel()
         self.__accountIcon.setPixmap(self.__getIconPixmap())
         self.__identifierLabel = QLabel(self.__accountData.identifier)
-        self.__identifierLabel.setFont(QFont("Helvetica", 11, False))
+        self.__identifierLabel.setFont(QFont("Nimbus Sans L", 11, False))
 
-        layout = QHBoxLayout()
-        layout.setSpacing(5)
-        layout.setAlignment(Qt.AlignLeft)
-        layout.addWidget(self.__accountIcon)
-        layout.addWidget(self.__identifierLabel)
+        mainLayout = QHBoxLayout()
+        mainLayout.setSpacing(0)
+        mainLayout.setContentsMargins(0,0,0,0)
 
-        self.setLayout(layout)
+        infoLayout = QHBoxLayout()
+        infoLayout.setSpacing(5)
+        infoLayout.setAlignment(Qt.AlignLeft)
+        infoLayout.addWidget(self.__accountIcon)
+        infoLayout.addWidget(self.__identifierLabel)
+
+        containerWidget = QWidget()
+        containerWidget.setFixedSize(270, 40)
+        containerWidget.setObjectName("accountCard")
+        containerWidget.setAttribute(Qt.WA_StyledBackground)
+        containerWidget.setLayout(infoLayout)
+
+        removeButton = QPushButton("X")
+        removeButton.setObjectName("removeButton")
+        removeButton.clicked.connect(self.__onRemoveButtonClicked)
+
+        mainLayout.addWidget(containerWidget)
+        mainLayout.addWidget(removeButton)
+
+        self.setLayout(mainLayout)
 
     def setSelected(self, selected):
         self.setStyleSheet(self.__selectedStyle) if selected else self.setStyleSheet(self.__unselectedStyle)
@@ -1309,6 +1355,9 @@ class AccountCard(QWidget):
         self.__accountData = accountData
         self.__identifierLabel.setText(accountData.identifier)
         self.__updateAccountTypeIcon()
+    
+    def setIndex(self, index):
+        self.__index = index
 
     def __getIconPath(self):
         return "./view/assets/dropbox.png" if self.__accountData.accountType == AccountTypes.Dropbox else "./view/assets/googledrive.png"
@@ -1321,4 +1370,7 @@ class AccountCard(QWidget):
     
     def __updateAccountTypeIcon(self):
         self.__accountIcon.setPixmap(self.__getIconPixmap())
+
+    def __onRemoveButtonClicked(self):
+        self.removeButtonClicked.emit(self.__index)
 

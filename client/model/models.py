@@ -36,3 +36,11 @@ class AccountData:
     cryptoKey: str
     data: dict
     id: int = None
+
+@dataclass
+class AccountListChangeEvent:
+    CREATE_OR_UPDATE = 0
+    DELETE = 1
+    
+    event:int
+    account:AccountData

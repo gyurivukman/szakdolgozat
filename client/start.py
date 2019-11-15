@@ -17,7 +17,6 @@ def setupOrganization():
 
 def createTrayIcon():
     trayIcon = QSystemTrayIcon(QIcon('view/assets/logo.png'), app)
-    trayIcon.activated.connect(iconActivated)
     trayIcon.setContextMenu(createTrayMenu())
     return trayIcon
 
@@ -50,11 +49,6 @@ def onSettingsClicked():
         mainWindow.show()
     else:
         pass
-
-
-def iconActivated(reason):
-    if reason == QSystemTrayIcon.DoubleClick:
-        mainWindow.show()
 
 
 if __name__ == '__main__':

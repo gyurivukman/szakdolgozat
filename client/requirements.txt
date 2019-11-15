@@ -1,2 +1,4 @@
 pycryptodome
+pyqt5
+paramiko
 #TODO

@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton
 from PyQt5.QtCore import Qt, QSettings, QCoreApplication, QSize
+from PyQt5.QtGui import QIcon
 
 from view.ConfigurationComponents import FirstStartWizard
 from control.services import TaskManager
@@ -19,6 +20,7 @@ class MainWindow(QMainWindow):
 
     def initGUI(self):
         self.setWindowTitle('CryptStorePi')
+        self.setWindowIcon(QIcon('view/assets/logo.png'))       
         if self.__isFirstStart():
             self.__setupForFirstStart()
         else:
