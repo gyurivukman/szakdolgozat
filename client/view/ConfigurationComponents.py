@@ -842,7 +842,7 @@ class AccountListWidget(QWidget):
     def __addAccount(self, account):
         index = self.__layout.count() - 2
         accountCard = AccountCard(accountData=account, index=index)
-        accountCard.mouseReleaseEvent = lambda event:self.__selectAccount(index)
+        accountCard.onSelected.connect(self.__selectAccount)
         accountCard.removeButtonClicked.connect(self.removeAccount)
 
         self.__accountCards.append(accountCard)
@@ -1294,6 +1294,7 @@ class DriveAccountForm(BaseAccountFormWidget):
 
 
 class AccountCard(QWidget):
+    onSelected = pyqtSignal(int)
     removeButtonClicked = pyqtSignal(int)
 
     __unselectedStyle = """
@@ -1331,6 +1332,7 @@ class AccountCard(QWidget):
         infoLayout.addWidget(self.__identifierLabel)
 
         containerWidget = QWidget()
+        containerWidget.mouseReleaseEvent = self.__onSelected
         containerWidget.setFixedSize(270, 40)
         containerWidget.setObjectName("accountCard")
         containerWidget.setAttribute(Qt.WA_StyledBackground)
@@ -1374,3 +1376,5 @@ class AccountCard(QWidget):
     def __onRemoveButtonClicked(self):
         self.removeButtonClicked.emit(self.__index)
 
+    def __onSelected(self, event):
+        self.onSelected.emit(self.__index)
