@@ -159,9 +159,11 @@ class FirstStartWizard(QWidget):
         self.__widgetMap[self.__state].hide()
         self.__state = self.__progressWidget.toNextState()
         self.__widgetMap[self.__state].show()
-        self.__widgetMap[self.__state].initData()
+        if self.__state != WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY:
+            self.__widgetMap[self.__state].initData() 
+        else:
+            self.__widgetMap[self.__state].setSummaryData(self.__gatherFormData())
         self.__update()
-        
 
     def __goBack(self):
         self.__widgetMap[self.__state].hide()
@@ -169,6 +171,12 @@ class FirstStartWizard(QWidget):
         self.__widgetMap[self.__state].show()
         self.__update()
 
+    def __gatherFormData(self):
+        networkData = self.__widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.NETWORK].getFormData()
+        accountsData = self.__widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS].getFormData()
+
+        return {'network': networkData, 'accounts': accountsData}
+    
     def __onFinishClicked(self):
         print("FInish!")
 
@@ -335,6 +343,9 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
     def canGoBack(self):
         return True
+    
+    def getFormData(self):
+        return self.__network_data
 
     def _getStyle(self):
         return """
@@ -555,7 +566,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
     def __checkboxStateChanged(self, state):
         echoMode = QLineEdit.Normal if state == Qt.Checked else QLineEdit.Password
-        self.__sshPasswordInput.setEchoMode(echoMode) 
+        self.__sshPasswordInput.setEchoMode(echoMode)  
 
 
 class SetupAccountsWidget(FirstStartWizardMiddleWidget):
@@ -601,6 +612,9 @@ class SetupAccountsWidget(FirstStartWizardMiddleWidget):
         if event.event == AccountListChangeEvent.CREATE_OR_UPDATE:
             self.__formData.append(event.account)
         self.accountListChanged.emit(event)
+
+    def getFormData(self):
+        return self.__accountsWidget.getAccounts()
 
 
 class AccountsWidget(QWidget):
@@ -651,6 +665,9 @@ class AccountsWidget(QWidget):
 
     def setAccountData(self, accounts):
         self.__accountListWidget.setAccounts(accounts)
+
+    def getAccounts(self):
+        return self.__accountListWidget.getAccounts()
 
     def __onAccountSaveClicked(self, account):
         self.__accountListWidget.updateCurrentlySelectedAccount(account)
@@ -904,6 +921,9 @@ class AccountListWidget(QWidget):
             self.__accountCards[index].setSelected(True)
             self.__selectedAccountIndex = index
             self.accountSelected.emit(self.__accountCards[index].getAccountData())
+
+    def getAccounts(self):
+        return [accountCard.getAccountData().toJson() for accountCard in self.__accountCards]
 
 
 class BaseAccountFormWidget(QWidget):
@@ -1570,6 +1590,6 @@ class FirstStartSummaryWidget(FirstStartWizardMiddleWidget):
 
     def canGoBack(self):
         return True
-
-    def initData(self):
-        pass
+    
+    def setSummaryData(self, summary):
+        print(summary)

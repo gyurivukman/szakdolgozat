@@ -37,6 +37,9 @@ class AccountData:
     data: dict
     id: int = None
 
+    def toJson(self):
+        return {'accountType': self.accountType, 'identifier':self.identifier, 'cryptoKey':self.cryptoKey, 'data':self.data, 'id':self.id}
+
 @dataclass
 class AccountListChangeEvent:
     CREATE_OR_UPDATE = 0
