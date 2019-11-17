@@ -85,8 +85,7 @@ class FirstStartWizard(QWidget):
         setupAccountsWidget.accountListChanged.connect(self.__checkCanProceed)
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS] = setupAccountsWidget
 
-        summaryWidget = SetupNetworkWidget()
-        summaryWidget.formValidityChanged.connect(self.__checkCanProceed)
+        summaryWidget = FirstStartSummaryWidget()
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY] = summaryWidget
 
         return widgetMap
@@ -140,12 +139,18 @@ class FirstStartWizard(QWidget):
         self.__previousButton.setObjectName("controlButton")
         self.__previousButton.setDisabled(True)
         self.__previousButton.clicked.connect(self.__goBack)
+        self.__finishButton = QPushButton("Finish")
+        self.__finishButton.setObjectName("controlButton")
+        self.__finishButton.clicked.connect(self.__onFinishClicked)
+        self.__finishButton.hide()
+
         controlLayout = QHBoxLayout()
         controlLayout.setContentsMargins(0, 0, 10, 10)
         controlLayout.setSpacing(20)
         controlLayout.setAlignment(Qt.AlignTrailing)
         controlLayout.addWidget(self.__previousButton)
         controlLayout.addWidget(self.__nextButton)
+        controlLayout.addWidget(self.__finishButton)
 
         self.__layout.addLayout(controlLayout)
         self.setLayout(self.__layout)
@@ -164,8 +169,17 @@ class FirstStartWizard(QWidget):
         self.__widgetMap[self.__state].show()
         self.__update()
 
+    def __onFinishClicked(self):
+        print("FInish!")
+
     def __update(self):
-        self.__nextButton.setDisabled(not self.__widgetMap[self.__state].canProceed())
+        if self.__state != WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY:
+            self.__nextButton.show()
+            self.__nextButton.setDisabled(not self.__widgetMap[self.__state].canProceed())
+            self.__finishButton.hide()
+        else:
+            self.__nextButton.hide()
+            self.__finishButton.show()
         self.__previousButton.setDisabled(not self.__widgetMap[self.__state].canGoBack())
         self.__progressWidget.update()
         self.update()
@@ -1447,6 +1461,7 @@ class DriveHelpPage(QWidget):
 
         return figure
 
+
 class AccountCard(QWidget):
     onSelected = pyqtSignal(int)
     removeButtonClicked = pyqtSignal(int)
@@ -1538,3 +1553,23 @@ class AccountCard(QWidget):
 
     def __onSelected(self, event):
         self.onSelected.emit(self.__index)
+
+
+class FirstStartSummaryWidget(FirstStartWizardMiddleWidget):
+
+    def _setup(self):
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("I AM THE SUMMARY"))
+        self.setLayout(layout)
+
+    def _getStyle(self):
+        return "QLabel{border:1px solid red;}"
+
+    def canProceed(self):
+        return False
+
+    def canGoBack(self):
+        return True
+
+    def initData(self):
+        pass
