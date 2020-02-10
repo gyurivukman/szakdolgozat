@@ -106,9 +106,7 @@ class NetworkService(BaseWorkerService, TaskBasedServiceWithPriorityQueue):
         self.__taskHandlers = self.__createTaskHandlers()
 
     def __createTaskHandlers(self):
-        return {
-            TaskTypes.GET_ACCOUNTS: self.__getAccounts
-        }
+        return {TaskTypes.GET_ACCOUNTS: self.__getAccounts}
 
     def start(self):
         while self._shouldRun:
@@ -134,7 +132,7 @@ class NetworkService(BaseWorkerService, TaskBasedServiceWithPriorityQueue):
         return logging.getLogger('[Network service]')
 
     def __getAccounts(self):
-        self._logger.log("Retrieving accounts..")
+        self._logger.info("Retrieving accounts..")
         time.sleep(2)
 
 
@@ -151,6 +149,9 @@ class SSHService(BaseWorkerService, TaskBasedServiceWithPriorityQueue):
     def _getLogger(self):
         print("Getting logger for ssh")
         return logging.getLogger('[SSH service]')
+
+    def _handleCurrentTask(self):
+        pass
 
 
 class FileScannerWorkerService(BaseWorkerService):

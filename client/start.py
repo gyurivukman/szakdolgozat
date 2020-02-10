@@ -18,7 +18,7 @@ def setupOrganization():
 def createTrayIcon():
     trayIcon = QSystemTrayIcon(QIcon('view/assets/logo.png'), app)
     trayIcon.setContextMenu(createTrayMenu())
-    return trayIcon
+    trayIcon.show()
 
 
 def createTrayMenu():
@@ -52,11 +52,14 @@ def onSettingsClicked():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=logging.DEBUG,
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
     app = QApplication(sys.argv)
     setupOrganization()
-    trayIcon = createTrayIcon()
-    trayIcon.show()
+    createTrayIcon()
     mainWindow = MainWindow()
     mainWindow.initGUI()
     sys.exit(app.exec_())
