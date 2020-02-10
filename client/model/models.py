@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from enum import IntEnum
 
 
-
 class AccountTypes(IntEnum):
     Dropbox = 0
     GoogleDrive = 1
@@ -23,7 +22,7 @@ class TaskTypes(IntEnum):
 @dataclass(order=True)
 class Task:
     priority: int
-    taskType:int
+    taskType: int
     data: dict = None
     success: types.FunctionType = None
     error: types.FunctionType = None
@@ -38,12 +37,13 @@ class AccountData:
     id: int = None
 
     def toJson(self):
-        return {'accountType': self.accountType, 'identifier':self.identifier, 'cryptoKey':self.cryptoKey, 'data':self.data, 'id':self.id}
+        return {'accountType': self.accountType, 'identifier': self.identifier, 'cryptoKey': self.cryptoKey, 'data': self.data, 'id': self.id}
+
 
 @dataclass
 class AccountListChangeEvent:
     CREATE_OR_UPDATE = 0
     DELETE = 1
-    
-    event:int
-    account:AccountData
+
+    event: int
+    account: AccountData

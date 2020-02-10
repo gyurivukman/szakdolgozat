@@ -12,12 +12,16 @@ class BaseWorkerService(QObject):
     def __init__(self):
         super().__init__()
         self._shouldRun = True
+        self._logger = self._getLogger()
 
     def start(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'start'. This is the entrypoint for the service.")
 
     def stop(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method 'stop'. This is the exit point for the service.")
+
+    def _getLogger(self):
+        raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_getLogger'. It should return a named logger that will be used throughout the service.")
 
 
 class TaskBasedServiceWithPriorityQueue():
@@ -73,6 +77,9 @@ class TaskManager(BaseWorkerService):
         task = Task(TaskPriorities.HIGH, TaskTypes.GET_ACCOUNTS, None, callBack)
         self.__networkService.enqueTask(task)
 
+    def _getLogger(self):
+        return logging.getLogger('[Taskmanager service]')
+
     def __initFileScanner(self):
         self.__fileScannerWorker = QThread()
         self.__fileScannerService = FileScannerWorkerService()
@@ -97,7 +104,6 @@ class NetworkService(BaseWorkerService, TaskBasedServiceWithPriorityQueue):
     def __init__(self):
         super().__init__()
         self.__taskHandlers = self.__createTaskHandlers()
-        self.__logger = logging.getLogger('[Network service]')
 
     def __createTaskHandlers(self):
         return {
@@ -108,10 +114,10 @@ class NetworkService(BaseWorkerService, TaskBasedServiceWithPriorityQueue):
         while self._shouldRun:
             try:
                 if not self._currentTask:
-                        self._currentTask = self._taskQueue.get(True, 1.0)
+                    self._currentTask = self._taskQueue.get(True, 1.0)
                 self._handleCurrentTask()
-            except Empty as e:
-                self.__logger.debug("No tasks, sleeping...")
+            except Empty as _:
+                self._logger.debug("No tasks, sleeping...")
                 time.sleep(1.0)
 
     def stop(self):
@@ -120,32 +126,42 @@ class NetworkService(BaseWorkerService, TaskBasedServiceWithPriorityQueue):
     def _handleCurrentTask(self):
         handlerFunction = self.__taskHandlers[self._currentTask.taskType]
         handlerFunction()
-        print("Handling some shit....")
-        print("calling callback!")
         if self._currentTask.success:
             self._currentTask.success([])
         self._currentTask = None
 
+    def _getLogger(self):
+        return logging.getLogger('[Network service]')
+
     def __getAccounts(self):
-        print("getting accounts lol")
+        self._logger.log("Retrieving accounts..")
         time.sleep(2)
 
 
 class SSHService(BaseWorkerService, TaskBasedServiceWithPriorityQueue):
+
     def start(self):
         while self._shouldRun:
-            print("ssh working...")
+            self._logger.debug("SSH working...")
             time.sleep(3)
 
     def stop(self):
         self._shouldRun = False
+
+    def _getLogger(self):
+        print("Getting logger for ssh")
+        return logging.getLogger('[SSH service]')
 
 
 class FileScannerWorkerService(BaseWorkerService):
+
     def start(self):
         while self._shouldRun:
-            print("filescanner working...")
+            self._logger.debug("File scanner working...")
             time.sleep(3)
 
     def stop(self):
         self._shouldRun = False
+
+    def _getLogger(self):
+        return logging.getLogger('[File scanner]')
