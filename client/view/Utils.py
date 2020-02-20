@@ -4,6 +4,8 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout
 from PyQt5.QtSvg import QSvgWidget
 from PyQt5.QtCore import Qt
 
+from . import resources
+
 
 class LoadingWidget(QWidget):
 
@@ -19,7 +21,7 @@ class LoadingWidget(QWidget):
 
     def __setup(self, size):
         layout = QVBoxLayout()
-        svgWidget = QSvgWidget('./view/assets/loader.svg')
+        svgWidget = QSvgWidget(':loader.svg')
         svgWidget.setFixedSize(size, size)
         layout.setAlignment(Qt.AlignHCenter|Qt.AlignVCenter)
         layout.addWidget(svgWidget)

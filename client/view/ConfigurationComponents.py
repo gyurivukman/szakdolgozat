@@ -14,6 +14,7 @@ from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QI
 from model.models import AccountData, AccountTypes, AccountListChangeEvent
 from control.services import TaskManager
 from view.Utils import LoadingWidget
+from view import resources
 
 
 class AccountHelpDialog(QDialog):
@@ -205,7 +206,7 @@ class WizardProgressWidget(QWidget):
         self.__stageLabelFont = QFont('Arial', 10, QFont.Bold, False)
         self.setFixedSize(1280, 160)
 
-    def paintEvent(self, e):
+    def paintEvent(self, _):
         qp = QPainter()
         qp.begin(self)
         self.__drawWidget(qp)
@@ -310,11 +311,10 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
         welcomeLabel = QLabel("Welcome to CryptStorePi!")
         welcomeLabel.setAttribute(Qt.WA_TranslucentBackground)
         welcomeLabelFont = QFont('Nimbus Sans L', 42, QFont.Normal)
-        welcomeLabelFont.setUnderline(True)
         welcomeLabel.setFont(welcomeLabelFont)
 
         welcomeInstructionsLabel = QLabel("This wizard will guide you through the first setup of this application.")
-        welcomeInstructionsLabel.setFont(QFont('Nimbus Sans L', 22, QFont.Normal))
+        welcomeInstructionsLabel.setFont(QFont('Nimbus Sans L', 18, QFont.Normal))
         welcomeInstructionsLabel.setAttribute(Qt.WA_TranslucentBackground)
         continueInstructionLabel = QLabel("To start, click 'Next'!")
         continueInstructionLabel.setFont(QFont('Nimbus Sans L', 16, QFont.Normal))
@@ -328,22 +328,22 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
         return True
 
     def canGoBack(self):
-        return True
+        return False
 
     def _getStyle(self):
         self.setObjectName("welcomeWidget")
-        return "#welcomeWidget{background-image:url(./view/assets/encryptionBackground.png);background-repeat:no-repeat;background-position:center;}"
+        return "#welcomeWidget{background-image:url(:encryptionBackground.png);background-repeat:no-repeat;background-position:center;}"
 
 
 class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
     def canProceed(self):
         return True
-        return self.__isConnectionOK and self.__isSshOK and len(self.__chosenDirectoryPath) > 0
+        # return self.__isConnectionOK and self.__isSshOK and len(self.__chosenDirectoryPath) > 0
 
     def canGoBack(self):
         return True
-    
+
     def getFormData(self):
         return self.__network_data
 
@@ -352,16 +352,17 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
             QLineEdit {border:1px solid #E39910; height:25px;}
             QLineEdit:focus {border:2px solid #E39910}
             QLineEdit:hover {border:2px solid #E39910}
+
             QPushButton {width: 150px; max-width:150px; height:25px; border:0; margin-right:20px; background-color:#e36410; color:white;}
             QPushButton#chooseSyncDir{height:27px; width:80px;max-width:80px;margin-right:40px;}
             QPushButton:pressed {background-color:#e68a4e;}
-            
 
             QLineEdit#hostName, QLineEdit#syncDirectory {max-width: 500px; margin-right:20px;}
             QLineEdit#hostPort {max-width: 80px; margin-right:40px;}
 
-            QLineEdit#sshUsername{max-width: 290px; margin-right:20px;}
-            QLineEdit#sshPassword{max-width: 290px; margin-right:40px;}
+            QLineEdit#sshUsername {max-width: 290px; margin-right:20px;}
+            QLineEdit#sshPassword {max-width: 290px; margin-right:40px;}
+            QLineEdit#syncDirectory {border:1px solid #D8D8D8;}
         """
 
     def _setup(self):
@@ -380,6 +381,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         hostLayout = self.__createHostLayout()
         sshLayout = self.__createSSHLayout()
         directoryLayout = self.__createSyncDirectoryLayout()
+
         layout.addLayout(hostLayout)
         layout.addLayout(sshLayout)
         layout.addLayout(directoryLayout)
@@ -400,7 +402,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
         remoteHostNameLabel = QLabel("Remote host")
         remoteHostNameLabel.setFont(self.__formLabelFont)
-        remoteHostDescription = QLabel("Resolveable address of the remote host, eg.: localhost or 10.20.30.40 \nand port, eg.: 12345")
+        remoteHostDescription = QLabel("Resolveable address of the remote CryptStorePi server.\nExamples address: localhost or 10.20.30.40\nExample port: 12345")
         remoteHostDescription.setFont(self.__descriptionFont)
         remoteHostDescription.setAlignment(Qt.AlignBottom)
 
@@ -460,13 +462,13 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
         sshPasswordLabel = QLabel("SSH Password")
         sshPasswordLabel.setFont(self.__formLabelFont)
-        self.__showPasswordCheckbox = QCheckBox("Show password")
-        self.__showPasswordCheckbox.stateChanged.connect(self.__checkboxStateChanged)
+        showPasswordCheckbox = QCheckBox("Show password")
+        showPasswordCheckbox.stateChanged.connect(self.__checkboxStateChanged)
         sshPasswordLabelsLayout = QHBoxLayout()
-        sshPasswordLabelsLayout.setSpacing(50)
         sshPasswordLabelsLayout.setAlignment(Qt.AlignLeading)
+        sshPasswordLabelsLayout.setSpacing(92)
         sshPasswordLabelsLayout.addWidget(sshPasswordLabel)
-        sshPasswordLabelsLayout.addWidget(self.__showPasswordCheckbox)
+        sshPasswordLabelsLayout.addWidget(showPasswordCheckbox)
 
         self.__sshPasswordInput = QLineEdit()
         self.__sshPasswordInput.setObjectName("sshPassword")
@@ -502,7 +504,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         sshLayout.addLayout(sshFormTestConnectionLayout)
         sshLayout.setContentsMargins(0, 25, 0, 0)
         return sshLayout
-    
+
     def __createSyncDirectoryLayout(self):
         directoryLayout = QHBoxLayout()
         directoryFormLayout = QVBoxLayout()
@@ -551,7 +553,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__isSshOK = True
 
         self.formValidityChanged.emit()
-    
+
     def __openDirectoryBrowser(self):
         self.__chosenDirectoryPath = str(QFileDialog.getExistingDirectory(self, "Select the synchronization directory"))
         self.__syncDirInput.setText(self.__chosenDirectoryPath)
@@ -731,13 +733,13 @@ class AccountEditorWidget(QWidget):
         accountIconSize = QSize(35, 35)
 
         dropboxButton = QPushButton("Dropbox")
-        dropboxButton.setIcon(QIcon('./view/assets/dropbox.png'))
+        dropboxButton.setIcon(QIcon(':/assets/dropbox.png'))
         dropboxButton.setIconSize(accountIconSize)
         dropboxButton.setStyleSheet(self.__activeButtonStyle)
         dropboxButton.clicked.connect(lambda: self.__onAccountTypeSelected(0))
 
         driveButton = QPushButton("Google Drive")
-        driveButton.setIcon(QIcon('./view/assets/googledrive.png'))
+        driveButton.setIcon(QIcon(':googledrive.png'))
         driveButton.setIconSize(accountIconSize)
         driveButton.setStyleSheet(self.__inactiveButtonStyle)
         driveButton.clicked.connect(lambda: self.__onAccountTypeSelected(1))
@@ -1165,7 +1167,7 @@ class DropboxHelpPage(QWidget):
         fourthStep.setFont(self.__stepFont)
         fourthStepFigure = QLabel()
         fourthStepFigure.setObjectName("figure")
-        fourthStepFigurePixmap = QPixmap('./view/assets/dropboxhelp/figure_1_click_create_app.png')
+        fourthStepFigurePixmap = QPixmap(':dropboxhelp/figure_1_click_create_app.png')
         
         fourthStepFigure.setPixmap(fourthStepFigurePixmap)
 
@@ -1175,7 +1177,7 @@ class DropboxHelpPage(QWidget):
         fifthStep.setWordWrap(True)
         fifthStepFigure = QLabel()
         fifthStepFigure.setObjectName("figure")
-        fifthStepFigurePixmap = QPixmap('./view/assets/dropboxhelp/figure_2_fill_out_the_form.png')
+        fifthStepFigurePixmap = QPixmap(':dropboxhelp/figure_2_fill_out_the_form.png')
         fifthStepFigure.setPixmap(fifthStepFigurePixmap)
 
         sixthStep = QLabel('6. After clicking Create App, click "Generate" to create an access token.')
@@ -1185,7 +1187,7 @@ class DropboxHelpPage(QWidget):
 
         sixthStepFigure = QLabel()
         sixthStepFigure.setObjectName("figure")
-        sixthStepFigurePixmap = QPixmap('./view/assets/dropboxhelp/figure_3_api_token.png')
+        sixthStepFigurePixmap = QPixmap(':dropboxhelp/figure_3_api_token.png')
         sixthStepFigure.setPixmap(sixthStepFigurePixmap)
 
         seventhStep = QLabel('7. Copy and paste this Api token into the corresponding field of the dropbox account form.')
@@ -1205,7 +1207,7 @@ class DropboxHelpPage(QWidget):
         layout.addWidget(seventhStep)
 
         self.setLayout(layout)
-    
+
 
 class DriveAccountForm(BaseAccountFormWidget):
 
@@ -1416,28 +1418,28 @@ class DriveHelpPage(QWidget):
         secondStep = self.__createFixedWidthStep('2. Sign in with your newly created google account at <a href="https://console.cloud.google.com/">this link.</a>')
 
         thirdStep = self.__createFixedWidthStep('3. On the top navigation bar, click "Create project".')
-        thirdStepFigure = self.__createFigure('./view/assets/drivehelp/figure_1_create_project.png')
+        thirdStepFigure = self.__createFigure(':drivehelp/figure_1_create_project.png')
 
         fourthStep = self.__createFixedWidthStep('4. Name your project and click "Create".')
         fifthStep = self.__createFixedWidthStep('5. Open the <a href="https://console.developers.google.com/">developer console</a> ')
     
         sixthStep = self.__createFixedWidthStep("6. Select your newly created project from the dropdown menu at the top, then click 'Enable APIs and Services'.")
-        sixthStepFigure = self.__createFigure("./view/assets/drivehelp/figure_2_selecting_project.png")
+        sixthStepFigure = self.__createFigure(":drivehelp/figure_2_selecting_project.png")
 
         seventhStep = self.__createFixedWidthStep("7. Search for 'Google Drive Api', then click on the result.")
-        seventhStepFigure = self.__createFigure("./view/assets/drivehelp/figure_3_searching_for_api.png")
+        seventhStepFigure = self.__createFigure(":drivehelp/figure_3_searching_for_api.png")
 
         eightStep = self.__createFixedWidthStep("8. Enable the 'Google Drive Api' for your project.")
-        eightStepFigure = self.__createFigure("./view/assets/drivehelp/figure_4_enabling_api.png")
+        eightStepFigure = self.__createFigure(":drivehelp/figure_4_enabling_api.png")
 
         ninthStep = self.__createFixedWidthStep("9. Select 'IAM&admin/Service Accounts' from the dropdown menu at the top left. Then click 'Create service account' and give it any name.")
-        ninthStepFigure = self.__createFigure("./view/assets/drivehelp/figure_5_service_accounts_menu.png")
+        ninthStepFigure = self.__createFigure(":drivehelp/figure_5_service_accounts_menu.png")
 
         tenthStep = self.__createFixedWidthStep("10. Add two roles: Project Editor and Monitoring Editor.")
-        tenthStepFigure = self.__createFigure("./view/assets/drivehelp/figure_6_service_account_roles.png")
+        tenthStepFigure = self.__createFigure(":drivehelp/figure_6_service_account_roles.png")
 
         eleventhStep = self.__createFixedWidthStep("11. Create a key for this service account.")
-        eleventhStepFigure = self.__createFigure("./view/assets/drivehelp/figure_7_create_service_key.png")
+        eleventhStepFigure = self.__createFigure(":drivehelp/figure_7_create_service_key.png")
 
         twelvthStep = self.__createFixedWidthStep("12. Locate and open the downloaded file with the 'Open Credentials File' button.")
 
@@ -1552,19 +1554,19 @@ class AccountCard(QWidget):
         self.__accountData = accountData
         self.__identifierLabel.setText(accountData.identifier)
         self.__updateAccountTypeIcon()
-    
+
     def setIndex(self, index):
         self.__index = index
 
     def __getIconPath(self):
-        return "./view/assets/dropbox.png" if self.__accountData.accountType == AccountTypes.Dropbox else "./view/assets/googledrive.png"
+        return ":dropbox.png" if self.__accountData.accountType == AccountTypes.Dropbox else ":googledrive.png"
 
     def __getIconPixmap(self):
         pixmap = QPixmap(self.__getIconPath())
         pixmap = pixmap.scaled(25, 25, Qt.IgnoreAspectRatio)
-        
+
         return pixmap
-    
+
     def __updateAccountTypeIcon(self):
         self.__accountIcon.setPixmap(self.__getIconPixmap())
 

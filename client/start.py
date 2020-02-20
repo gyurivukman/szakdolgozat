@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from PyQt5.QtCore import QCoreApplication, QSettings
 from PyQt5.QtGui import QIcon
 from view.MainWindow import MainWindow
+from view import resources
 
 app = None
 mainWindow = None
@@ -16,16 +17,28 @@ def setupOrganization():
 
 
 def createTrayIcon():
-    trayIcon = QSystemTrayIcon(QIcon('view/assets/logo.png'), app)
+    trayIcon = QSystemTrayIcon(QIcon(':logo.png'), app)
     trayIcon.setContextMenu(createTrayMenu())
+    trayIcon.activated.connect(trayIconActivated)
     trayIcon.show()
+
+
+def trayIconActivated(reason):
+    if reason == QSystemTrayIcon.DoubleClick:
+        showMainWindow() 
+
+
+def showMainWindow():
+    if mainWindow.isHidden():
+        mainWindow.show()
+    mainWindow.activateWindow()
 
 
 def createTrayMenu():
     menu = QMenu()
 
     openAction = menu.addAction("Open")
-    openAction.triggered.connect(onOpenClicked)
+    openAction.triggered.connect(showMainWindow)
 
     settingsAction = menu.addAction("Settings")
     settingsAction.triggered.connect(onSettingsClicked)
@@ -34,11 +47,6 @@ def createTrayMenu():
     exitAction.triggered.connect(app.quit)
 
     return menu
-
-
-def onOpenClicked():
-    if mainWindow.isHidden():
-        mainWindow.show()
 
 
 def onSettingsClicked():

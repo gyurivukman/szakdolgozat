@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
 
     def initGUI(self):
         self.setWindowTitle('CryptStorePi')
-        self.setWindowIcon(QIcon('view/assets/logo.png'))       
+        self.setWindowIcon(QIcon('view/assets/logo.png'))
         if self.__isFirstStart():
             self.__setupForFirstStart()
         else:

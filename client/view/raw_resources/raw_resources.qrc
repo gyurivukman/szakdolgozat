@@ -1,0 +1,17 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+    <file>dropbox.png</file>
+    <file>encryption.png</file>
+    <file>encryptionBackground.png</file>
+    <file>googledrive.png</file>
+    <file>loader.svg</file>
+    <file>logo.png</file>
+    <file>drivehelp/figure_1_create_project.png</file>
+    <file>drivehelp/figure_2_selecting_project.png</file>
+    <file>drivehelp/figure_3_searching_for_api.png</file>
+    <file>drivehelp/figure_4_enabling_api.png</file>
+    <file>drivehelp/figure_5_service_accounts_menu.png</file>
+    <file>drivehelp/figure_6_service_account_roles.png</file>
+    <file>drivehelp/figure_7_create_service_key.png</file>
+</qresource>
+</RCC>
