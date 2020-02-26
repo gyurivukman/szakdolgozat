@@ -9,6 +9,7 @@ from view import resources
 
 app = None
 mainWindow = None
+trayIcon = None
 
 
 def setupOrganization():
@@ -20,7 +21,8 @@ def createTrayIcon():
     trayIcon = QSystemTrayIcon(QIcon(':logo.png'), app)
     trayIcon.setContextMenu(createTrayMenu())
     trayIcon.activated.connect(trayIconActivated)
-    trayIcon.show()
+
+    return trayIcon
 
 
 def trayIconActivated(reason):
@@ -34,6 +36,11 @@ def showMainWindow():
     mainWindow.activateWindow()
 
 
+def onExit():
+    trayIcon.hide()
+    app.quit()
+
+
 def createTrayMenu():
     menu = QMenu()
 
@@ -44,7 +51,7 @@ def createTrayMenu():
     settingsAction.triggered.connect(onSettingsClicked)
 
     exitAction = menu.addAction("Exit")
-    exitAction.triggered.connect(app.quit)
+    exitAction.triggered.connect(onExit)
 
     return menu
 
@@ -67,7 +74,8 @@ if __name__ == '__main__':
     )
     app = QApplication(sys.argv)
     setupOrganization()
-    createTrayIcon()
+    trayIcon = createTrayIcon()
+    trayIcon.show()
     mainWindow = MainWindow()
     mainWindow.initGUI()
     sys.exit(app.exec_())

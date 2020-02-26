@@ -6,6 +6,11 @@
     <file>googledrive.png</file>
     <file>loader.svg</file>
     <file>logo.png</file>
+
+    <file>dropboxhelp/figure_1_click_create_app.png</file>
+    <file>dropboxhelp/figure_2_fill_out_the_form.png</file>
+    <file>dropboxhelp/figure_3_api_token.png</file>
+
     <file>drivehelp/figure_1_create_project.png</file>
     <file>drivehelp/figure_2_selecting_project.png</file>
     <file>drivehelp/figure_3_searching_for_api.png</file>

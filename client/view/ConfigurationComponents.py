@@ -8,6 +8,8 @@ from PyQt5.QtWidgets import (
     QCheckBox
 )
 
+from view.help_components import DropboxHelpPage, DriveHelpPage
+
 from PyQt5.QtCore import QSettings, Qt, pyqtSignal, pyqtSlot, QRect, QSize
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
 
@@ -733,7 +735,7 @@ class AccountEditorWidget(QWidget):
         accountIconSize = QSize(35, 35)
 
         dropboxButton = QPushButton("Dropbox")
-        dropboxButton.setIcon(QIcon(':/assets/dropbox.png'))
+        dropboxButton.setIcon(QIcon(':/dropbox.png'))
         dropboxButton.setIconSize(accountIconSize)
         dropboxButton.setStyleSheet(self.__activeButtonStyle)
         dropboxButton.clicked.connect(lambda: self.__onAccountTypeSelected(0))
@@ -1130,85 +1132,6 @@ class DropboxAccountForm(BaseAccountFormWidget):
         return layout
 
 
-class DropboxHelpPage(QWidget):
-
-    def __init__(self):
-        super().__init__()
-        self.__stepFont = QFont("Nimbus Sans L", 12, False)
-        self.setAttribute(Qt.WA_StyledBackground)
-        self.setObjectName("self")
-        self.setStyleSheet(
-            """
-                QWidget#self{border:none; background-color:white;} 
-                QLabel#figure{border:2px solid #e36410;}
-            """
-        )
-        self.__setup()
-    
-    def __setup(self):
-        layout = QVBoxLayout()
-        layout.setContentsMargins(10, 3, 3, 3)
-        layout.setSpacing(20)
-
-        firstStep = QLabel('1. If you do not have an account, go to <a href="www.dropbox.com">www.dropbox.com</a> and register a new account.')
-        firstStep.setFont(self.__stepFont)
-        firstStep.setFixedWidth(550)
-        firstStep.setOpenExternalLinks(True)
-        firstStep.setWordWrap(True)
-
-        secondStep = QLabel('2. Sign it with your newly created account.')
-        secondStep.setFont(self.__stepFont)
-
-        thirdStep = QLabel('3. Navigate to the following page: <a href="https://www.dropbox.com/developers/apps">Dropbox Developer Console</a>.')
-        thirdStep.setFont(self.__stepFont)
-        thirdStep.setOpenExternalLinks(True)
-
-        fourthStep = QLabel('4. Create a new application by clicking the "Create App" button.')
-        fourthStep.setFont(self.__stepFont)
-        fourthStepFigure = QLabel()
-        fourthStepFigure.setObjectName("figure")
-        fourthStepFigurePixmap = QPixmap(':dropboxhelp/figure_1_click_create_app.png')
-        
-        fourthStepFigure.setPixmap(fourthStepFigurePixmap)
-
-        fifthStep = QLabel('5. Fill out the application form as below. You can give any name to your application.')
-        fifthStep.setFixedWidth(550)
-        fifthStep.setFont(self.__stepFont)
-        fifthStep.setWordWrap(True)
-        fifthStepFigure = QLabel()
-        fifthStepFigure.setObjectName("figure")
-        fifthStepFigurePixmap = QPixmap(':dropboxhelp/figure_2_fill_out_the_form.png')
-        fifthStepFigure.setPixmap(fifthStepFigurePixmap)
-
-        sixthStep = QLabel('6. After clicking Create App, click "Generate" to create an access token.')
-        sixthStep.setFont(self.__stepFont)
-        sixthStep.setFixedWidth(550)
-        sixthStep.setWordWrap(True)
-
-        sixthStepFigure = QLabel()
-        sixthStepFigure.setObjectName("figure")
-        sixthStepFigurePixmap = QPixmap(':dropboxhelp/figure_3_api_token.png')
-        sixthStepFigure.setPixmap(sixthStepFigurePixmap)
-
-        seventhStep = QLabel('7. Copy and paste this Api token into the corresponding field of the dropbox account form.')
-        seventhStep.setFont(self.__stepFont)
-        seventhStep.setFixedWidth(550)
-        seventhStep.setWordWrap(True)
-
-        layout.addWidget(firstStep)
-        layout.addWidget(secondStep)
-        layout.addWidget(thirdStep)
-        layout.addWidget(fourthStep)
-        layout.addWidget(fourthStepFigure)
-        layout.addWidget(fifthStep)
-        layout.addWidget(fifthStepFigure)
-        layout.addWidget(sixthStep)
-        layout.addWidget(sixthStepFigure)
-        layout.addWidget(seventhStep)
-
-        self.setLayout(layout)
-
-
 class DriveAccountForm(BaseAccountFormWidget):
 
     def __init__(self, *args, **kwargs):
@@ -1217,8 +1140,8 @@ class DriveAccountForm(BaseAccountFormWidget):
         self.__formData = {}
         self._accountType = AccountTypes.GoogleDrive
         self.__INVALID_CREDENTIALS_TEXT = "Invalid service account credentials!"
-        self.__AccountHelpDialog = AccountHelpDialog(scrollWidget=DriveHelpPage())
-        self.__AccountHelpDialog.setWindowTitle("How to set up google drive for CryptStorePi")
+        self.__accountHelpDialog = AccountHelpDialog(scrollWidget=DriveHelpPage())
+        self.__accountHelpDialog.setWindowTitle("How to set up google drive for CryptStorePi")
         self._setupStyle()
     
     def __createCredentialsDataLabels(self):
@@ -1277,7 +1200,7 @@ class DriveAccountForm(BaseAccountFormWidget):
         )
 
     def _openHelpFrame(self):
-        self.__AccountHelpDialog.show()
+        self.__accountHelpDialog.show()
     
     def _resetAccountSpecificDataForm(self):
         self.__formData = {}
@@ -1393,95 +1316,6 @@ class DriveAccountForm(BaseAccountFormWidget):
         self.__credentialsLabels['clientIDLabel'].setText("")
         self.__credentialsLabels['clientEmailLabel'].setText("")
         self.__credentialsLabels['disclaimerLabel'].hide()
-
-
-class DriveHelpPage(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.__stepFont = QFont("Nimbus Sans L", 12, False)
-        self.setAttribute(Qt.WA_StyledBackground)
-        self.setObjectName("self")
-        self.setStyleSheet(
-            """
-                QWidget#self{border:none; background-color:white;} 
-                QLabel#figure{border:2px solid #e36410;}
-            """
-        )
-        self.__setup()
-    
-    def __setup(self):
-        layout = QVBoxLayout()
-        layout.setContentsMargins(10, 3, 3, 3)
-        layout.setSpacing(20)
-
-        firstStep = self.__createFixedWidthStep('1. If you do not have a Google account or you wish to use a new account with CryptStorePi, follow <a href="https://accounts.google.com/signup">this link and register a new account.</a>')
-        secondStep = self.__createFixedWidthStep('2. Sign in with your newly created google account at <a href="https://console.cloud.google.com/">this link.</a>')
-
-        thirdStep = self.__createFixedWidthStep('3. On the top navigation bar, click "Create project".')
-        thirdStepFigure = self.__createFigure(':drivehelp/figure_1_create_project.png')
-
-        fourthStep = self.__createFixedWidthStep('4. Name your project and click "Create".')
-        fifthStep = self.__createFixedWidthStep('5. Open the <a href="https://console.developers.google.com/">developer console</a> ')
-    
-        sixthStep = self.__createFixedWidthStep("6. Select your newly created project from the dropdown menu at the top, then click 'Enable APIs and Services'.")
-        sixthStepFigure = self.__createFigure(":drivehelp/figure_2_selecting_project.png")
-
-        seventhStep = self.__createFixedWidthStep("7. Search for 'Google Drive Api', then click on the result.")
-        seventhStepFigure = self.__createFigure(":drivehelp/figure_3_searching_for_api.png")
-
-        eightStep = self.__createFixedWidthStep("8. Enable the 'Google Drive Api' for your project.")
-        eightStepFigure = self.__createFigure(":drivehelp/figure_4_enabling_api.png")
-
-        ninthStep = self.__createFixedWidthStep("9. Select 'IAM&admin/Service Accounts' from the dropdown menu at the top left. Then click 'Create service account' and give it any name.")
-        ninthStepFigure = self.__createFigure(":drivehelp/figure_5_service_accounts_menu.png")
-
-        tenthStep = self.__createFixedWidthStep("10. Add two roles: Project Editor and Monitoring Editor.")
-        tenthStepFigure = self.__createFigure(":drivehelp/figure_6_service_account_roles.png")
-
-        eleventhStep = self.__createFixedWidthStep("11. Create a key for this service account.")
-        eleventhStepFigure = self.__createFigure(":drivehelp/figure_7_create_service_key.png")
-
-        twelvthStep = self.__createFixedWidthStep("12. Locate and open the downloaded file with the 'Open Credentials File' button.")
-
-        layout.addWidget(firstStep)
-        layout.addWidget(secondStep)
-        layout.addWidget(thirdStep)
-        layout.addWidget(thirdStepFigure)
-        layout.addWidget(fourthStep)
-        layout.addWidget(fifthStep)
-        layout.addWidget(sixthStep)
-        layout.addWidget(sixthStepFigure)
-        layout.addWidget(seventhStep)
-        layout.addWidget(seventhStepFigure)
-        layout.addWidget(eightStep)
-        layout.addWidget(eightStepFigure)
-        layout.addWidget(ninthStep)
-        layout.addWidget(ninthStepFigure)
-        layout.addWidget(tenthStep)
-        layout.addWidget(tenthStepFigure)
-        layout.addWidget(eleventhStep)
-        layout.addWidget(eleventhStepFigure)
-        layout.addWidget(twelvthStep)
-
-
-        self.setLayout(layout)
-
-    def __createFixedWidthStep(self, stepString):
-        step = QLabel(stepString)
-        step.setFont(self.__stepFont)
-        step.setFixedWidth(550)
-        step.setOpenExternalLinks(True)
-        step.setWordWrap(True)
-
-        return step
-    
-    def __createFigure(self, imagePath):
-        figure = QLabel()
-        figure.setObjectName("figure")
-        figurePixmap = QPixmap(imagePath)
-        figure.setPixmap(figurePixmap)
-
-        return figure
 
 
 class AccountCard(QWidget):
