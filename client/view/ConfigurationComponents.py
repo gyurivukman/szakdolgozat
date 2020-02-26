@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
     QCheckBox
 )
 
-from view.help_components import DropboxHelpPage, DriveHelpPage
+from view.HelpComponents import DropboxHelpPage, DriveHelpPage
 
 from PyQt5.QtCore import QSettings, Qt, pyqtSignal, pyqtSlot, QRect, QSize
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
