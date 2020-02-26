@@ -1,5 +1,3 @@
-from abc import ABC, abstractmethod
-
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import  QFont, QPixmap
@@ -21,9 +19,8 @@ class AccountHelpPageBase(QWidget):
         self._steps = self._createSteps()
         self._setup()
     
-    @abstractmethod
     def _createSteps(self):
-        pass
+        raise NotImplementedError(f"Derived class {self.__class__} must implement method '_createSteps'. It should return a List[dict[str, str]]")
 
     def _setup(self):
         layout = QVBoxLayout()
