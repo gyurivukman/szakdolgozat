@@ -4,6 +4,7 @@ from sys import stdout
 
 from server import Server
 
+logger = logging.getLogger()
 
 logging.basicConfig(
     format='%(asctime)s %(name)s %(levelname)-8s %(message)s',
@@ -13,12 +14,10 @@ logging.basicConfig(
 )
 
 if __name__ == "__main__":
-    rootlogger = logging.getLogger('[rootlogger]')
-    rootlogger.setLevel(logging.DEBUG)
-    rootlogger.addHandler(logging.StreamHandler(stdout))
+    logger.info("Starting server")
     server = Server()
     try:
         server.start()
     except KeyboardInterrupt:
-        rootlogger.debug("Received keyboard interrupt, shutting down")
+        logger.info("Received keyboard interrupt, stopping server")
         server.stop()

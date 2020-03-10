@@ -27,10 +27,10 @@ class Server(object):
         self._client_address = None
         self._packer = msgpack.Packer()
         self._unpacker = msgpack.Unpacker()
-        self._logger = logging.getLogger("[SERVER]")
+        self._logger = logging.getLogger(__name__).getChild("Server")
 
     def start(self):
-        self._logger.info("Starting server")
+        self._logger.info("Ready!")
         while self._shouldRun:
             readable, writable, in_error = select.select(self._inputs, self._outputs, self._inputs)
 
@@ -39,6 +39,7 @@ class Server(object):
             self._handle_error(in_error)
 
     def stop(self):
+        self._logger.debug("Shutting down.")
         self._shouldRun = False
         self._server.close()
         if self._client:
@@ -104,7 +105,8 @@ class Server(object):
     def _handle_error(self, inError):
         for s in inError:
             self._logger.error(f"Some error in handle_error {s}")
-            self._inputs.remove(s)
+            if s in self._inputs:
+                self._inputs.remove(s)
             if s in self._outputs:
                 self._outputs.remove(s)
             s.close()

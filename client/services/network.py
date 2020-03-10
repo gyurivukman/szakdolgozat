@@ -5,27 +5,32 @@ import logging
 import random
 import string
 
+from datetime import datetime
 from uuid import uuid4
 
 from msgpack import Packer, Unpacker
+from PyQt5.QtCore import QObject, pyqtSignal
 
 logger = logging.getLogger(__name__)
 
 
-class NetworkClient(object):
+class NetworkClient(QObject):
+    messageArrived = pyqtSignal(object)
+    connectionStateChanged = pyqtSignal(object)
 
-    def __init__(self, output_queue):
+    def __init__(self):
+        super().__init__()
         self._CHUNK_SIZE = 2048
         self._address = "localhost"
         self._port = 11000
         self._should_run = True
+        self._logger = logger.getChild("NetworkClient")
 
         self._socket = self._create_new_socket()
         self._is_connected = False
 
         self._packer, self._unpacker = Packer(), Unpacker()
         self._input, self._output, self._error = [], [], []
-        self._output_queue = output_queue
 
     def run(self):
         while self._should_run:
@@ -33,8 +38,8 @@ class NetworkClient(object):
                 try:
                     self._setupConnection()
                 except ConnectionRefusedError:
-                    logger.error("Connection refused. Retrying in 5 seconds.")
-                    time.sleep(5)
+                    logger.error("Connection refused. Retrying in 2 seconds.")
+                    time.sleep(2)
             else:
                 try:
                     readable, writable, in_error = select.select(self._input, self._output, self._error, 1)
@@ -53,6 +58,7 @@ class NetworkClient(object):
         self._output.append(self._socket)
 
     def stop(self):
+        self._logger.debug("Stopping")
         self._should_run = False
 
     def _create_new_socket(self):
@@ -75,7 +81,8 @@ class NetworkClient(object):
             if data:
                 self._unpacker.feed(data)
                 for message in self._unpacker:
-                    self._process_message(message)
+                    message['source'] = "SERVER"
+                    self.messageArrived.emit(message)
             else:
                 self._disconnect()
 
@@ -83,8 +90,9 @@ class NetworkClient(object):
         for s in writable:
             message = self._generateRandomMessage()
             encoded = self._packer.pack(message)
-            s.sendall(encoded)
-            logger.info("Message sent.")
+            if self._should_run:
+                s.sendall(encoded)
+                logger.debug("Message sent.")
             time.sleep(2)
 
     def _disconnect(self):
@@ -98,14 +106,10 @@ class NetworkClient(object):
             self._disconnect()
             self._socket = self._create_new_socket()
 
-    def _process_message(self, message):
-        message['source'] = "SERVER"
-        self._output_queue.put(message)
-
     def _generateRandomMessage(self):
         return {
             "uuid": uuid4().hex,
-            "filePath": ''.join(random.choice(string.ascii_lowercase) for i in range(random.randint(1, 128))),
+            "filePath": ''.join(random.choice(string.ascii_lowercase) for i in range(random.randint(1, 100))),
             "size": random.randint(1, 1000000000),
             "lastmodified": random.randint(0, 2**32)
         }
