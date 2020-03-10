@@ -1,0 +1,4 @@
+pyqt5==5.14
+watchdog
+msgpack
+paramiko

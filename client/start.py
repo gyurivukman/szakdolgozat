@@ -3,12 +3,11 @@ import logging
 import signal
 
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu
-from PyQt5.QtCore import QCoreApplication, QSettings
+from PyQt5.QtCore import QCoreApplication, QSettings, Qt
 from PyQt5.QtGui import QIcon
 
-from view.MainWindow import MainWindow
+from view.mainwindow import MainWindow
 from view import resources
-
 
 
 app = None
@@ -35,7 +34,7 @@ def createTrayIcon():
 
 def trayIconActivated(reason):
     if reason == QSystemTrayIcon.DoubleClick:
-        showMainWindow() 
+        showMainWindow()
 
 
 def showMainWindow():
@@ -47,8 +46,10 @@ def showMainWindow():
 def onExit():
     logger.info("Exiting, please wait...")
     trayIcon.hide()
+    mainWindow.hide()
     mainWindow.stop()
     app.quit()
+
 
 def createTrayMenu():
     menu = QMenu()
@@ -86,6 +87,7 @@ if __name__ == '__main__':
     setupOrganization()
     trayIcon = createTrayIcon()
     trayIcon.show()
+    flags = Qt.CustomizeWindowHint | Qt.WindowCloseButtonHint | Qt.MSWindowsFixedSizeDialogHint
     mainWindow = MainWindow()
     mainWindow.initGUI()
     sys.exit(app.exec_())

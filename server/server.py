@@ -1,11 +1,13 @@
-import socket, select
-import msgpack
+import socket
+import select
 import logging
 import random
 import string
 import time
 
 from uuid import uuid4
+
+import msgpack
 
 
 class Server(object):
@@ -54,17 +56,17 @@ class Server(object):
                     self._readClientData(readable_socket)
         except ConnectionResetError:
             self._handle_disconnect(self._client)
-    
+
     def _readClientData(self, client):
-            data = client.recv(self._CHUNK_SIZE)
-            if data:
-                if client not in self._outputs:
-                    self._outputs.append(client)
-                self._unpacker.feed(data)
-                self._process_messages()
-            else:
-                self._handle_disconnect(client)
-    
+        data = client.recv(self._CHUNK_SIZE)
+        if data:
+            if client not in self._outputs:
+                self._outputs.append(client)
+            self._unpacker.feed(data)
+            self._process_messages()
+        else:
+            self._handle_disconnect(client)
+
     def _handle_disconnect(self, client):
         self._logger.info("Client disconnected")
         if client in self._outputs:
@@ -73,7 +75,7 @@ class Server(object):
         client.close()
         self._client = None
         self._client_address = None
-    
+
     def _process_messages(self):
         for message in self._unpacker:
             self._logger.info(f"Message arrived: {message}")

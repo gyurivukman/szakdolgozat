@@ -7,34 +7,37 @@ import string
 
 from datetime import datetime
 from uuid import uuid4
+from queue import Queue, Empty
 
 from msgpack import Packer, Unpacker
 from PyQt5.QtCore import QObject, pyqtSignal
+
 
 logger = logging.getLogger(__name__)
 
 
 class NetworkClient(QObject):
     messageArrived = pyqtSignal(object)
-    connectionStateChanged = pyqtSignal(object)
+    connected = pyqtSignal()
+    diconnected = pyqtSignal()
 
     def __init__(self):
         super().__init__()
         self._CHUNK_SIZE = 2048
         self._address = "localhost"
         self._port = 11000
-        self._should_run = True
+        self._shouldRun = True
         self._logger = logger.getChild("NetworkClient")
 
-        self._socket = self._create_new_socket()
-        self._is_connected = False
+        self._socket = self._createNewSocket()
+        self._isConnected = False
 
         self._packer, self._unpacker = Packer(), Unpacker()
         self._input, self._output, self._error = [], [], []
 
     def run(self):
-        while self._should_run:
-            if not self._is_connected:
+        while self._shouldRun:
+            if not self._isConnected:
                 try:
                     self._setupConnection()
                 except ConnectionRefusedError:
@@ -43,25 +46,25 @@ class NetworkClient(QObject):
             else:
                 try:
                     readable, writable, in_error = select.select(self._input, self._output, self._error, 1)
-                    self._handle_incoming_message(readable)
-                    self._handle_outgoing_message(writable)
-                    self._handle_connection_error(in_error)
+                    self._handleIncomingMessage(readable)
+                    self._handleOutgoingMessage(writable)
+                    self._handleErroneousSocket(in_error)
                 except (Exception, BrokenPipeError) as e:
                     logger.error(f"Server disconnected: {e}")
-                    self._handle_connection_error([self._socket])
+                    self._handleErroneousSocket([self._socket])
         self._socket.close()
 
     def _setupConnection(self):
         self._connect()
-        self._is_connected = True
+        self._isConnected = True
         self._input.append(self._socket)
         self._output.append(self._socket)
 
     def stop(self):
         self._logger.debug("Stopping")
-        self._should_run = False
+        self._shouldRun = False
 
-    def _create_new_socket(self):
+    def _createNewSocket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
@@ -75,7 +78,7 @@ class NetworkClient(QObject):
         self._input.append(self._socket)
         self._output.append(self._socket)
 
-    def _handle_incoming_message(self, readable):
+    def _handleIncomingMessage(self, readable):
         for s in readable:
             data = s.recv(self._CHUNK_SIZE)
             if data:
@@ -86,25 +89,25 @@ class NetworkClient(QObject):
             else:
                 self._disconnect()
 
-    def _handle_outgoing_message(self, writable):
+    def _handleOutgoingMessage(self, writable):
         for s in writable:
             message = self._generateRandomMessage()
             encoded = self._packer.pack(message)
-            if self._should_run:
+            if self._shouldRun:
                 s.sendall(encoded)
                 logger.debug("Message sent.")
             time.sleep(2)
 
     def _disconnect(self):
-        self._is_connected = False
+        self._isConnected = False
         self._input = []
         self._output = []
 
-    def _handle_connection_error(self, in_error):
+    def _handleErroneousSocket(self, in_error):
         for s in in_error:
             s.close()
             self._disconnect()
-            self._socket = self._create_new_socket()
+            self._socket = self._createNewSocket()
 
     def _generateRandomMessage(self):
         return {
@@ -113,3 +116,23 @@ class NetworkClient(QObject):
             "size": random.randint(1, 1000000000),
             "lastmodified": random.randint(0, 2**32)
         }
+
+
+class SshClient(QObject):
+
+    def __init__(self, fileSyncer):
+        super().__init__()
+        self._shouldRun = True
+        self._fileSyncer = fileSyncer
+        self._tasks = Queue()
+        self._logger = logger.getChild("SshClient")
+
+    def run(self):
+        while self._shouldRun:
+            self._logger.info("sshClient working")
+            if random.randint(0, 100) % 2 == 0:
+                self._fileSyncer.poke()
+            time.sleep(2)
+
+    def stop(self):
+        self._shouldRun = False

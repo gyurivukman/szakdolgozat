@@ -14,9 +14,8 @@ class MainWindow(QMainWindow):
     __FIRST_START_SIZE = QSize(1280, 720)
     __NORMAL_SIZE = QSize(360, 720)
 
-    def __init__(self):
-        flags = Qt.CustomizeWindowHint | Qt.WindowCloseButtonHint | Qt.MSWindowsFixedSizeDialogHint
-        super().__init__(flags=flags)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.setAttribute(Qt.WA_StyledBackground)
         self.setStyleSheet("background:#FFFFFF")
         self.__settings = QSettings()
@@ -60,9 +59,9 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         event.ignore()
         self.hide()
-    
+
     def stop(self):
         self.__messageDispatcher.shutdownAllServices()
-    
+
     def _onFileStatusChanged(self, event):
         self.__logger.info(event)
