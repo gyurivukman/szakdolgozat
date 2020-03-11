@@ -51,6 +51,7 @@ class NetworkClient(QObject):
                     self._handleErroneousSocket(in_error)
                 except (Exception, BrokenPipeError) as e:
                     logger.error(f"Server disconnected: {e}")
+                    self.diconnected.emit()
                     self._handleErroneousSocket([self._socket])
         self._socket.close()
 
@@ -75,9 +76,6 @@ class NetworkClient(QObject):
         self._socket.connect((self._address, self._port))
         logger.info("Connected")
 
-        self._input.append(self._socket)
-        self._output.append(self._socket)
-
     def _handleIncomingMessage(self, readable):
         for s in readable:
             data = s.recv(self._CHUNK_SIZE)
@@ -95,7 +93,7 @@ class NetworkClient(QObject):
             encoded = self._packer.pack(message)
             if self._shouldRun:
                 s.sendall(encoded)
-                logger.debug("Message sent.")
+                logger.info("Message sent.")
             time.sleep(2)
 
     def _disconnect(self):

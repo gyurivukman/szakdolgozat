@@ -71,7 +71,8 @@ class Server(object):
         self._logger.info("Client disconnected")
         if client in self._outputs:
             self._outputs.remove(client)
-        self._inputs.remove(client)
+        if client in self._inputs:
+            self._inputs.remove(client)
         client.close()
         self._client = None
         self._client_address = None
@@ -100,7 +101,7 @@ class Server(object):
                     encoded = self._packer.pack(message)
                     s.sendall(encoded)
                     time.sleep(2)
-        except Exception as e:
+        except (Exception, OSError) as e:
             self._logger.error(f"Client disconnected: {e}")
             self._handle_disconnect(self._client)
 
