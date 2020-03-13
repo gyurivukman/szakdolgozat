@@ -7,7 +7,8 @@ import time
 
 from uuid import uuid4
 
-import msgpack
+from msgpack import Packer, Unpacker
+from Crypto.Cipher import AES
 
 
 class Server(object):
@@ -19,6 +20,7 @@ class Server(object):
         self._server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._server.bind(("localhost", 11000))
         self._server.listen(1)
+        self._key = b"sixteen byte key"
 
         self._shouldRun = True
 
@@ -27,8 +29,13 @@ class Server(object):
 
         self._client = None
         self._client_address = None
-        self._packer = msgpack.Packer()
-        self._unpacker = msgpack.Unpacker()
+
+        self._packer = Packer()
+        self._unpacker = Unpacker()
+
+        self._encoder = None
+        self._decoder = None
+
         self._logger = logging.getLogger(__name__).getChild("Server")
 
     def start(self):
@@ -51,6 +58,7 @@ class Server(object):
         try:
             for readable_socket in readable:
                 if readable_socket is self._server:
+                    self._logger.info("Client connecting")
                     self._accept_client() if not self._client else self._reject_client()
                 else:
                     self._readClientData(readable_socket)
@@ -62,7 +70,8 @@ class Server(object):
         if data:
             if client not in self._outputs:
                 self._outputs.append(client)
-            self._unpacker.feed(data)
+            decrypted = self._decoder.decrypt(data)
+            self._unpacker.feed(decrypted)
             self._process_messages()
         else:
             self._handle_disconnect(client)
@@ -82,10 +91,18 @@ class Server(object):
             self._logger.info(f"Message arrived: {message}")
 
     def _accept_client(self):
-        self._logger.info("Client connecting")
         self._client, self._client_address = self._server.accept()
         self._inputs.append(self._client)
-        self._logger.info("Client connected")
+        self._logger.debug("Client connected")
+        self._do_handshake()
+
+    def _do_handshake(self):
+        self._encoder = AES.new(self._key, AES.MODE_CFB)
+        self._decoder = AES.new(self._key, AES.MODE_CFB, iv=self._encoder.iv)
+        self._logger.debug(f"Sending session key: {self._encoder.iv}")
+        packed = self._packer.pack(self._encoder.iv)
+        self._client.sendall(packed)
+        self._logger.debug("Session key sent")
 
     def _reject_client(self):
         self._logger.info("Rejecting client")
@@ -98,8 +115,9 @@ class Server(object):
                 shouldSendAMessage = random.randint(0, 100) % 2 == 0
                 if shouldSendAMessage:
                     message = self._generateRandomMessage()
-                    encoded = self._packer.pack(message)
-                    s.sendall(encoded)
+                    serialized = self._packer.pack(message)
+                    encrypted = self._encoder.encrypt(serialized)
+                    s.sendall(encrypted)
                     time.sleep(2)
         except (Exception, OSError) as e:
             self._logger.error(f"Client disconnected: {e}")

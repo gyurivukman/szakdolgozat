@@ -9,6 +9,7 @@ from datetime import datetime
 from uuid import uuid4
 from queue import Queue, Empty
 
+from Crypto.Cipher import AES
 from msgpack import Packer, Unpacker
 from PyQt5.QtCore import QObject, pyqtSignal
 
@@ -24,10 +25,13 @@ class NetworkClient(QObject):
     def __init__(self):
         super().__init__()
         self._CHUNK_SIZE = 2048
-        self._address = "localhost"
-        self._port = 11000
+        self._address, self._port = "localhost", 11000
         self._shouldRun = True
         self._logger = logger.getChild("NetworkClient")
+
+        self._key = b'sixteen byte key'
+        self._encoder = None
+        self._decoder = None
 
         self._socket = self._createNewSocket()
         self._isConnected = False
@@ -39,9 +43,10 @@ class NetworkClient(QObject):
         while self._shouldRun:
             if not self._isConnected:
                 try:
-                    self._setupConnection()
+                    self._setupConnection(self._socket, self._input, self._output, self._address, self._port)
+                    self._setupSession(self._socket, self._unpacker)
                 except ConnectionRefusedError:
-                    logger.error("Connection refused. Retrying in 2 seconds.")
+                    self._logger.error("Connection refused. Retrying in 2 seconds.")
                     time.sleep(2)
             else:
                 try:
@@ -50,20 +55,32 @@ class NetworkClient(QObject):
                     self._handleOutgoingMessage(writable)
                     self._handleErroneousSocket(in_error)
                 except (Exception, BrokenPipeError) as e:
-                    logger.error(f"Server disconnected: {e}")
+                    self._logger.error(f"Server disconnected: {e}")
                     self.diconnected.emit()
                     self._handleErroneousSocket([self._socket])
         self._socket.close()
 
-    def _setupConnection(self):
-        self._connect()
+    def _setupConnection(self, sock, inputs, outputs, address, port):
+        self._connect(sock, address, port)
         self._isConnected = True
-        self._input.append(self._socket)
-        self._output.append(self._socket)
+        inputs.append(sock)
+        outputs.append(sock)
 
-    def stop(self):
-        self._logger.debug("Stopping")
-        self._shouldRun = False
+    def _setupSession(self, connection, unpacker):
+        self._logger.debug("Starting handshake...")
+        handShakeDone = False
+
+        while not handShakeDone:
+            data = connection.recv(1024)
+            if data:
+                unpacker.feed(data)
+                for iv in unpacker:
+                    self._logger.debug(f"Handshake done, received IV: {iv}")
+                    self._encoder = AES.new(self._key, mode=AES.MODE_CFB, iv=iv)
+                    self._decoder = AES.new(self._key, mode=AES.MODE_CFB, iv=iv)
+                    handShakeDone = True
+            else:
+                self._disconnect()
 
     def _createNewSocket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -71,16 +88,17 @@ class NetworkClient(QObject):
 
         return sock
 
-    def _connect(self):
-        logger.info("Connecting to server")
-        self._socket.connect((self._address, self._port))
-        logger.info("Connected")
+    def _connect(self, sock, address, port):
+        self._logger.debug("Connecting to server")
+        sock.connect((address, port))
+        self._logger.debug("Connected")
 
     def _handleIncomingMessage(self, readable):
         for s in readable:
             data = s.recv(self._CHUNK_SIZE)
             if data:
-                self._unpacker.feed(data)
+                decrypted = self._decoder.decrypt(data)
+                self._unpacker.feed(decrypted)
                 for message in self._unpacker:
                     message['source'] = "SERVER"
                     self.messageArrived.emit(message)
@@ -90,10 +108,11 @@ class NetworkClient(QObject):
     def _handleOutgoingMessage(self, writable):
         for s in writable:
             message = self._generateRandomMessage()
-            encoded = self._packer.pack(message)
+            serialized = self._packer.pack(message)
+            encrypted = self._encoder.encrypt(serialized)
             if self._shouldRun:
-                s.sendall(encoded)
-                logger.info("Message sent.")
+                s.sendall(encrypted)
+                self._logger.info("Message sent.")
             time.sleep(2)
 
     def _disconnect(self):
@@ -115,6 +134,10 @@ class NetworkClient(QObject):
             "lastmodified": random.randint(0, 2**32)
         }
 
+    def stop(self):
+        self._logger.debug("Stopping")
+        self._shouldRun = False
+
 
 class SshClient(QObject):
 
@@ -127,9 +150,6 @@ class SshClient(QObject):
 
     def run(self):
         while self._shouldRun:
-            self._logger.info("sshClient working")
-            if random.randint(0, 100) % 2 == 0:
-                self._fileSyncer.poke()
             time.sleep(2)
 
     def stop(self):

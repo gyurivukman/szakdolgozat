@@ -43,9 +43,6 @@ class FileSynchronizer(QObject):
     def _processEvent(self, event):
         self.fileEvent.emit(event)
 
-    def poke(self):
-        self._logger.info("Megbokott az ssh service!")
-
 
 class MyEventHandler(FileSystemEventHandler):
 
