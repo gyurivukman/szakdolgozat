@@ -13,27 +13,28 @@ from Crypto.Cipher import AES
 from msgpack import Packer, Unpacker
 from PyQt5.QtCore import QObject, pyqtSignal
 
+from model.events import ConnectionEventTypes, ConnectionEvent
+
 
 logger = logging.getLogger(__name__)
 
 
 class NetworkClient(QObject):
     messageArrived = pyqtSignal(object)
-    connected = pyqtSignal()
-    diconnected = pyqtSignal()
+    connectionStatusChanged = pyqtSignal(object)
 
-    def __init__(self):
+    def __init__(self, address, port, aesKey, chunkSize):
         super().__init__()
-        self._CHUNK_SIZE = 2048
-        self._address, self._port = "localhost", 11000
+        self._CHUNK_SIZE = chunkSize
+        self._hostInfo = (address, port)
         self._shouldRun = True
         self._logger = logger.getChild("NetworkClient")
 
-        self._key = b'sixteen byte key'
+        self._key = aesKey
         self._encoder = None
         self._decoder = None
 
-        self._socket = self._createNewSocket()
+        self._socket = None
         self._isConnected = False
 
         self._packer, self._unpacker = Packer(), Unpacker()
@@ -41,14 +42,7 @@ class NetworkClient(QObject):
 
     def run(self):
         while self._shouldRun:
-            if not self._isConnected:
-                try:
-                    self._setupConnection(self._socket, self._input, self._output, self._address, self._port)
-                    self._setupSession(self._socket, self._unpacker)
-                except ConnectionRefusedError:
-                    self._logger.error("Connection refused. Retrying in 2 seconds.")
-                    time.sleep(2)
-            else:
+            if self._isConnected:
                 try:
                     readable, writable, in_error = select.select(self._input, self._output, self._error, 1)
                     self._handleIncomingMessage(readable)
@@ -56,29 +50,36 @@ class NetworkClient(QObject):
                     self._handleErroneousSocket(in_error)
                 except (Exception, BrokenPipeError) as e:
                     self._logger.error(f"Server disconnected: {e}")
-                    self.diconnected.emit()
+                    self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.DISCONNECTED, {"message": str(e)}))
                     self._handleErroneousSocket([self._socket])
+            else:
+                time.sleep(1)
         self._socket.close()
 
-    def _setupConnection(self, sock, inputs, outputs, address, port):
-        self._connect(sock, address, port)
-        self._isConnected = True
-        inputs.append(sock)
-        outputs.append(sock)
+    def connect(self):
+        self._socket = self._createNewSocket()
+        self._setupConnection()
+        self._setupSession()
 
-    def _setupSession(self, connection, unpacker):
+    def _setupConnection(self):
+        self._connect()
+        self._input.append(self._socket)
+        self._output.append(self._socket)
+
+    def _setupSession(self):
         self._logger.debug("Starting handshake...")
         handShakeDone = False
 
         while not handShakeDone:
-            data = connection.recv(1024)
+            data = self._socket.recv(1024)
             if data:
-                unpacker.feed(data)
-                for iv in unpacker:
+                self._unpacker.feed(data)
+                for iv in self._unpacker:
                     self._logger.debug(f"Handshake done, received IV: {iv}")
                     self._encoder = AES.new(self._key, mode=AES.MODE_CFB, iv=iv)
                     self._decoder = AES.new(self._key, mode=AES.MODE_CFB, iv=iv)
                     handShakeDone = True
+                    self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.HANDSHAKE_SUCCESSFUL, None))
             else:
                 self._disconnect()
 
@@ -88,10 +89,12 @@ class NetworkClient(QObject):
 
         return sock
 
-    def _connect(self, sock, address, port):
+    def _connect(self):
         self._logger.debug("Connecting to server")
-        sock.connect((address, port))
+        self._socket.connect(self._hostInfo)
+        self._isConnected = True
         self._logger.debug("Connected")
+        self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.CONNECTED, None))
 
     def _handleIncomingMessage(self, readable):
         for s in readable:
@@ -124,7 +127,6 @@ class NetworkClient(QObject):
         for s in in_error:
             s.close()
             self._disconnect()
-            self._socket = self._createNewSocket()
 
     def _generateRandomMessage(self):
         return {

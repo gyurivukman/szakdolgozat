@@ -2,7 +2,7 @@ import logging
 
 from sys import stdout
 
-from server import Server
+from control.server import Server
 
 logger = logging.getLogger()
 

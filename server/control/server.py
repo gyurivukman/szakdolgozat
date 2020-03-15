@@ -77,12 +77,12 @@ class Server(object):
             self._handle_disconnect(client)
 
     def _handle_disconnect(self, client):
-        self._logger.info("Client disconnected")
         if client in self._outputs:
             self._outputs.remove(client)
         if client in self._inputs:
             self._inputs.remove(client)
-        client.close()
+        if client:
+            client.close()
         self._client = None
         self._client_address = None
 
