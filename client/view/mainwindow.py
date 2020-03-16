@@ -1,16 +1,14 @@
 import logging
+import time
 
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtCore import Qt, QSettings, QCoreApplication, QSize
 from PyQt5.QtGui import QIcon
 
 from model.events import ConnectionEvent, ConnectionEventTypes
-from view.dialogs import ConnectionErrorDialog
 from services.hub import ServiceHub
+from .infopanels import ConnectionErrorPanel
 from .loaders import LoaderWidget
-
-
-# from view.ConfigurationComponents import FirstStartWizard
 
 
 class MainWindow(QMainWindow):
@@ -19,23 +17,28 @@ class MainWindow(QMainWindow):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setAttribute(Qt.WA_StyledBackground)
-        self.setStyleSheet("background:#FFFFFF")
-        self.__loader = LoaderWidget(360, 720, "Connecting to server")
-        self.__errorDialog = None
-        self.__settings = QSettings()
-        self.__serviceHub = ServiceHub()
-        self.__serviceHub.filesChannel.connect(self._onFileStatusChanged)
-        self.__serviceHub.networkStatusChannel.connect(self._onNetworkStatusChanged)
-        self.__logger = logging.getLogger(__name__).getChild("MainWindow")
+        self._loader = LoaderWidget(360, 720, "Connecting to server")
+        self._errorPanel = None
+        self._settings = QSettings()
+        self._serviceHub = ServiceHub()
+        self._serviceHub.filesChannel.connect(self._onFileStatusChanged)
+        self._serviceHub.networkStatusChannel.connect(self._onNetworkStatusChanged)
+        self._logger = logging.getLogger(__name__).getChild("MainWindow")
 
         self.__errorDialog = None
 
     def initGUI(self):
+        self.setAttribute(Qt.WA_StyledBackground)
+        self.setStyleSheet("background:#FFFFFF")
         self.setWindowTitle('CryptStorePi')
         self.setWindowIcon(QIcon('view/assets/logo.png'))
-        self.__setupForRegularView()
+        self._setupForRegularView()
         self.show()
+        self._serviceHub.startAllServices()
+        self._connect()
+
+    def _connect(self):
+        self._serviceHub.connect()
 
     # def __setupForFirstStart(self):
     #     screenSize = QCoreApplication.instance().desktop().screenGeometry()
@@ -44,35 +47,45 @@ class MainWindow(QMainWindow):
     #     self.setCentralWidget(FirstStartWizard(self))
     #     self.__taskManager.start()
 
-    def __moveToCenter(self, screenSize):
+    def _moveToCenter(self, screenSize):
         posX = (screenSize.width() / 2) - (self.width() / 2)
         posY = (screenSize.height() / 2) - (self.height() / 2)
         self.move(posX, posY)
 
-    def __setupForRegularView(self):
+    def _setupForRegularView(self):
         screenSize = QCoreApplication.instance().desktop().screenGeometry()
         self.setFixedSize(self.__NORMAL_SIZE)
-        self.setCentralWidget(self.__loader)
-        self.__moveToCenter(screenSize)
-        self.__serviceHub.startAllServices()
-        self.__serviceHub.connect()
+        self.setCentralWidget(self._loader)
+        self._moveToCenter(screenSize)
+
+    def _createErrorPanel(self):
+        panel = ConnectionErrorPanel()
+        panel.setFixedSize(360, 720)
+
+        panel.retry.connect(self._onErrorPanelRetryClicked)
+
+        return panel
 
     def closeEvent(self, event):
         event.ignore()
         self.hide()
 
     def stop(self):
-        self.__serviceHub.shutdownAllServices()
+        self._serviceHub.shutdownAllServices()
 
     def _onFileStatusChanged(self, event):
-        self.__logger.info(event)
+        self._logger.info(event)
 
     def _onNetworkStatusChanged(self, event):
         if event.eventType == ConnectionEventTypes.CONNECTED:
-            self.__loader.setStatusText("Connected, retrieving session key...")
+            self._loader.setStatusText("Connected, retrieving session key...")
         elif event.eventType == ConnectionEventTypes.HANDSHAKE_SUCCESSFUL:
-            self.__loader.setStatusText("Handshake successful, retrieving file list...")
+            self._loader.setStatusText("Handshake successful, retrieving file list...")
         elif event.eventType == ConnectionEventTypes.CONNECTION_ERROR:
-            self.__loader.setStatusText("Couldn't connect to remote server.")
-            self.__errorDialog = ConnectionErrorDialog(messageText=f"{event.data['message']}\n")
-            self.__errorDialog.show()
+            self._errorPanel = self._createErrorPanel()
+            self.setCentralWidget(self._errorPanel)
+
+    def _onErrorPanelRetryClicked(self):
+        self._loader = LoaderWidget(360, 720, "Connecting to server")
+        self.setCentralWidget(self._loader)
+        self._connect()

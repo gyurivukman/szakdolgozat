@@ -6,17 +6,13 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
 from . import resources
-
-
-class LoaderSizes(IntEnum):
-    SMALL = 50
-    NORMAL = 100
-    LARGE = 200
+from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
+from .iconsizes import IconSizes
 
 
 class LoaderWidget(QWidget):
 
-    def __init__(self, sizeX, sizeY, statusText="", iconSize=LoaderSizes.NORMAL):
+    def __init__(self, sizeX, sizeY, statusText="", iconSize=IconSizes.NORMAL):
         super().__init__()
         self.setFixedSize(sizeX, sizeY)
         self._layout = None
