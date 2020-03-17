@@ -1,6 +1,8 @@
 import os, re, json
 
+
 from os.path import expanduser
+from socket import gaierror
 from enum import IntEnum
 
 from PyQt5.QtWidgets import (
@@ -16,6 +18,8 @@ from PyQt5.QtCore import QSettings, Qt, pyqtSignal, pyqtSlot, QRect, QSize
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon, QIntValidator
 
 from model.models import AccountData, AccountTypes, AccountListChangeEvent  # TODO Rename/refactor
+from model.events import ConnectionEventTypes, ConnectionEvent
+from services.hub import ServiceHub
 from view.loaders import LoaderWidget
 from view import resources
 
@@ -279,6 +283,7 @@ class FirstStartWizardMiddleWidget(QWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._serviceHub = ServiceHub.getInstance()
         self.setFixedSize(1280, 480)
         self.__setupStylesheet()
         self._setup()
@@ -340,8 +345,13 @@ class WelcomeWidget(FirstStartWizardMiddleWidget):
 
 class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__chosenDirectoryPath = None
+        self._serviceHub.networkStatusChannel.connect(self.__on_network_event)
+
     def canProceed(self):
-        return self.__isConnectionOK and self.__isSshOK and len(self.__chosenDirectoryPath) > 0
+        return self.__isConnectionOK and self.__isSshOK and self.__chosenDirectoryPath is not None
 
     def canGoBack(self):
         return True
@@ -459,7 +469,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         aesKeyInputLayout.addWidget(aesKeyInputLabel)
         aesKeyInputLayout.addWidget(self.__aesKeyInput)
 
-        aesKeyDescription = QLabel("16 byte AESKey. Example: Sixteen Byte Key")
+        aesKeyDescription = QLabel("16 byte AESKey. Example: IAmAProperAesKey")
         aesKeyDescription.setFont(self.__descriptionFont)
 
         aesKeyFormLayout.addLayout(aesKeyInputLayout)
@@ -467,7 +477,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
         testRemoteHostButton = QPushButton("Test Connection")
         testRemoteHostButton.setObjectName("testConnection")
-        testRemoteHostButton.clicked.connect(self.__test_connection)
+        testRemoteHostButton.clicked.connect(self.__testConnection)
 
         remoteHostTestLayout.addWidget(testRemoteHostButton)
         remoteHostTestLayout.addWidget(self.__remoteHostTestResultLabel)
@@ -582,12 +592,35 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
         return directoryLayout
 
-    def __test_connection(self):
+    def __testConnection(self):
+        address = self.__remoteHostNameInput.text()
+        port = self.__remotePortInput.text()
+        aesKey = self.__aesKeyInput.text()
+
+        try:
+            self._serviceHub.connect(address, int(port), aesKey.encode())
+        except (ConnectionError, gaierror):
+            self.__connectionTestFailed("Couldn't connect to the specified remote.")
+
+    def __connectionTestSuccessful(self):
         self.__remoteHostTestResultLabel.setStyleSheet("color:green;")
         self.__remoteHostTestResultLabel.setText("OK")
         self.__isConnectionOK = True
-
         self.formValidityChanged.emit()
+
+    def __connectionTestFailed(self, message):
+        self.__isConnectionOK = False
+        self.__remoteHostTestResultLabel.setStyleSheet("color:red;")
+        self.__remoteHostTestResultLabel.setText(message)
+        self.formValidityChanged.emit()
+
+    def __on_network_event(self, event):
+        if event.eventType == ConnectionEventTypes.HANDSHAKE_SUCCESSFUL:
+            self.__connectionTestSuccessful()
+            self._serviceHub.disconnect()
+        elif event.eventType == ConnectionEventTypes.CONNECTION_ERROR:
+            self.__connectionTestFailed(event.data['message'])
+            self._serviceHub.disconnect()
 
     def __test_ssh_connection(self):
         self.__SSHTestResultLabel.setStyleSheet("color:green;")

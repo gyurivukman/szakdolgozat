@@ -122,3 +122,7 @@ class ServiceHub(QObject):
             self._networkService.connect()
         except ConnectionError as e:
             self.networkStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.CONNECTION_ERROR, {"message": str(e)}))
+
+    def disconnect(self):
+        self._networkService.disconnect()
+

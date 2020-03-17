@@ -25,8 +25,6 @@ class MainWindow(QMainWindow):
         self._mainPanel = None
         self._settings = QSettings()
         self._serviceHub = ServiceHub()
-        self._serviceHub.filesChannel.connect(self._onFileStatusChanged)
-        self._serviceHub.networkStatusChannel.connect(self._onNetworkStatusChanged)
         self._logger = logging.getLogger(__name__).getChild("MainWindow")
 
         self.__errorDialog = None
@@ -64,6 +62,8 @@ class MainWindow(QMainWindow):
         self.move(posX, posY)
 
     def _setupForRegularView(self):
+        self._serviceHub.filesChannel.connect(self._onFileStatusChanged)
+        self._serviceHub.networkStatusChannel.connect(self._onNetworkStatusChanged)
         screenSize = QCoreApplication.instance().desktop().screenGeometry()
         self._initMenu()
         self.setFixedSize(self.__NORMAL_SIZE)
