@@ -28,7 +28,7 @@ class ServiceHub(QObject):
 
     def __init__(self):
         if ServiceHub.__instance is not None:
-            raise Exception("This class is a singleton! use TaskManager.getInstance() instead!")
+            raise Exception("This class is a singleton! use ServiceHub.getInstance() instead!")
         else:
             super().__init__()
             ServiceHub.__instance = self
@@ -125,4 +125,3 @@ class ServiceHub(QObject):
 
     def disconnect(self):
         self._networkService.disconnect()
-

@@ -10,25 +10,24 @@ from uuid import uuid4
 from msgpack import Packer, Unpacker
 from Crypto.Cipher import AES
 
+from .message import MessageDispatcher
+
 
 class Server(object):
 
     def __init__(self):
+        #TODO refactor ezt itt.
         self._CHUNK_SIZE = 2048
-
-        self._server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._server.bind(("localhost", 11000))
-        self._server.listen(1)
-        self._key = b"sixteen byte jey"
-
         self._shouldRun = True
+
+        self._server = self._createServerSocket()
+        self._key = b"sixteen byte key"
 
         self._inputs = [self._server]
         self._outputs = []
 
         self._client = None
-        self._client_address = None
+        self._clientAddress = None
 
         self._packer = Packer()
         self._unpacker = Unpacker()
@@ -38,14 +37,16 @@ class Server(object):
 
         self._logger = logging.getLogger(__name__).getChild("Server")
 
-    def start(self):
-        self._logger.info("Ready!")
-        while self._shouldRun:
-            readable, writable, in_error = select.select(self._inputs, self._outputs, self._inputs)
+        self._messageDispatcher = MessageDispatcher()
 
-            self._handle_readable(readable)
-            self._handle_writable(writable)
-            self._handle_error(in_error)
+    def start(self):
+        self._logger.info("Ready")
+        while self._shouldRun:
+            readable, writable, inError = select.select(self._inputs, self._outputs, self._inputs)
+
+            self._handleReadable(readable)
+            self._handleWritable(writable)
+            self._handleError(inError)
 
     def stop(self):
         self._logger.debug("Shutting down.")
@@ -54,16 +55,24 @@ class Server(object):
         if self._client:
             self._client.close()
 
-    def _handle_readable(self, readable):
+    def _createServerSocket(self):
+        serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        serverSocket.bind(("localhost", 11000))
+        serverSocket.listen(1)
+
+        return serverSocket
+
+    def _handleReadable(self, readable):
         try:
-            for readable_socket in readable:
-                if readable_socket is self._server:
+            for readableSocket in readable:
+                if readableSocket is self._server:
                     self._logger.info("Client connecting")
-                    self._accept_client() if not self._client else self._reject_client()
+                    self._acceptClient() if not self._client else self._rejectClient()
                 else:
-                    self._readClientData(readable_socket)
-        except ConnectionResetError:
-            self._handle_disconnect(self._client)
+                    self._readClientData(readableSocket)
+        except ConnectionResetError as e:
+            self._handleDisconnect(self._client, e)
 
     def _readClientData(self, client):
         data = client.recv(self._CHUNK_SIZE)
@@ -72,11 +81,12 @@ class Server(object):
                 self._outputs.append(client)
             decrypted = self._decoder.decrypt(data)
             self._unpacker.feed(decrypted)
-            self._process_messages()
+            self._processMessages()
         else:
-            self._handle_disconnect(client)
+            self._handleDisconnect(client)
 
-    def _handle_disconnect(self, client):
+    def _handleDisconnect(self, client, error=""):
+        self._logger.info(f"Client disconnected {error}")
         if client in self._outputs:
             self._outputs.remove(client)
         if client in self._inputs:
@@ -84,19 +94,19 @@ class Server(object):
         if client:
             client.close()
         self._client = None
-        self._client_address = None
+        self._clientAddress = None
 
-    def _process_messages(self):
+    def _processMessages(self):
         for message in self._unpacker:
             self._logger.info(f"Message arrived: {message}")
 
-    def _accept_client(self):
-        self._client, self._client_address = self._server.accept()
+    def _acceptClient(self):
+        self._client, self._clientAddress = self._server.accept()
         self._inputs.append(self._client)
         self._logger.debug("Client connected")
-        self._send_session_key()
+        self._sendSessionKey()
 
-    def _send_session_key(self):
+    def _sendSessionKey(self):
         self._encoder = AES.new(self._key, AES.MODE_CFB)
         self._decoder = AES.new(self._key, AES.MODE_CFB, iv=self._encoder.iv)
         self._logger.debug(f"Setting up session with key: {self._encoder.iv}")
@@ -105,12 +115,12 @@ class Server(object):
         self._client.sendall(packed)
         self._logger.debug("Session data sent!")
 
-    def _reject_client(self):
+    def _rejectClient(self):
         self._logger.info("Rejecting client")
         client, _ = self._server.accept()
         client.close()
 
-    def _handle_writable(self, writable):
+    def _handleWritable(self, writable):
         try:
             for s in writable:
                 shouldSendAMessage = random.randint(0, 100) % 2 == 0
@@ -121,12 +131,11 @@ class Server(object):
                     s.sendall(encrypted)
                     time.sleep(2)
         except (Exception, OSError) as e:
-            self._logger.error(f"Client disconnected: {e}")
-            self._handle_disconnect(self._client)
+            self._handleDisconnect(self._client, e)
 
-    def _handle_error(self, inError):
+    def _handleError(self, inError):
         for s in inError:
-            self._logger.error(f"Some error in handle_error {s}")
+            self._logger.error(f"Some error in handleError {s}")
             if s in self._inputs:
                 self._inputs.remove(s)
             if s in self._outputs:

@@ -659,8 +659,7 @@ class SetupAccountsWidget(FirstStartWizardMiddleWidget):
     def initData(self):
         if not self.__inited:
             self.__formData = []
-            # taskManager = TaskManager.getInstance()
-            # taskManager.retrieveAccounts(self.__onAccountsRetrieved)
+            #TODO Send network message to retrieve accounts.
 
     def _getStyle(self):
         return ""

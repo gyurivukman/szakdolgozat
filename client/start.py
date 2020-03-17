@@ -87,7 +87,6 @@ if __name__ == '__main__':
     setupOrganization()
     trayIcon = createTrayIcon()
     trayIcon.show()
-    flags = Qt.CustomizeWindowHint | Qt.WindowCloseButtonHint | Qt.MSWindowsFixedSizeDialogHint
     mainWindow = MainWindow()
     mainWindow.initGUI()
     sys.exit(app.exec_())

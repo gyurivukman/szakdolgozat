@@ -39,7 +39,7 @@ class MainWindow(QMainWindow):
         else:
             self._setupForRegularView()
             self._serviceHub.startAllServices()
-            self._serviceHub.connect("localhost", 11000, b"sixteen byte key")
+            self._serviceHub.connect("localhost", 11000, b"sixceen byte key")
         self.show()
 
     def closeEvent(self, event):
@@ -107,7 +107,7 @@ class MainWindow(QMainWindow):
         # TODO qsettingsbol kiolvasni a connect parametereit, újra és újra minden alkalommal.
         self._loader = LoaderWidget(360, 720, "Connecting to server")
         self.setCentralWidget(self._loader)
-        self._serviceHub.connect("localhost", 11000, b"sixteen byte key")
+        self._serviceHub.connect("localhost", 11000, b"sixceen byte key")
 
     def _onSettingsMenuItemClicked(self):
         print("SETTINGS TODO")
@@ -118,4 +118,4 @@ class MainWindow(QMainWindow):
         QCoreApplication.instance().quit()
 
     def _isFirstStart(self):
-        return True
+        return False
