@@ -38,7 +38,8 @@ class FileSynchronizer(QObject):
         self._shouldRun = False
         self._logger.debug("Stopping")
         self._detector.stop()
-        self._detectorThread.join()
+        if self._detectorThread.is_alive():
+            self._detectorThread.join()
 
     def _processEvent(self, event):
         self.fileEvent.emit(event)

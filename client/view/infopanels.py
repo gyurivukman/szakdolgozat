@@ -13,7 +13,6 @@ class WarningPanel(QWidget):
         self._textLabel = QLabel(text)
 
         layout = self._createLayout()
-        layout.addWidget(QLabel("KUKKEN TOSZ"))
         self.setLayout(layout)
 
     def _createLayout(self):
@@ -65,6 +64,9 @@ class ConnectionErrorPanel(QWidget):
                 width:180px;
                 border:0px;
                 height:30px;
+            }
+            QPushButton#retryButton:pressed {
+                background-color: #e68a4e;
             }
         """
 

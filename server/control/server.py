@@ -20,7 +20,7 @@ class Server(object):
         self._server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._server.bind(("localhost", 11000))
         self._server.listen(1)
-        self._key = b"sixteen byte key"
+        self._key = b"sixteen byte jey"
 
         self._shouldRun = True
 
@@ -94,15 +94,16 @@ class Server(object):
         self._client, self._client_address = self._server.accept()
         self._inputs.append(self._client)
         self._logger.debug("Client connected")
-        self._do_handshake()
+        self._send_session_key()
 
-    def _do_handshake(self):
+    def _send_session_key(self):
         self._encoder = AES.new(self._key, AES.MODE_CFB)
         self._decoder = AES.new(self._key, AES.MODE_CFB, iv=self._encoder.iv)
-        self._logger.debug(f"Sending session key: {self._encoder.iv}")
-        packed = self._packer.pack(self._encoder.iv)
+        self._logger.debug(f"Setting up session with key: {self._encoder.iv}")
+        encoded = self._encoder.encrypt(self._encoder.iv)
+        packed = self._packer.pack({"iv": self._encoder.iv, "encodeTest": encoded})
         self._client.sendall(packed)
-        self._logger.debug("Session key sent")
+        self._logger.debug("Session data sent!")
 
     def _reject_client(self):
         self._logger.info("Rejecting client")

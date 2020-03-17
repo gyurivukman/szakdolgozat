@@ -48,7 +48,7 @@ class ServiceHub(QObject):
             self.initSshService()
 
     def initNetworkService(self):
-        self._networkService = NetworkClient("localhost", 11000, b"sixteen byte key", 2048)
+        self._networkService = NetworkClient()
         self._networkService.messageArrived.connect(self._onNetworkMessageArrived)
         self._networkService.connectionStatusChanged.connect(self._onConnectionEvent)
         self._networkThread = Thread(target=self._networkService.run)
@@ -84,15 +84,14 @@ class ServiceHub(QObject):
         self._fileSyncService.stop()
         self._sshService.stop()
 
-        self._fileSyncThread.join()
-        self._networkThread.join()
-        self._sshThread.join()
+        if self._fileSyncThread is not None and self._fileSyncThread.is_alive():
+            self._fileSyncThread.join()
+        if self._networkThread is not None and self._fileSyncThread.is_alive():
+            self._networkThread.join()
+        if self._sshThread is not None and self._sshThread.is_alive():
+            self._sshThread.join()
 
         self._logger.debug("Stopped all services")
-
-    def _shutDownThreadedService(self, service, thread):
-        service.stop()
-        thread.join()
 
     def shutdownNetwork(self):
         self._shutDownThreadedService(self._networkService, self._networkThread)
@@ -104,6 +103,10 @@ class ServiceHub(QObject):
         self._fileSyncService = None
         self._fileSyncThread = None
 
+    def _shutDownThreadedService(self, service, thread):
+        service.stop()
+        thread.join()
+
     def _onNetworkMessageArrived(self, message):
         self.filesChannel.emit(message)
 
@@ -113,8 +116,9 @@ class ServiceHub(QObject):
     def _onConnectionEvent(self, event):
         self.networkStatusChannel.emit(event)
 
-    def connect(self):
+    def connect(self, address, port, aesKey):
         try:
+            self._networkService.setNetworkInformation(address, port, aesKey)
             self._networkService.connect()
         except ConnectionError as e:
             self.networkStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.CONNECTION_ERROR, {"message": str(e)}))

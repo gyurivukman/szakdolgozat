@@ -1,14 +1,17 @@
 import logging
 import time
 
-from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QMainWindow, QAction
 from PyQt5.QtCore import Qt, QSettings, QCoreApplication, QSize
 from PyQt5.QtGui import QIcon
 
 from model.events import ConnectionEvent, ConnectionEventTypes
 from services.hub import ServiceHub
-from .infopanels import ConnectionErrorPanel
-from .loaders import LoaderWidget
+from view.infopanels import ConnectionErrorPanel
+from view.loaders import LoaderWidget
+from view.firststart import FirstStartWizard
+
+from . import resources
 
 
 class MainWindow(QMainWindow):
@@ -19,6 +22,7 @@ class MainWindow(QMainWindow):
         super().__init__(*args, **kwargs)
         self._loader = LoaderWidget(360, 720, "Connecting to server")
         self._errorPanel = None
+        self._mainPanel = None
         self._settings = QSettings()
         self._serviceHub = ServiceHub()
         self._serviceHub.filesChannel.connect(self._onFileStatusChanged)
@@ -31,21 +35,28 @@ class MainWindow(QMainWindow):
         self.setAttribute(Qt.WA_StyledBackground)
         self.setStyleSheet("background:#FFFFFF")
         self.setWindowTitle('CryptStorePi')
-        self.setWindowIcon(QIcon('view/assets/logo.png'))
-        self._setupForRegularView()
+        self.setWindowIcon(QIcon(':logo.png'))
+        if self._isFirstStart():
+            self._setupForFirstStart()
+        else:
+            self._setupForRegularView()
+            self._serviceHub.startAllServices()
+            self._serviceHub.connect("localhost", 11000, b"sixteen byte key")
         self.show()
-        self._serviceHub.startAllServices()
-        self._connect()
 
-    def _connect(self):
-        self._serviceHub.connect()
+    def closeEvent(self, event):
+        event.ignore()
+        self.hide()
 
-    # def __setupForFirstStart(self):
-    #     screenSize = QCoreApplication.instance().desktop().screenGeometry()
-    #     self.setFixedSize(self.__FIRST_START_SIZE)
-    #     self.__moveToCenter(screenSize)
-    #     self.setCentralWidget(FirstStartWizard(self))
-    #     self.__taskManager.start()
+    def stop(self):
+        self._serviceHub.shutdownAllServices()
+
+    def _setupForFirstStart(self):
+        screenSize = QCoreApplication.instance().desktop().screenGeometry()
+        self.setFixedSize(self.__FIRST_START_SIZE)
+        self._moveToCenter(screenSize)
+        self._mainPanel = FirstStartWizard(self)
+        self.setCentralWidget(self._mainPanel)
 
     def _moveToCenter(self, screenSize):
         posX = (screenSize.width() / 2) - (self.width() / 2)
@@ -54,9 +65,23 @@ class MainWindow(QMainWindow):
 
     def _setupForRegularView(self):
         screenSize = QCoreApplication.instance().desktop().screenGeometry()
+        self._initMenu()
         self.setFixedSize(self.__NORMAL_SIZE)
         self.setCentralWidget(self._loader)
         self._moveToCenter(screenSize)
+
+    def _initMenu(self):
+        menuBar = self.menuBar()
+        menuBar.setStyleSheet("""QMenu:item:selected{background-color: #e36410;}""")
+        fileMenu = menuBar.addMenu("File")
+
+        settingsAction = QAction("Settings", self)
+        settingsAction.triggered.connect(self._onSettingsMenuItemClicked)
+
+        exitAction = QAction("Exit", self)
+        exitAction.triggered.connect(self._onExitMenuItemClicked)
+        fileMenu.addAction(settingsAction)
+        fileMenu.addAction(exitAction)
 
     def _createErrorPanel(self):
         panel = ConnectionErrorPanel()
@@ -65,13 +90,6 @@ class MainWindow(QMainWindow):
         panel.retry.connect(self._onErrorPanelRetryClicked)
 
         return panel
-
-    def closeEvent(self, event):
-        event.ignore()
-        self.hide()
-
-    def stop(self):
-        self._serviceHub.shutdownAllServices()
 
     def _onFileStatusChanged(self, event):
         self._logger.info(event)
@@ -86,6 +104,18 @@ class MainWindow(QMainWindow):
             self.setCentralWidget(self._errorPanel)
 
     def _onErrorPanelRetryClicked(self):
+        # TODO qsettingsbol kiolvasni a connect parametereit, újra és újra minden alkalommal.
         self._loader = LoaderWidget(360, 720, "Connecting to server")
         self.setCentralWidget(self._loader)
-        self._connect()
+        self._serviceHub.connect("localhost", 11000, b"sixteen byte key")
+
+    def _onSettingsMenuItemClicked(self):
+        print("SETTINGS TODO")
+
+    def _onExitMenuItemClicked(self):
+        self.hide()
+        self.stop()
+        QCoreApplication.instance().quit()
+
+    def _isFirstStart(self):
+        return True

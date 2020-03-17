@@ -23,14 +23,14 @@ class NetworkClient(QObject):
     messageArrived = pyqtSignal(object)
     connectionStatusChanged = pyqtSignal(object)
 
-    def __init__(self, address, port, aesKey, chunkSize):
+    def __init__(self):
         super().__init__()
-        self._CHUNK_SIZE = chunkSize
-        self._hostInfo = (address, port)
+        self._CHUNK_SIZE = 2048
+        self._hostInfo = None
         self._shouldRun = True
         self._logger = logger.getChild("NetworkClient")
 
-        self._key = aesKey
+        self._key = None
         self._encoder = None
         self._decoder = None
 
@@ -54,12 +54,16 @@ class NetworkClient(QObject):
                     self._handleErroneousSocket([self._socket])
             else:
                 time.sleep(1)
-        self._socket.close()
+        self._disconnect()
 
     def connect(self):
         self._socket = self._createNewSocket()
         self._setupConnection()
         self._setupSession()
+
+    def setNetworkInformation(self, address, port, aesKey):
+        self._hostInfo = (address, port)
+        self._key = aesKey
 
     def _setupConnection(self):
         self._connect()
@@ -74,14 +78,26 @@ class NetworkClient(QObject):
             data = self._socket.recv(1024)
             if data:
                 self._unpacker.feed(data)
-                for iv in self._unpacker:
-                    self._logger.debug(f"Handshake done, received IV: {iv}")
-                    self._encoder = AES.new(self._key, mode=AES.MODE_CFB, iv=iv)
-                    self._decoder = AES.new(self._key, mode=AES.MODE_CFB, iv=iv)
+                for sessionMessage in self._unpacker:
                     handShakeDone = True
-                    self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.HANDSHAKE_SUCCESSFUL, None))
+                    self._processSessionMessage(sessionMessage)
             else:
                 self._disconnect()
+
+    def _processSessionMessage(self, sessionMessage):
+        self._encoder = AES.new(self._key, mode=AES.MODE_CFB, iv=sessionMessage['iv'])
+        self._decoder = AES.new(self._key, mode=AES.MODE_CFB, iv=sessionMessage['iv'])
+        decoded = self._decoder.decrypt(sessionMessage['encodeTest'])
+
+        if decoded == sessionMessage['iv']:
+            self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.HANDSHAKE_SUCCESSFUL, None))
+            self._logger.debug("Successfully set up session!")
+            self._isConnected = True
+        else:
+            message = f"Wrong Aeskey! Sessionkey: {sessionMessage['iv']} , Decoded: {decoded}"
+            self._logger.error(message)
+            self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.CONNECTION_ERROR, {"message": "Wrong AES key!"}))
+            self._disconnect()
 
     def _createNewSocket(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -92,7 +108,6 @@ class NetworkClient(QObject):
     def _connect(self):
         self._logger.debug("Connecting to server")
         self._socket.connect(self._hostInfo)
-        self._isConnected = True
         self._logger.debug("Connected")
         self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.CONNECTED, None))
 
@@ -122,10 +137,10 @@ class NetworkClient(QObject):
         self._isConnected = False
         self._input = []
         self._output = []
+        self._socket.close()
 
     def _handleErroneousSocket(self, in_error):
         for s in in_error:
-            s.close()
             self._disconnect()
 
     def _generateRandomMessage(self):
