@@ -24,9 +24,10 @@ class NetworkClient(QObject):
     messageArrived = pyqtSignal(NetworkMessage)
     connectionStatusChanged = pyqtSignal(object)
 
-    def __init__(self):
+    def __init__(self, outgoing_queue):
         super().__init__()
         self._CHUNK_SIZE = 2048
+        self._outgoing_queue = outgoing_queue
         self._hostInfo = None
         self._shouldRun = True
         self._logger = logger.getChild("NetworkClient")
@@ -49,7 +50,7 @@ class NetworkClient(QObject):
                     self._handleIncomingMessage(readable)
                     self._handleOutgoingMessage(writable)
                     self._handleErroneousSocket(in_error)
-                except (Exception, BrokenPipeError) as e:
+                except ConnectionError as e:
                     self._logger.error(f"Server disconnected: {e}")
                     self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.DISCONNECTED, {"message": str(e)}))
                     self._handleErroneousSocket([self._socket])
@@ -126,15 +127,27 @@ class NetworkClient(QObject):
 
     def _handleOutgoingMessage(self, writable):
         for s in writable:
-            message = self._generateRandomMessage()
-            serialized = self._packer.pack(message)
-            encrypted = self._encoder.encrypt(serialized)
-            if self._shouldRun:
-                s.sendall(encrypted)
-                self._logger.info("Message sent.")
-            time.sleep(2)
+            # shouldSendAMessage = random.randint(0, 100) % 4 == 0
+            # if shouldSendAMessage:
+            #     message = self._generateRandomMessage()
+            #     serialized = self._packer.pack(message)
+            #     encrypted = self._encoder.encrypt(serialized)
+            #     if self._shouldRun:
+            #         s.sendall(encrypted)
+            #         self._logger.info("Random message sent.")
+            try:
+                msg_obj = self._outgoing_queue.get_nowait()
+                serialized = self._packer.pack(msg_obj.raw)
+                encrypted = self._encoder.encrypt(serialized)
+                if self._shouldRun:
+                    s.sendall(encrypted)
+                    self._logger.info("Proper message sent.")
+                self._outgoing_queue.task_done()
+            except Empty:
+                time.sleep(1)
 
     def disconnect(self):
+        self._logger.debug("Disconnecting")
         self._isConnected = False
         self._input = []
         self._output = []
@@ -148,7 +161,7 @@ class NetworkClient(QObject):
         return {
             "header": {
                 "uuid": uuid4().hex,
-                "messageType": MessageTypes.GET_ACCOUNT_LIST
+                "messageType": MessageTypes.TEST
             },
             "data": {
                 "filePath": ''.join(random.choice(string.ascii_lowercase) for i in range(random.randint(1, 30))),
@@ -160,6 +173,9 @@ class NetworkClient(QObject):
     def stop(self):
         self._logger.debug("Stopping")
         self._shouldRun = False
+
+    def enqueuMessage(self, message):
+        self._outgoing_queue.put(message)
 
 
 class SshClient(QObject):

@@ -16,7 +16,7 @@ from Crypto.Cipher import AES
 
 from .message import MessageDispatcher
 from .worker import WorkerPool
-from model.message import NetworkMessage
+from model.message import NetworkMessage, MessageTypes
 
 
 class Server(object):
@@ -108,6 +108,7 @@ class Server(object):
     def _processIncomingMessages(self):
         for message in self._unpacker:
             msg_obj = NetworkMessage(message)
+            # TODO itt majd szétválasztani a random test messaget a másik workerre.
             self._messageDispatcher.incoming_instant_task_queue.put(msg_obj)
 
     def _acceptClient(self):
@@ -144,6 +145,7 @@ class Server(object):
                     serialized = self._packer.pack(msg_obj.raw)
                     encrypted = self._encoder.encrypt(serialized)
                     s.sendall(encrypted)
+                    self._messageDispatcher.outgoing_task_queue.task_done()
                 except Empty:
                     time.sleep(1)
         except OSError as e:
@@ -162,6 +164,7 @@ class Server(object):
         raw = {
             "header": {
                 "uuid": uuid4().hex,
+                "messageType": MessageTypes.TEST
             },
             "data": {
                 "kukken": "tosszen",

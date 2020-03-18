@@ -30,6 +30,7 @@ class FileSynchronizer(QObject):
             try:
                 event = self._eventQueue.get_nowait()
                 self._processEvent(event)
+                self._eventQueue.task_done()
             except Empty as _:
                 time.sleep(1)
         self._logger.debug("Stopped")

@@ -4,6 +4,7 @@ import os, re, json
 from os.path import expanduser
 from socket import gaierror
 from enum import IntEnum
+from uuid import uuid4
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QDialog,
@@ -19,6 +20,7 @@ from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QI
 
 from model.config import AccountData, AccountTypes, AccountListChangeEvent  # TODO Rename/refactor
 from model.events import ConnectionEventTypes, ConnectionEvent
+from model.message import NetworkMessage, MessageTypes
 from services.hub import ServiceHub
 from view.loaders import LoaderWidget
 from view import resources
@@ -168,7 +170,7 @@ class FirstStartWizard(QWidget):
         self.__state = self.__progressWidget.toNextState()
         self.__widgetMap[self.__state].show()
         if self.__state != WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY:
-            self.__widgetMap[self.__state].initData() 
+            self.__widgetMap[self.__state].initData()
         else:
             self.__widgetMap[self.__state].setSummaryData(self.__gatherFormData())
         self.__update()
@@ -186,7 +188,7 @@ class FirstStartWizard(QWidget):
         return {'network': networkData, 'accounts': accountsData}
 
     def __onFinishClicked(self):
-        print("FInish!")
+        print("Finish!")
 
     def __update(self):
         if self.__state != WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY:
@@ -348,7 +350,6 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__chosenDirectoryPath = None
-        self._serviceHub.networkStatusChannel.connect(self.__on_network_event)
 
     def canProceed(self):
         return self.__isConnectionOK and self.__isSshOK and self.__chosenDirectoryPath is not None
@@ -593,12 +594,14 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         return directoryLayout
 
     def __testConnection(self):
+        self._serviceHub.networkStatusChannel.connect(self.__on_network_event)
         address = self.__remoteHostNameInput.text()
         port = self.__remotePortInput.text()
         aesKey = self.__aesKeyInput.text()
 
         try:
-            self._serviceHub.connect(address, int(port), aesKey.encode())
+            self._serviceHub.setNetworkInformation(address, int(port), aesKey.encode())
+            self._serviceHub.connect()
         except (ConnectionError, gaierror):
             self.__connectionTestFailed("Couldn't connect to the specified remote.")
 
@@ -606,12 +609,14 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__remoteHostTestResultLabel.setStyleSheet("color:green;")
         self.__remoteHostTestResultLabel.setText("OK")
         self.__isConnectionOK = True
+        self._serviceHub.networkStatusChannel.disconnect(self.__on_network_event)
         self.formValidityChanged.emit()
 
     def __connectionTestFailed(self, message):
         self.__isConnectionOK = False
         self.__remoteHostTestResultLabel.setStyleSheet("color:red;")
         self.__remoteHostTestResultLabel.setText(message)
+        self._serviceHub.networkStatusChannel.disconnect(self.__on_network_event)
         self.formValidityChanged.emit()
 
     def __on_network_event(self, event):
@@ -651,7 +656,8 @@ class SetupAccountsWidget(FirstStartWizardMiddleWidget):
     accountListChanged = pyqtSignal(object)
 
     def canProceed(self):
-        return len(self.__formData) > 0
+        # return len(self.__formData) > 0
+        return False
 
     def canGoBack(self):
         return True
@@ -659,14 +665,17 @@ class SetupAccountsWidget(FirstStartWizardMiddleWidget):
     def initData(self):
         if not self.__inited:
             self.__formData = []
-            #TODO Send network message to retrieve accounts.
+            self._serviceHub.startNetworkService()
+            self._serviceHub.connect()
+            raw = {"header": {"messageType": MessageTypes.GET_ACCOUNT_LIST, "uuid": uuid4().hex}, "data": None}
+            self._serviceHub.sendNetworkMessage(NetworkMessage(raw), self.__onAccountsRetrieved)
 
     def _getStyle(self):
         return ""
 
     def _setup(self):
         self.__layout = QVBoxLayout()
-        self.__layout.setAlignment(Qt.AlignHCenter|Qt.AlignVCenter)
+        self.__layout.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
         self.__loadingWidget = LoaderWidget(1280, 480)
         self.__accountsWidget = AccountsWidget()
@@ -701,7 +710,7 @@ class AccountsWidget(QWidget):
         self.setFixedSize(1280, 480)
         self.setStyleSheet("QWidget#noAccountsWidget{border-right:2px solid #777777;}")
         self.__setup()
-    
+
     def __setup(self):
         self.__noAccountsWidget = QLabel("No accounts could be found, please create new accounts by clicking the 'Add new account' button on the right hand side. \nYou can have a total of 8 accounts.")
         self.__noAccountsWidget.setFont(QFont("Nimbus Sans L", 13, False))
@@ -1029,7 +1038,7 @@ class BaseAccountFormWidget(QWidget):
     def _createIdentifierLayout(self):
         identifierFormLayout = QHBoxLayout()
         identifierInputFormLayout = QVBoxLayout()
-        
+
         identifierInputLabel = QLabel("Account identifier")
         identifierInputLabel.setFont(self._formLabelFont)
 
@@ -1041,7 +1050,7 @@ class BaseAccountFormWidget(QWidget):
         identifierDescription = QLabel("An arbitrary name to easily identify your cloud account\nin cryptStorePi. This is NOT the username! (max 40 chars.)")
         identifierDescription.setAlignment(Qt.AlignBottom)
         identifierDescription.setFont(self._descriptionFont)
-        
+
         identifierInputFormLayout.addWidget(identifierInputLabel)
         identifierInputFormLayout.addWidget(self._identifierInput)
         identifierFormLayout.addLayout(identifierInputFormLayout)

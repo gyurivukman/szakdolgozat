@@ -10,7 +10,7 @@ import random
 from uuid import uuid4
 
 from .message import MessageDispatcher
-from model.message import NetworkMessage
+from model.message import NetworkMessage, MessageTypes
 
 module_logger = logging.getLogger(__name__)
 
@@ -74,10 +74,16 @@ class Worker():
 class InstantWorker(Worker):
 
     def _work(self):
-        self._logger.debug(f"{self._currentTask.header.uuid} {self._currentTask.data}")
+        self._logger.debug(f"{self._currentTask.header.uuid} {self._currentTask.header.messageType} {self._currentTask.data}")
+        response = None
+        if self._currentTask.header.messageType == MessageTypes.GET_ACCOUNT_LIST:
+            raw = {"header": {"uuid": self._currentTask.header.uuid, "messageType": MessageTypes.RESPONSE}, "data": []}
+            response = NetworkMessage(raw)
+        else:
+            response = NetworkMessage(self._generateRandomResponse())
         self._currentTask = None
         self._messageDispatcher.incoming_instant_task_queue.task_done()
-        self._messageDispatcher.outgoing_task_queue.put(self._generateRandomResponse())
+        self._messageDispatcher.outgoing_task_queue.put(response)
 
     def _getNewTask(self):
         return self._messageDispatcher.incoming_instant_task_queue.get_nowait()
@@ -85,6 +91,7 @@ class InstantWorker(Worker):
     def _generateRandomResponse(self):
         raw = {
             "header": {
+                "messageType": MessageTypes.TEST,
                 "uuid": uuid4().hex,
             },
             "data": {
