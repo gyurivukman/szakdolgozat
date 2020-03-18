@@ -11,6 +11,7 @@ from msgpack import Packer, Unpacker
 from Crypto.Cipher import AES
 
 from .message import MessageDispatcher
+from model.message import NetworkMessage
 
 
 class Server(object):
@@ -98,7 +99,8 @@ class Server(object):
 
     def _processMessages(self):
         for message in self._unpacker:
-            self._logger.info(f"Message arrived: {message}")
+            msg_obj = NetworkMessage(message)
+            self._logger.info(f"Message arrived: {msg_obj}")
 
     def _acceptClient(self):
         self._client, self._clientAddress = self._server.accept()
@@ -144,6 +146,10 @@ class Server(object):
 
     def _generateRandomMessage(self):
         return {
-            "uuid": uuid4().hex,
-            "message": ''.join(random.choice(string.ascii_lowercase) for i in range(random.randint(1, 32))),
+            "header": {
+                "uuid": uuid4().hex,
+            },
+            "data": {
+                "message": ''.join(random.choice(string.ascii_lowercase) for i in range(random.randint(1, 32))),
+            }
         }

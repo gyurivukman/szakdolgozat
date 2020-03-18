@@ -14,13 +14,14 @@ from msgpack import Packer, Unpacker
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from model.events import ConnectionEventTypes, ConnectionEvent
+from model.message import NetworkMessage, MessageTypes
 
 
 logger = logging.getLogger(__name__)
 
 
 class NetworkClient(QObject):
-    messageArrived = pyqtSignal(object)
+    messageArrived = pyqtSignal(NetworkMessage)
     connectionStatusChanged = pyqtSignal(object)
 
     def __init__(self):
@@ -118,8 +119,8 @@ class NetworkClient(QObject):
                 decrypted = self._decoder.decrypt(data)
                 self._unpacker.feed(decrypted)
                 for message in self._unpacker:
-                    message['source'] = "SERVER"
-                    self.messageArrived.emit(message)
+                    msg_obj = NetworkMessage(message)
+                    self.messageArrived.emit(msg_obj)
             else:
                 self.disconnect()
 
@@ -145,10 +146,15 @@ class NetworkClient(QObject):
 
     def _generateRandomMessage(self):
         return {
-            "uuid": uuid4().hex,
-            "filePath": ''.join(random.choice(string.ascii_lowercase) for i in range(random.randint(1, 100))),
-            "size": random.randint(1, 1000000000),
-            "lastmodified": random.randint(0, 2**32)
+            "header": {
+                "uuid": uuid4().hex,
+                "messageType": MessageTypes.GET_ACCOUNT_LIST
+            },
+            "data": {
+                "filePath": ''.join(random.choice(string.ascii_lowercase) for i in range(random.randint(1, 30))),
+                "size": random.randint(1, 1000000000),
+                "lastmodified": random.randint(0, 2**32)
+            }
         }
 
     def stop(self):

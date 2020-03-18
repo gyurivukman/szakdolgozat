@@ -17,7 +17,7 @@ from view.help import DropboxHelpPage, DriveHelpPage
 from PyQt5.QtCore import QSettings, Qt, pyqtSignal, pyqtSlot, QRect, QSize
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon, QIntValidator
 
-from model.models import AccountData, AccountTypes, AccountListChangeEvent  # TODO Rename/refactor
+from model.config import AccountData, AccountTypes, AccountListChangeEvent  # TODO Rename/refactor
 from model.events import ConnectionEventTypes, ConnectionEvent
 from services.hub import ServiceHub
 from view.loaders import LoaderWidget
@@ -1497,6 +1497,6 @@ class FirstStartSummaryWidget(FirstStartWizardMiddleWidget):
 
     def canGoBack(self):
         return True
-    
+
     def setSummaryData(self, summary):
         print(summary)
