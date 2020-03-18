@@ -1,16 +1,21 @@
 import socket
 import select
 import logging
-import random
-import string
 import time
 
+
+# TODO Temporary imports
+import random
 from uuid import uuid4
+import string
+
+from queue import Empty
 
 from msgpack import Packer, Unpacker
 from Crypto.Cipher import AES
 
 from .message import MessageDispatcher
+from .worker import WorkerPool
 from model.message import NetworkMessage
 
 
@@ -38,9 +43,11 @@ class Server(object):
 
         self._logger = logging.getLogger(__name__).getChild("Server")
 
-        self._messageDispatcher = MessageDispatcher()
+        self._messageDispatcher = MessageDispatcher.getInstance()
+        self._workerPool = WorkerPool.getInstance()
 
     def start(self):
+        self._workerPool.start()
         self._logger.info("Ready")
         while self._shouldRun:
             readable, writable, inError = select.select(self._inputs, self._outputs, self._inputs)
@@ -55,6 +62,7 @@ class Server(object):
         self._server.close()
         if self._client:
             self._client.close()
+        self._workerPool.stop()
 
     def _createServerSocket(self):
         serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -82,7 +90,7 @@ class Server(object):
                 self._outputs.append(client)
             decrypted = self._decoder.decrypt(data)
             self._unpacker.feed(decrypted)
-            self._processMessages()
+            self._processIncomingMessages()
         else:
             self._handleDisconnect(client)
 
@@ -97,10 +105,10 @@ class Server(object):
         self._client = None
         self._clientAddress = None
 
-    def _processMessages(self):
+    def _processIncomingMessages(self):
         for message in self._unpacker:
             msg_obj = NetworkMessage(message)
-            self._logger.info(f"Message arrived: {msg_obj}")
+            self._messageDispatcher.incoming_instant_task_queue.put(msg_obj)
 
     def _acceptClient(self):
         self._client, self._clientAddress = self._server.accept()
@@ -125,13 +133,16 @@ class Server(object):
     def _handleWritable(self, writable):
         try:
             for s in writable:
-                shouldSendAMessage = random.randint(0, 100) % 2 == 0
+                shouldSendAMessage = random.randint(0, 100) % 7 == 0
                 if shouldSendAMessage:
-                    message = self._generateRandomMessage()
-                    serialized = self._packer.pack(message)
+                    message = self._generateRandomResponse()
+                try:
+                    msg_obj = self._messageDispatcher.outgoing_task_queue.get_nowait()
+                    serialized = self._packer.pack(msg_obj.raw)
                     encrypted = self._encoder.encrypt(serialized)
                     s.sendall(encrypted)
-                    time.sleep(2)
+                except Empty:
+                    time.sleep(1)
         except (Exception, OSError) as e:
             self._handleDisconnect(self._client, e)
 
@@ -144,8 +155,8 @@ class Server(object):
                 self._outputs.remove(s)
             s.close()
 
-    def _generateRandomMessage(self):
-        return {
+    def _generateRandomResponse(self):
+        raw = {
             "header": {
                 "uuid": uuid4().hex,
             },
@@ -153,3 +164,5 @@ class Server(object):
                 "message": ''.join(random.choice(string.ascii_lowercase) for i in range(random.randint(1, 32))),
             }
         }
+
+        return NetworkMessage(raw)
