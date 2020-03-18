@@ -108,7 +108,7 @@ class ServiceHub(QObject):
         thread.join()
 
     def _onNetworkMessageArrived(self, message):
-        self._logger.info(message)
+        self._logger.info(f"{message.header} {message.data}")
 
     def _onFileEvent(self, event):
         self.filesChannel.emit(event)

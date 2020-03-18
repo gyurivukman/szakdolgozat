@@ -136,6 +136,9 @@ class Server(object):
                 shouldSendAMessage = random.randint(0, 100) % 7 == 0
                 if shouldSendAMessage:
                     message = self._generateRandomResponse()
+                    serialized = self._packer.pack(message.raw)
+                    encrypted = self._encoder.encrypt(serialized)
+                    s.sendall(encrypted)
                 try:
                     msg_obj = self._messageDispatcher.outgoing_task_queue.get_nowait()
                     serialized = self._packer.pack(msg_obj.raw)
@@ -143,7 +146,7 @@ class Server(object):
                     s.sendall(encrypted)
                 except Empty:
                     time.sleep(1)
-        except (Exception, OSError) as e:
+        except OSError as e:
             self._handleDisconnect(self._client, e)
 
     def _handleError(self, inError):
@@ -161,6 +164,7 @@ class Server(object):
                 "uuid": uuid4().hex,
             },
             "data": {
+                "kukken": "tosszen",
                 "message": ''.join(random.choice(string.ascii_lowercase) for i in range(random.randint(1, 32))),
             }
         }
