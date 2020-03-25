@@ -653,7 +653,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
 class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
     __inited = False
-    __canProceed = False
+    __canProceed = True
 
     def canProceed(self):
         return self.__canProceed
@@ -698,7 +698,6 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
 
 
 class SetupAccountsWidget(QWidget):
-    accountListChanged = pyqtSignal(object)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -725,6 +724,7 @@ class SetupAccountsWidget(QWidget):
         self.__noAccountsWidget.setObjectName("noAccountsWidget")
 
         self.__accountEditorWidget = AccountEditorWidget()
+        self.__accountEditorWidget.onSaveAccount.connect(self.__onAccountSaveClicked)
         self.__accountEditorWidget.hide()
 
         layout = QHBoxLayout()
@@ -761,8 +761,8 @@ class SetupAccountsWidget(QWidget):
     def __addAccountWidget(self, accountData):
         index = self.__accountListLayout.count() - 2  # Button + Spaceritem is there by default.
         accountCard = AccountCard(accountData=accountData, index=index)
-        accountCard.onSelected.connect(self.__onAccountCardSelected) # TODO disconnect
-        accountCard.removeButtonClicked.connect(self.__onAccountCardRemoveClicked) #TODO disconnect
+        accountCard.onSelected.connect(self.__onAccountCardSelected)  # TODO disconnect
+        accountCard.removeButtonClicked.connect(self.__onAccountCardRemoveClicked)  # TODO disconnect
 
         self.__accountCardWidgets.append(accountCard)
         self.__accountListLayout.insertWidget(index, accountCard, Qt.AlignHCenter)
@@ -785,9 +785,7 @@ class SetupAccountsWidget(QWidget):
             self.__accountEditorWidget.show()
 
     def __onAccountSaveClicked(self, account):
-        # self.__accountListWidget.updateCurrentlySelectedAccount(account)
-        # self.accountListChanged.emit(AccountListChangeEvent(AccountListChangeEvent.CREATE_OR_UPDATE, account))
-        print("ACCOUNT SAVE CLICKED")
+        self.__accountCardWidgets[self.__selectedAccountIndex].setAccountData(account)
 
     def __onAccountCardSelected(self, index):
         if self.__selectedAccountIndex is not None:
@@ -823,12 +821,11 @@ class SetupAccountsWidget(QWidget):
             self.__accountEditorWidget.show()
 
     def getAccounts(self):
-        return []
+        return [accountCard.getAccountData() for accountCard in self.__accountCardWidgets]
 
 
 class AccountEditorWidget(QWidget):
     onSaveAccount = pyqtSignal(object)
-    onRemoveAccount = pyqtSignal()
 
     __hasAccountData = False
     __accountTypeButtons = []
@@ -919,7 +916,8 @@ class AccountEditorWidget(QWidget):
         layout.setAlignment(Qt.AlignTrailing)
         self.__saveAccountButton = QPushButton("Save")
         self.__saveAccountButton.setDisabled(True)
-        self.__saveAccountButton.setStyleSheet("""
+        self.__saveAccountButton.setStyleSheet(
+            """
                 QPushButton{
                     background-color:#e36410;
                     color:white;
@@ -1402,8 +1400,7 @@ class AccountCard(QWidget):
 
         self.__accountIcon = QLabel()
         self.__accountIcon.setPixmap(self.__getIconPixmap())
-        # self.__identifierLabel = QLabel(self.__accountData.identifier)
-        self.__identifierLabel = QLabel(str(self.__index))
+        self.__identifierLabel = QLabel(self.__accountData.identifier)
         self.__identifierLabel.setFont(QFont("Nimbus Sans L", 11, False))
 
         mainLayout = QHBoxLayout()
@@ -1445,7 +1442,6 @@ class AccountCard(QWidget):
 
     def setIndex(self, index):
         self.__index = index
-        self.__identifierLabel.setText(str(index))
 
     def __getIconPath(self):
         return ":dropbox.png" if self.__accountData.accountType == AccountTypes.Dropbox else ":googledrive.png"
