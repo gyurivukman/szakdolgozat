@@ -91,8 +91,8 @@ class FirstStartWizard(QWidget):
         setupNetworkWidget.formValidityChanged.connect(self.__checkCanProceed)
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.NETWORK] = setupNetworkWidget
 
-        setupAccountsWidget = SetupAccountsWidget()
-        setupAccountsWidget.accountListChanged.connect(self.__checkCanProceed)
+        setupAccountsWidget = SetupAccountsWrapperWidget()
+        setupAccountsWidget.formValidityChanged.connect(self.__checkCanProceed)
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS] = setupAccountsWidget
 
         summaryWidget = FirstStartSummaryWidget()
@@ -651,19 +651,18 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__sshPasswordInput.setEchoMode(echoMode)
 
 
-class SetupAccountsWidget(FirstStartWizardMiddleWidget):
+class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
     __inited = False
-    accountListChanged = pyqtSignal(object)
+    __canProceed = False
 
     def canProceed(self):
-        # return len(self.__formData) > 0
-        return False
+        return self.__canProceed
 
     def canGoBack(self):
         return True
 
     def initData(self):
-        if not self.__inited:
+        if self.__inited is False:
             self.__formData = []
             self._serviceHub.startNetworkService()
             self._serviceHub.connect()
@@ -678,8 +677,7 @@ class SetupAccountsWidget(FirstStartWizardMiddleWidget):
         self.__layout.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
         self.__loadingWidget = LoaderWidget(1280, 480)
-        self.__accountsWidget = AccountsWidget()
-        self.__accountsWidget.accountListChanged.connect(self.__onAccountListChanged)
+        self.__accountsWidget = SetupAccountsWidget()
 
         self.__layout.addWidget(self.__loadingWidget)
         self.__layout.addWidget(self.__accountsWidget)
@@ -693,33 +691,41 @@ class SetupAccountsWidget(FirstStartWizardMiddleWidget):
         self.__accountsWidget.show()
 
     def __onAccountListChanged(self, event):
-        if event.event == AccountListChangeEvent.CREATE_OR_UPDATE:
-            self.__formData.append(event.account)
-        self.accountListChanged.emit(event)
+        self.formValidityChanged.emit(self.__canProceed)
 
     def getFormData(self):
         return self.__accountsWidget.getAccounts()
 
 
-class AccountsWidget(QWidget):
+class SetupAccountsWidget(QWidget):
     accountListChanged = pyqtSignal(object)
-    __hasAccountData = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.__accountCardWidgets = []
+        self.__accountListLayout = None
+        self.__selectedAccountIndex = None
+        self.__addAccountButton = None
+
         self.setFixedSize(1280, 480)
-        self.setStyleSheet("QWidget#noAccountsWidget{border-right:2px solid #777777;}")
+        self.setStyleSheet(
+            """
+                QWidget#noAccountsWidget{border-right:2px solid #777777;}
+
+                QPushButton#addAccountButton{height: 25px; border:1px dashed #e36410;max-width:293px;margin-left:2px;}
+                QPushButton#addAccountButton:hover{border:2px dashed #e36410;}
+            """
+        )
         self.__setup()
 
     def __setup(self):
         self.__noAccountsWidget = QLabel("No accounts could be found, please create new accounts by clicking the 'Add new account' button on the right hand side. \nYou can have a total of 8 accounts.")
         self.__noAccountsWidget.setFont(QFont("Nimbus Sans L", 13, False))
-        self.__noAccountsWidget.setAlignment(Qt.AlignHCenter|Qt.AlignVCenter)
+        self.__noAccountsWidget.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
         self.__noAccountsWidget.setObjectName("noAccountsWidget")
 
         self.__accountEditorWidget = AccountEditorWidget()
         self.__accountEditorWidget.hide()
-        self.__accountListWidget = AccountListWidget()
 
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -727,35 +733,97 @@ class AccountsWidget(QWidget):
 
         layout.addWidget(self.__noAccountsWidget)
         layout.addWidget(self.__accountEditorWidget)
-        layout.addLayout(self.__createAccountListLayout())
+        self.__accountListLayout = self.__createEmptyAccountListLayout()
+        layout.addLayout(self.__accountListLayout)
 
         self.setLayout(layout)
 
-    def __createAccountListLayout(self):
+    def __createEmptyAccountListLayout(self):
+        self.__addAccountButton = QPushButton("Add Account")
+        self.__addAccountButton.setFont(QFont("Nimbus Sans L", 10))
+        self.__addAccountButton.setObjectName("addAccountButton")
+        self.__addAccountButton.clicked.connect(self.__onAddNewAccountClicked)
+        self.__addAccountButton.setFocusPolicy(Qt.NoFocus)
+
         layout = QVBoxLayout()
-        self.__accountListWidget.accountSelected.connect(self.__accountEditorWidget.setAccountData)
-        self.__accountListWidget.accountSelected.connect(self.__onAccountSelected)
-        self.__accountEditorWidget.onSaveAccount.connect(self.__onAccountSaveClicked)
-        self.__accountEditorWidget.onRemoveAccount.connect(self.__accountListWidget.removeAccount)
-        layout.addWidget(self.__accountListWidget)
+        layout.addWidget(self.__addAccountButton)
         layout.addStretch(1)
         return layout
 
-    def __onAccountSelected(self, _):
-        if not self.__hasAccountData:
-            self.__hasAccountData = True
+    def __addBlankAccount(self):
+        blankAccountData = AccountData(AccountTypes.Dropbox, "New Account", "", {"apiToken": ""})
+        self.__addAccountWidget(blankAccountData)
+        new_account_index = len(self.__accountCardWidgets) - 1
+        self.__selectAccount(new_account_index)
+        if len(self.__accountCardWidgets) == 8:
+            self.__addAccountButton.hide()
+
+    def __addAccountWidget(self, accountData):
+        index = self.__accountListLayout.count() - 2  # Button + Spaceritem is there by default.
+        accountCard = AccountCard(accountData=accountData, index=index)
+        accountCard.onSelected.connect(self.__onAccountCardSelected) # TODO disconnect
+        accountCard.removeButtonClicked.connect(self.__onAccountCardRemoveClicked) #TODO disconnect
+
+        self.__accountCardWidgets.append(accountCard)
+        self.__accountListLayout.insertWidget(index, accountCard, Qt.AlignHCenter)
+
+    def __selectAccount(self, index):
+        if self.__selectedAccountIndex is not None:
+            self.__accountCardWidgets[self.__selectedAccountIndex].setSelected(False)
+        self.__selectedAccountIndex = index
+        self.__accountCardWidgets[index].setSelected(True)
+        self.__accountEditorWidget.setAccountData(self.__accountCardWidgets[index].getAccountData())
+
+    def setAccountData(self, accounts):
+        accountCount = len(accounts)
+        for accountData in accounts:
+            self.__addAccountWidget(accountData)
+
+        if accountCount > 0:
+            self.__selectAccount(0)
             self.__noAccountsWidget.hide()
             self.__accountEditorWidget.show()
 
-    def setAccountData(self, accounts):
-        self.__accountListWidget.setAccounts(accounts)
+    def __onAccountSaveClicked(self, account):
+        # self.__accountListWidget.updateCurrentlySelectedAccount(account)
+        # self.accountListChanged.emit(AccountListChangeEvent(AccountListChangeEvent.CREATE_OR_UPDATE, account))
+        print("ACCOUNT SAVE CLICKED")
+
+    def __onAccountCardSelected(self, index):
+        if self.__selectedAccountIndex is not None:
+            self.__accountCardWidgets[self.__selectedAccountIndex].setSelected(False)
+        self.__selectAccount(index)
+
+    def __onAccountCardRemoveClicked(self, index):
+        self.__accountCardWidgets[index].hide()
+        self.__accountListLayout.removeWidget(self.__accountCardWidgets[index])
+        del self.__accountCardWidgets[index]
+        remainingAccountCount = len(self.__accountCardWidgets)
+        if remainingAccountCount < 8:
+            self.__addAccountButton.show()
+
+        for i in range(remainingAccountCount):
+            self.__accountCardWidgets[i].setIndex(i)
+
+        if remainingAccountCount > 0:
+            if index == self.__selectedAccountIndex:
+                self.__selectedAccountIndex = None
+                self.__selectAccount(remainingAccountCount - 1)
+            elif index < self.__selectedAccountIndex:
+                self.__selectedAccountIndex = self.__selectedAccountIndex - 1
+        else:
+            self.__selectedAccountIndex = None
+            self.__accountEditorWidget.hide()
+            self.__noAccountsWidget.show()
+
+    def __onAddNewAccountClicked(self, _):
+        self.__addBlankAccount()
+        if not self.__accountEditorWidget.isVisible():
+            self.__noAccountsWidget.hide()
+            self.__accountEditorWidget.show()
 
     def getAccounts(self):
-        return self.__accountListWidget.getAccounts()
-
-    def __onAccountSaveClicked(self, account):
-        self.__accountListWidget.updateCurrentlySelectedAccount(account)
-        self.accountListChanged.emit(AccountListChangeEvent(AccountListChangeEvent.CREATE_OR_UPDATE, account))
+        return []
 
 
 class AccountEditorWidget(QWidget):
@@ -839,14 +907,11 @@ class AccountEditorWidget(QWidget):
     def __updateAccountTypeButtons(self, index):
         self.__accountTypeButtons[self.__selectedAccountTypeIndex].setStyleSheet(self.__inactiveButtonStyle)
         self.__accountTypeButtons[index].setStyleSheet(self.__activeButtonStyle)
-    
+
     def __displayNewAccountForm(self, index):
         self.__accountForms[self.__selectedAccountTypeIndex].hide()
         self.__selectedAccountTypeIndex = index
         self.__accountForms[index].show()
-
-    def __removeAccountClicked(self):
-        self.onRemoveAccount.emit()
 
     def __createAccountEditorControlsLayout(self):
         layout = QHBoxLayout()
@@ -881,7 +946,7 @@ class AccountEditorWidget(QWidget):
     def __onFormValidityChanged(self, value):
         if self.__saveAccountButton.isEnabled() != value:
             self.__saveAccountButton.setDisabled(not value)
-    
+
     def setAccountData(self, accountData):
         index = 0 if accountData.accountType == AccountTypes.Dropbox else 1
         self.__updateAccountTypeButtons(index)
@@ -916,98 +981,6 @@ class AccountEditorSectionSeparatorWidget(QWidget):
         painter.setPen(QPen(self.__sectionLineColor, 1, Qt.SolidLine))
         painter.drawLine(0, (height / 2) + 1, 480 - (width / 2 + 5), (height / 2) + 1)
         painter.drawLine(485 + (width / 2), (height / 2) + 1, 940, (height / 2) + 1)
-
-
-class AccountListWidget(QWidget):
-    accountSelected = pyqtSignal(object)
-    __selectedAccountIndex = -1
-    __accountCards = []
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setFixedSize(320, 480)
-        self.setAttribute(Qt.WA_StyledBackground)   
-        self.setStyleSheet(
-            """
-                QPushButton#newAccountButton{height: 25px; border:1px dashed #e36410;max-width:293px;margin-left:2px;}
-                QPushButton#newAccountButton:hover{border:2px dashed #e36410;}
-            """
-        )
-        self.__setup()
-
-    def __setup(self):
-        self.__layout = QVBoxLayout()
-        self.__layout.setSpacing(2)
-        self.__layout.setContentsMargins(2,2,2,2)
-        self.__layout.setAlignment(Qt.AlignTop)
-
-        self.__newAccountButton = QPushButton("Add new account")
-        self.__newAccountButton.setFont(QFont("Nimbus Sans L", 10))
-        self.__newAccountButton.setObjectName("newAccountButton")
-        self.__newAccountButton.clicked.connect(self.__addBlankAccount)
-
-        self.__layout.addWidget(self.__newAccountButton)
-        self.__layout.addStretch(1)
-        self.setLayout(self.__layout)
-
-    def __addBlankAccount(self):
-        blankAccount = AccountData(AccountTypes.Dropbox, "New Account", "", {"apiToken":""})
-        self.__addAccount(blankAccount)
-        self.__selectAccount(len(self.__accountCards) - 1)
-        if len(self.__accountCards) == 8:
-            self.__newAccountButton.hide()
-
-    def __addAccount(self, account):
-        index = self.__layout.count() - 2
-        accountCard = AccountCard(accountData=account, index=index)
-        accountCard.onSelected.connect(self.__selectAccount)
-        accountCard.removeButtonClicked.connect(self.removeAccount)
-
-        self.__accountCards.append(accountCard)
-        self.__layout.insertWidget(index, accountCard, Qt.AlignHCenter)
-
-    def removeAccount(self, index):
-        self.__accountCards[index].hide()
-        self.__layout.removeWidget(self.__accountCards[index])
-        del self.__accountCards[index]
-
-        accountCount = len(self.__accountCards)
-        if accountCount > 0:
-            for i in range(0, accountCount):
-                self.__accountCards[i].setIndex(i)
-                self.__accountCards[i].mouseReleaseEvent = lambda event:self.__selectAccount(i)
-            if index == self.__selectedAccountIndex:
-                self.__selectedAccountIndex = 0
-                self.__accountCards[0].setSelected(True)
-        else:
-            self.__selectedAccountIndex = -1
-
-    def updateCurrentlySelectedAccount(self, account):
-        self.__accountCards[self.__selectedAccountIndex].setAccountData(account)
-
-    def setAccounts(self, accounts):
-        if self.__layout.count() > 2:
-            self.__removeAllAccounts()
-
-        for account in accounts:
-            self.addAccount(account)
-
-    def __removeAllAccounts(self):
-        for account, index in zip(self.__accountCards, range(0, len(self.__accountCards))):
-            account.hide()
-            self.__layout.removeWidget(account)
-        self.__accounts = []
-
-    def __selectAccount(self, index):
-        if index != self.__selectedAccountIndex:
-            if self.__selectedAccountIndex > -1:
-                self.__accountCards[self.__selectedAccountIndex].setSelected(False)
-            self.__accountCards[index].setSelected(True)
-            self.__selectedAccountIndex = index
-            self.accountSelected.emit(self.__accountCards[index].getAccountData())
-
-    def getAccounts(self):
-        return [accountCard.getAccountData().toJson() for accountCard in self.__accountCards]
 
 
 class BaseAccountFormWidget(QWidget):
@@ -1223,7 +1196,7 @@ class DriveAccountForm(BaseAccountFormWidget):
         self.__accountHelpDialog = AccountHelpDialog(scrollWidget=DriveHelpPage())
         self.__accountHelpDialog.setWindowTitle("How to set up google drive for CryptStorePi")
         self._setupStyle()
-    
+
     def __createCredentialsDataLabels(self):
         errorLabel = QLabel()
         errorLabel.setFont(self._descriptionFont)
@@ -1281,7 +1254,7 @@ class DriveAccountForm(BaseAccountFormWidget):
 
     def _openHelpFrame(self):
         self.__accountHelpDialog.show()
-    
+
     def _resetAccountSpecificDataForm(self):
         self.__formData = {}
         self.__resetCredentialLabels()
@@ -1429,12 +1402,13 @@ class AccountCard(QWidget):
 
         self.__accountIcon = QLabel()
         self.__accountIcon.setPixmap(self.__getIconPixmap())
-        self.__identifierLabel = QLabel(self.__accountData.identifier)
+        # self.__identifierLabel = QLabel(self.__accountData.identifier)
+        self.__identifierLabel = QLabel(str(self.__index))
         self.__identifierLabel.setFont(QFont("Nimbus Sans L", 11, False))
 
         mainLayout = QHBoxLayout()
         mainLayout.setSpacing(0)
-        mainLayout.setContentsMargins(0,0,0,0)
+        mainLayout.setContentsMargins(0, 0, 0, 0)
 
         infoLayout = QHBoxLayout()
         infoLayout.setSpacing(5)
@@ -1471,6 +1445,7 @@ class AccountCard(QWidget):
 
     def setIndex(self, index):
         self.__index = index
+        self.__identifierLabel.setText(str(index))
 
     def __getIconPath(self):
         return ":dropbox.png" if self.__accountData.accountType == AccountTypes.Dropbox else ":googledrive.png"
@@ -1487,7 +1462,7 @@ class AccountCard(QWidget):
     def __onRemoveButtonClicked(self):
         self.removeButtonClicked.emit(self.__index)
 
-    def __onSelected(self, event):
+    def __onSelected(self, _):
         self.onSelected.emit(self.__index)
 
 
