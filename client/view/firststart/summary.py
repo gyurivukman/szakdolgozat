@@ -19,15 +19,34 @@ class FirstStartSummaryWidget(FirstStartWizardMiddleWidget):
 
     def __init__(self, *args, **kwargs):
         self.__networkSummaryContentPanel = NetworkSummaryContentPanel()
+        self.__sshSummaryContentPanel = SshSummaryContentPanel()
+        self.__syncDirContentPanel = SyncDirSummaryContentPanel()
+        self.__accountsContentPanel = AccountsSummaryContentPanel()
         super().__init__(*args, **kwargs)
 
     def _setup(self):
-        layout = QVBoxLayout()
-        layout.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+        layout = QHBoxLayout()
+
+        networkLayout = QVBoxLayout()
+
         networkSummaryPanel = FirstStartSummaryPanel(headerText="Network configuration", contentPanel=self.__networkSummaryContentPanel, targetState=WIZARD_PROGRESS_STATES.NETWORK)
         networkSummaryPanel.editButtonClicked.connect(self.__onEditButtonClicked)
-        layout.addWidget(networkSummaryPanel)
+        networkLayout.addWidget(networkSummaryPanel)
+
+        sshSummaryPanel = FirstStartSummaryPanel(headerText="SSH configuration", contentPanel=self.__sshSummaryContentPanel, targetState=WIZARD_PROGRESS_STATES.NETWORK)
+        sshSummaryPanel.editButtonClicked.connect(self.__onEditButtonClicked)
+        networkLayout.addWidget(sshSummaryPanel)
+
+        syncDirPanel = FirstStartSummaryPanel(headerText="Synchronization directory", contentPanel=self.__syncDirContentPanel, targetState=WIZARD_PROGRESS_STATES.NETWORK)
+        syncDirPanel.editButtonClicked.connect(self.__onEditButtonClicked)
+        networkLayout.addWidget(syncDirPanel)
+
+        accountsSummaryPanel = FirstStartSummaryPanel(headerText="Accounts", contentPanel=self.__accountsContentPanel, targetState=WIZARD_PROGRESS_STATES.ACCOUNTS)
+        accountsSummaryPanel.editButtonClicked.connect(self.__onEditButtonClicked)
+
+        layout.addLayout(networkLayout)
         layout.addStretch(1)
+        layout.addWidget(accountsSummaryPanel)
         self.setLayout(layout)
 
     def _getStyle(self):
@@ -41,7 +60,9 @@ class FirstStartSummaryWidget(FirstStartWizardMiddleWidget):
 
     def setSummaryData(self, summary):
         self.__configData = summary
-        self.__networkSummaryContentPanel.setData(summary.network)
+        self.__networkSummaryContentPanel.setData(summary.network.remote)
+        self.__sshSummaryContentPanel.setData(summary.network.ssh)
+        self.__syncDirContentPanel.setData(summary.network.syncDir)
 
     def __onEditButtonClicked(self, targetState):
         self.editPreviousPage.emit(targetState)
@@ -61,7 +82,6 @@ class FirstStartSummaryPanel(QWidget, SetupableComponent):
         super().__init__(*args, **kwargs)
 
         self.setAttribute(Qt.WA_StyledBackground)
-        self.setFixedWidth(720)
         self._editButton = None
         self.setStyleSheet(self._getStyleSheet())
         self.setLayout(self.__createLayout(headerText, contentPanel))
@@ -87,25 +107,30 @@ class FirstStartSummaryPanel(QWidget, SetupableComponent):
         """
 
     def __createLayout(self, headerText, contentPanel):
-        contentPanel.setFixedWidth(690)
         layout = QVBoxLayout()
         layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         layout.setContentsMargins(15, 15, 0, 15)
 
         panelHeaderLayout = QHBoxLayout()
-        panelHeaderLayout.setAlignment(Qt.AlignLeft)
-        panelHeaderLayout.setSpacing(10)
 
         headerLabel = QLabel(headerText)
         headerLabel.setFont(QFont("Nimbus Sans L", 16, QFont.Bold, False))
+
+        headerLabelLayout = QHBoxLayout()
+        headerLabelLayout.setAlignment(Qt.AlignLeft)
+        headerLabelLayout.addWidget(headerLabel)
 
         self._editButton = QPushButton("Edit")
         self._editButton.setObjectName("summaryEditButton")
         self._editButton.setFocusPolicy(Qt.NoFocus)
         self._editButton.clicked.connect(self._onEditButtonClicked)
 
-        panelHeaderLayout.addWidget(headerLabel)
-        panelHeaderLayout.addWidget(self._editButton)
+        editButtonLayout = QHBoxLayout()
+        editButtonLayout.setAlignment(Qt.AlignRight)
+        editButtonLayout.addWidget(self._editButton)
+
+        panelHeaderLayout.addLayout(headerLabelLayout)
+        panelHeaderLayout.addLayout(editButtonLayout)
 
         contentPanel.setObjectName("contentPanel")
 
@@ -128,14 +153,17 @@ class SummaryContentPanel(QWidget):
         self.setStyleSheet(self._getStyleSheet())
 
     def _getStyleSheet(self):
-        raise NotImplementedError("Implement _getStyleSheet!")
+        pass
+
+    def setData(self, data):
+        pass
 
 
 class NetworkSummaryContentPanel(SummaryContentPanel):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__networkData = None
+        self.setFixedWidth(720)
         self._setup()
 
     def _getStyleSheet(self):
@@ -166,36 +194,113 @@ class NetworkSummaryContentPanel(SummaryContentPanel):
         self.__hostPortDataText = QLabel("")
         self.__hostPortDataText.setFont(self._dataTextFont)
 
-        hostKeyLabel = QLabel("Network Encryption:")
+        hostKeyLabel = QLabel("Network key:")
         hostKeyLabel.setFont(self._dataLabelFont)
         self.__hostKeyDataText = QLabel("")
         self.__hostKeyDataText.setFont(self._dataTextFont)
 
-        syncDirLabel = QLabel("Network Encryption:")
-        syncDirLabel.setFont(self._dataLabelFont)
-        self.__syncDirDataText = QLabel("")
-        self.__syncDirDataText.setFont(self._dataTextFont)
-
         labelsLayout.addWidget(hostAddressLabel)
         labelsLayout.addWidget(hostPortLabel)
         labelsLayout.addWidget(hostKeyLabel)
-        labelsLayout.addWidget(syncDirLabel)
-        labelsLayout.addStretch(1)
 
         dataTextLayout.addWidget(self.__hostAddressDataText)
         dataTextLayout.addWidget(self.__hostPortDataText)
         dataTextLayout.addWidget(self.__hostKeyDataText)
-        dataTextLayout.addWidget(self.__syncDirDataText)
-        dataTextLayout.addStretch(1)
 
         layout.addLayout(labelsLayout)
         layout.addLayout(dataTextLayout)
 
         self.setLayout(layout)
 
-    def setData(self, networkData):
-        self.__networkData = networkData
-        self.__hostAddressDataText.setText(networkData.remote.address)
-        self.__hostPortDataText.setText(networkData.remote.port)
-        self.__hostKeyDataText.setText(networkData.remote.encryptionKey)
-        self.__syncDirDataText.setText(networkData.syncDir)
+    def setData(self, data):
+        self.__hostAddressDataText.setText(data.address)
+        self.__hostPortDataText.setText(data.port)
+        self.__hostKeyDataText.setText(data.encryptionKey)
+
+
+class SshSummaryContentPanel(SummaryContentPanel):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setFixedWidth(720)
+        self._setup()
+
+    def _setup(self):
+        layout = QHBoxLayout()
+        layout.setAlignment(Qt.AlignLeft)
+        layout.setSpacing(10)
+
+        labelsLayout = QVBoxLayout()
+        labelsLayout.setAlignment(Qt.AlignTop)
+        labelsLayout.setSpacing(5)
+
+        dataTextLayout = QVBoxLayout()
+        dataTextLayout.setAlignment(Qt.AlignTop)
+        dataTextLayout.setSpacing(5)
+
+        sshUsernameLabel = QLabel("Username:")
+        sshUsernameLabel.setFont(self._dataLabelFont)
+        self.__sshUsernameDataText = QLabel("")
+        self.__sshUsernameDataText.setFont(self._dataTextFont)
+
+        sshPasswordLabel = QLabel("Password:")
+        sshPasswordLabel.setFont(self._dataLabelFont)
+        self.__sshPasswordDataText = QLabel("")
+        self.__sshPasswordDataText.setFont(self._dataTextFont)
+
+        labelsLayout.addWidget(sshUsernameLabel)
+        labelsLayout.addWidget(sshPasswordLabel)
+
+        dataTextLayout.addWidget(self.__sshUsernameDataText)
+        dataTextLayout.addWidget(self.__sshPasswordDataText)
+
+        layout.addLayout(labelsLayout)
+        layout.addLayout(dataTextLayout)
+
+        self.setLayout(layout)
+
+    def setData(self, data):
+        self.__sshUsernameDataText.setText(data.username)
+        self.__sshPasswordDataText.setText("*" * len(data.password))
+
+
+class SyncDirSummaryContentPanel(SummaryContentPanel):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setFixedWidth(720)
+        self._setup()
+
+    def _setup(self):
+        layout = QHBoxLayout()
+        layout.setAlignment(Qt.AlignLeft)
+        layout.setSpacing(10)
+
+        syncDirLabel = QLabel("Path:")
+        syncDirLabel.setFont(self._dataLabelFont)
+        layout.addWidget(syncDirLabel)
+
+        self.__syncDirDataText = QLabel("")
+        self.__syncDirDataText.setFont(self._dataTextFont)
+        layout.addWidget(self.__syncDirDataText)
+
+        self.setLayout(layout)
+
+    def setData(self, data):
+        self.__syncDirDataText.setText(data)
+
+
+class AccountsSummaryContentPanel(SummaryContentPanel):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setFixedWidth(400)
+        self._setup()
+
+    def _setup(self):
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        placeHolder = QLabel("ACCOUNTS PLACEHOLDER")
+        layout.addWidget(placeHolder)
+
+        self.setLayout(layout)
