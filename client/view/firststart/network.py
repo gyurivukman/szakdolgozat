@@ -13,6 +13,7 @@ from PyQt5.QtGui import QFont, QIntValidator, QPixmap
 
 from model.events import ConnectionEventTypes, ConnectionEvent
 from model.iconsizes import IconSizes
+from model.config import ServerConfig, NetworkConfig, SshConfig
 from view import resources
 from view.firststart.abstract import FirstStartWizardMiddleWidget
 
@@ -43,18 +44,12 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         return True
 
     def getFormData(self):
-        return {
-            "remote": {
-                "address": self.__remoteHostNameInput.text(),
-                "port": self.__remotePortInput.text(),
-                "encryptionKey": self.__aesKeyInput.text()
-            },
-            "ssh": {
-                "username": None,
-                "password": None
-            },
-            "syncDir": self.__chosenDirectoryPath
-        }
+        serverConfig = ServerConfig(self.__remoteHostNameInput.text(), self.__remotePortInput.text(), self.__aesKeyInput.text())
+        sshConfig = SshConfig(self.__sshUsernameInput.text(), self.__sshPasswordInput.text())
+
+        networkConfig = NetworkConfig(serverConfig, sshConfig, self.__chosenDirectoryPath)
+
+        return networkConfig
 
     def _getStyle(self):
         return """
@@ -101,7 +96,6 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.setLayout(layout)
 
     def __createHostLayout(self):
-        # TODO Refactor + Input validation!
         hostLayout = QVBoxLayout()
 
         hostFormLayout = QHBoxLayout()
@@ -327,6 +321,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__hostConnectionTestResultIcon.setPixmap(self.__testFailedIcon)
         self.__hostConnectionTestResultIcon.show()
         self.__remoteHostTestResultLabel.setText(message)
+        self.__remoteHostTestResultLabel.show()
         self._serviceHub.networkStatusChannel.disconnect(self.__on_network_event)
         self.formValidityChanged.emit()
 

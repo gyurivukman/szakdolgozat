@@ -909,3 +909,5 @@ class AccountCard(QWidget, SetupableComponent):
 
     def __onSelected(self, _):
         self.onSelected.emit(self.__index)
+
+

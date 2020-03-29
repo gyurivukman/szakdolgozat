@@ -4,6 +4,8 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt5.QtCore import QSettings, Qt, QRect
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen
 
+from model.config import FirstStartConfig
+from model.wizard import WIZARD_PROGRESS_STATES
 from view.firststart.welcome import WelcomeWidget
 from view.firststart.network import SetupNetworkWidget
 from view.firststart.accounts import SetupAccountsWrapperWidget
@@ -19,33 +21,33 @@ class FirstStartWizard(QWidget):
 
     def __createWidgetMap(self):
         widgetMap = {
-            WizardProgressWidget.WIZARD_PROGRESS_STATES.WELCOME: WelcomeWidget()
+            WIZARD_PROGRESS_STATES.WELCOME: WelcomeWidget()
         }
 
         setupNetworkWidget = SetupNetworkWidget()
         setupNetworkWidget.formValidityChanged.connect(self.__checkCanProceed)
-        widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.NETWORK] = setupNetworkWidget
+        widgetMap[WIZARD_PROGRESS_STATES.NETWORK] = setupNetworkWidget
 
         setupAccountsWidget = SetupAccountsWrapperWidget()
         setupAccountsWidget.formValidityChanged.connect(self.__checkCanProceed)
-        widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS] = setupAccountsWidget
+        widgetMap[WIZARD_PROGRESS_STATES.ACCOUNTS] = setupAccountsWidget
 
         summaryWidget = FirstStartSummaryWidget()
         summaryWidget.editPreviousPage.connect(self.__onSummaryEditClicked)
-        widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY] = summaryWidget
+        widgetMap[WIZARD_PROGRESS_STATES.SUMMARY] = summaryWidget
 
         return widgetMap
 
     def __checkCanProceed(self):
         canProceed = self.__widgetMap[self.__state].canProceed()
         self.__nextButton.setEnabled(canProceed)
-        if self.__state == WizardProgressWidget.WIZARD_PROGRESS_STATES.NETWORK and not canProceed:
-            accountsWidget = self.__widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS]
+        if self.__state == WIZARD_PROGRESS_STATES.NETWORK and not canProceed:
+            accountsWidget = self.__widgetMap[WIZARD_PROGRESS_STATES.ACCOUNTS]
             if accountsWidget.isInited():
                 accountsWidget.invalidate()
 
     def __setup(self):
-        self.__state = WizardProgressWidget.WIZARD_PROGRESS_STATES.WELCOME
+        self.__state = WIZARD_PROGRESS_STATES.WELCOME
         self.__setupStyle()
         self.__setupWidgets()
 
@@ -80,7 +82,7 @@ class FirstStartWizard(QWidget):
 
         for key, widget in self.__widgetMap.items():
             self.__layout.addWidget(widget, 0, Qt.AlignTop)
-            widget.show() if key == WizardProgressWidget.WIZARD_PROGRESS_STATES.WELCOME else widget.hide()
+            widget.show() if key == WIZARD_PROGRESS_STATES.WELCOME else widget.hide()
         self.__layout.addStretch(1)
 
         self.__nextButton = QPushButton("Next")
@@ -113,9 +115,9 @@ class FirstStartWizard(QWidget):
         self.__widgetMap[self.__state].hide()
         self.__state = self.__progressWidget.toNextState()
         self.__widgetMap[self.__state].show()
-        if self.__state == WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS and not self.__widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS].isInited():
+        if self.__state == WIZARD_PROGRESS_STATES.ACCOUNTS and not self.__widgetMap[WIZARD_PROGRESS_STATES.ACCOUNTS].isInited():
             self.__widgetMap[self.__state].initData()
-        elif self.__state == WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY:
+        elif self.__state == WIZARD_PROGRESS_STATES.SUMMARY:
             self.__widgetMap[self.__state].setSummaryData(self.__gatherFormData())
         self.__update()
 
@@ -126,13 +128,13 @@ class FirstStartWizard(QWidget):
         self.__update()
 
     def __gatherFormData(self):
-        networkData = self.__widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.NETWORK].getFormData()
-        accountsData = self.__widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS].getFormData()
+        networkConfig = self.__widgetMap[WIZARD_PROGRESS_STATES.NETWORK].getFormData()
+        accounts = self.__widgetMap[WIZARD_PROGRESS_STATES.ACCOUNTS].getFormData()
 
-        return {'network': networkData, 'accounts': accountsData}
+        return FirstStartConfig(networkConfig, accounts)
 
     def __update(self):
-        if self.__state != WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY:
+        if self.__state != WIZARD_PROGRESS_STATES.SUMMARY:
             self.__nextButton.show()
             self.__nextButton.setDisabled(not self.__widgetMap[self.__state].canProceed())
             self.__finishButton.hide()
@@ -154,7 +156,7 @@ class WizardProgressWidget(QWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__state = WizardProgressWidget.WIZARD_PROGRESS_STATES.WELCOME
+        self.__state = WIZARD_PROGRESS_STATES.WELCOME
         self.__activeStateColor = QColor('#E39910')
         self.__inactiveStateColor = QColor('#D8D8D8')
         self.__separatorLineColor = QColor('#777777')
@@ -174,7 +176,7 @@ class WizardProgressWidget(QWidget):
 
     def __drawProgressIcons(self, painter):
         pen = QPen(self.__activeStateColor, 6, Qt.SolidLine)
-        for state in self.WIZARD_PROGRESS_STATES:
+        for state in WIZARD_PROGRESS_STATES:
             posX = (state.value * 320) + 120
             posY = 15
             width = 80
@@ -189,7 +191,7 @@ class WizardProgressWidget(QWidget):
             painter.drawText(QRect(posX, posY, width, height), Qt.AlignCenter, str(state.value + 1))
             painter.setFont(self.__stageLabelFont)
             painter.drawText(QRect(posX, posY + 90, width, 30), Qt.AlignCenter, state.toDisplayValue())
-            if state > self.WIZARD_PROGRESS_STATES.WELCOME:
+            if state > WIZARD_PROGRESS_STATES.WELCOME:
                 painter.drawLine(posX - 6, posY + (height / 2), posX - 234, posY + (height / 2))
 
     def __drawSeparatorLine(self, painter):
@@ -205,21 +207,15 @@ class WizardProgressWidget(QWidget):
         self.__state = self.__state.previous()
         return self.__state
 
-    class WIZARD_PROGRESS_STATES(IntEnum):
-        WELCOME = 0
-        NETWORK = 1
-        ACCOUNTS = 2
-        SUMMARY = 3
-
         def next(self):
             if self.value == 3:
                 raise ValueError('Enumeration ended')
-            return WizardProgressWidget.WIZARD_PROGRESS_STATES(self.value + 1)
+            return WIZARD_PROGRESS_STATES(self.value + 1)
 
         def previous(self):
             if self.value == 0:
                 raise ValueError('Enumeration ended')
-            return WizardProgressWidget.WIZARD_PROGRESS_STATES(self.value - 1)
+            return WIZARD_PROGRESS_STATES(self.value - 1)
 
         def toDisplayValue(self):
             ENUM_DISPLAY_VALUES = ['Welcome', 'Network &\nDirectory', 'Accounts', 'Summary']
