@@ -63,6 +63,7 @@ class FirstStartSummaryWidget(FirstStartWizardMiddleWidget):
         self.__networkSummaryContentPanel.setData(summary.network.remote)
         self.__sshSummaryContentPanel.setData(summary.network.ssh)
         self.__syncDirContentPanel.setData(summary.network.syncDir)
+        self.__accountsContentPanel.setData(summary.accounts)
 
     def __onEditButtonClicked(self, targetState):
         self.editPreviousPage.emit(targetState)
@@ -304,3 +305,6 @@ class AccountsSummaryContentPanel(SummaryContentPanel):
         layout.addWidget(placeHolder)
 
         self.setLayout(layout)
+
+    def setData(self, accounts):
+        print(f"AccountSummary received data: {accounts}")
