@@ -15,7 +15,7 @@ from view.firststart.abstract import SetupableComponent
 
 
 class FirstStartSummaryWidget(FirstStartWizardMiddleWidget):
-    editPreviousPage = pyqtSignal()
+    editPreviousPage = pyqtSignal(WIZARD_PROGRESS_STATES)
 
     def __init__(self, *args, **kwargs):
         self.__networkSummaryContentPanel = NetworkSummaryContentPanel()
@@ -23,12 +23,15 @@ class FirstStartSummaryWidget(FirstStartWizardMiddleWidget):
 
     def _setup(self):
         layout = QVBoxLayout()
-        networkSummaryPanel = FirstStartSummaryPanel(contentPanel=self.__networkSummaryContentPanel, targetState=WIZARD_PROGRESS_STATES.NETWORK)
+        layout.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+        networkSummaryPanel = FirstStartSummaryPanel(headerText="Network configuration", contentPanel=self.__networkSummaryContentPanel, targetState=WIZARD_PROGRESS_STATES.NETWORK)
+        networkSummaryPanel.editButtonClicked.connect(self.__onEditButtonClicked)
         layout.addWidget(networkSummaryPanel)
+        layout.addStretch(1)
         self.setLayout(layout)
 
     def _getStyle(self):
-        return "QLabel{border:1px solid red;}"
+        return ""
 
     def canProceed(self):
         return False
@@ -37,98 +40,162 @@ class FirstStartSummaryWidget(FirstStartWizardMiddleWidget):
         return True
 
     def setSummaryData(self, summary):
-        print(summary)
+        self.__configData = summary
         self.__networkSummaryContentPanel.setData(summary.network)
+
+    def __onEditButtonClicked(self, targetState):
+        self.editPreviousPage.emit(targetState)
+
+    def getConfigData(self):
+        return self.__configData
 
 
 class FirstStartSummaryPanel(QWidget, SetupableComponent):
+    editButtonClicked = pyqtSignal(WIZARD_PROGRESS_STATES)
 
     def __init__(self, *args, **kwargs):
+        headerText = kwargs.pop("headerText")
         contentPanel = kwargs.pop("contentPanel")
         self._editButtonTargetState = kwargs.pop("targetState")
-        super().__init__(*args, **kwargs)
-        self._editButton = None
-        self.setObjectName("self")
-        self.setStyleSheet(self.__getContainerStyle())
-        self.setLayout(self.__createLayout(contentPanel))
 
-    def __getContainerStyle(self):
+        super().__init__(*args, **kwargs)
+
+        self.setAttribute(Qt.WA_StyledBackground)
+        self.setFixedWidth(720)
+        self._editButton = None
+        self.setStyleSheet(self._getStyleSheet())
+        self.setLayout(self.__createLayout(headerText, contentPanel))
+
+    def _getStyleSheet(self):
         return """
-            QWidget#self{
-                border:2px solid red;
+            QPushButton#summaryEditButton {
+                background-color:#e36410;
+                color: white;
+                border:0px;
+                max-height:22;
+                width:60px;
+            }
+
+            QPushButton#summaryEditButton:pressed {
+                background-color: #e68a4e;
+            }
+
+            QWidget#contentPanel{
+                border:2px solid #e68a4e;
+                border-radius:5px;
             }
         """
 
-    def __createLayout(self, contentPanel):
-        layout = QHBoxLayout()
-        layout.setAlignment(Qt.AlignTop|Qt.AlignHCenter)
-        layout.setContentsMargins(5, 5, 5, 5)
+    def __createLayout(self, headerText, contentPanel):
+        contentPanel.setFixedWidth(690)
+        layout = QVBoxLayout()
+        layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        layout.setContentsMargins(15, 15, 0, 15)
 
-        self._editButton = QPushButton("EDIT")
+        panelHeaderLayout = QHBoxLayout()
+        panelHeaderLayout.setAlignment(Qt.AlignLeft)
+        panelHeaderLayout.setSpacing(10)
+
+        headerLabel = QLabel(headerText)
+        headerLabel.setFont(QFont("Nimbus Sans L", 16, QFont.Bold, False))
+
+        self._editButton = QPushButton("Edit")
+        self._editButton.setObjectName("summaryEditButton")
+        self._editButton.setFocusPolicy(Qt.NoFocus)
         self._editButton.clicked.connect(self._onEditButtonClicked)
 
-        contentPanel.setFixedSize(720, 240)
+        panelHeaderLayout.addWidget(headerLabel)
+        panelHeaderLayout.addWidget(self._editButton)
 
+        contentPanel.setObjectName("contentPanel")
+
+        layout.addLayout(panelHeaderLayout)
         layout.addWidget(contentPanel)
-        layout.addWidget(self._editButton)
 
         return layout
 
     def _onEditButtonClicked(self):
-        print(f"GOING TO STATE: {self._editButtonTargetState}")
+        self.editButtonClicked.emit(self._editButtonTargetState)
 
 
-class NetworkSummaryContentPanel(QWidget):
+class SummaryContentPanel(QWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._dataLabelFont = QFont("Nimbus Sans L", 14, QFont.Bold, False)
-        self._dataTextFont = QFont("Nimbus Sans L", 14)
+        self.setAttribute(Qt.WA_StyledBackground)
+        self._dataLabelFont = QFont("Nimbus Sans L", 12, QFont.Bold, False)
+        self._dataTextFont = QFont("Nimbus Sans L", 12)
+        self.setStyleSheet(self._getStyleSheet())
+
+    def _getStyleSheet(self):
+        raise NotImplementedError("Implement _getStyleSheet!")
+
+
+class NetworkSummaryContentPanel(SummaryContentPanel):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__networkData = None
         self._setup()
 
+    def _getStyleSheet(self):
+        return """
+            QLabel{max-height:20px;}
+        """
+
     def _setup(self):
-        layout = QVBoxLayout()
+        layout = QHBoxLayout()
         layout.setAlignment(Qt.AlignLeft)
-        hostSummaryLayout = QVBoxLayout()
-        remoteHostLayout = QHBoxLayout()
-        sshSummaryLayout = QHBoxLayout()
+        layout.setSpacing(10)
 
-        self.__hostAddressWidget = DataSummaryWidget(dataLabel="Remote host:", dataText="")
-        self.__hostPortWidget = DataSummaryWidget(dataLabel="Remote port:", dataText="")
-        self.__aesKeyWidget = DataSummaryWidget(dataLabel="Network encryption key:", dataText="")
+        labelsLayout = QVBoxLayout()
+        labelsLayout.setAlignment(Qt.AlignTop)
+        labelsLayout.setSpacing(5)
 
-        remoteHostLayout.addWidget(self.__hostAddressWidget)
-        remoteHostLayout.addWidget(self.__hostPortWidget)
+        dataTextLayout = QVBoxLayout()
+        dataTextLayout.setAlignment(Qt.AlignTop)
+        dataTextLayout.setSpacing(5)
 
-        hostSummaryLayout.addLayout(remoteHostLayout)
-        hostSummaryLayout.addWidget(self.__aesKeyWidget)
+        hostAddressLabel = QLabel("Remote host:")
+        hostAddressLabel.setFont(self._dataLabelFont)
+        self.__hostAddressDataText = QLabel("")
+        self.__hostAddressDataText.setFont(self._dataTextFont)
 
-        layout.addLayout(hostSummaryLayout)
+        hostPortLabel = QLabel("Remote port:")
+        hostPortLabel.setFont(self._dataLabelFont)
+        self.__hostPortDataText = QLabel("")
+        self.__hostPortDataText.setFont(self._dataTextFont)
+
+        hostKeyLabel = QLabel("Network Encryption:")
+        hostKeyLabel.setFont(self._dataLabelFont)
+        self.__hostKeyDataText = QLabel("")
+        self.__hostKeyDataText.setFont(self._dataTextFont)
+
+        syncDirLabel = QLabel("Network Encryption:")
+        syncDirLabel.setFont(self._dataLabelFont)
+        self.__syncDirDataText = QLabel("")
+        self.__syncDirDataText.setFont(self._dataTextFont)
+
+        labelsLayout.addWidget(hostAddressLabel)
+        labelsLayout.addWidget(hostPortLabel)
+        labelsLayout.addWidget(hostKeyLabel)
+        labelsLayout.addWidget(syncDirLabel)
+        labelsLayout.addStretch(1)
+
+        dataTextLayout.addWidget(self.__hostAddressDataText)
+        dataTextLayout.addWidget(self.__hostPortDataText)
+        dataTextLayout.addWidget(self.__hostKeyDataText)
+        dataTextLayout.addWidget(self.__syncDirDataText)
+        dataTextLayout.addStretch(1)
+
+        layout.addLayout(labelsLayout)
+        layout.addLayout(dataTextLayout)
+
         self.setLayout(layout)
 
     def setData(self, networkData):
-        self.__hostAddressWidget.setDataText(networkData.remote.address)
-        self.__hostPortWidget.setDataText(networkData.remote.port)
-        self.__aesKeyWidget.setDataText(networkData.remote.encryptionKey)
-
-
-class DataSummaryWidget(QWidget):
-
-    def __init__(self, *args, **kwargs):
-        self.__label = QLabel(kwargs.pop("dataLabel"))
-        self.__dataText = QLabel(kwargs.pop("dataText"))
-
-        super().__init__(*args, **kwargs)
-        self.setLayout(self.__createLayout())
-
-    def __createLayout(self):
-        layout = QHBoxLayout()
-
-        layout.addWidget(self.__label)
-        layout.addSpacing(5)
-        layout.addWidget(self.__dataText)
-
-        return layout
-
-    def setDataText(self, text):
-        self.__dataText.setText(text)
+        self.__networkData = networkData
+        self.__hostAddressDataText.setText(networkData.remote.address)
+        self.__hostPortDataText.setText(networkData.remote.port)
+        self.__hostKeyDataText.setText(networkData.remote.encryptionKey)
+        self.__syncDirDataText.setText(networkData.syncDir)

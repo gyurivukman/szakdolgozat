@@ -147,9 +147,19 @@ class FirstStartWizard(QWidget):
 
     def __onFinishClicked(self):
         print("Finish!")
+        config = self.__widgetMap[WIZARD_PROGRESS_STATES.SUMMARY].getConfigData()
+        print(config)
+
+    def __jumpToState(self, state):
+        self.__widgetMap[self.__state].hide()
+        self.__progressWidget.setState(state)
+        self.__state = state
+        self.__widgetMap[self.__state].show()
+        self.__update()
 
     def __onSummaryEditClicked(self, state):
-        pass
+        state = WIZARD_PROGRESS_STATES(state)
+        self.__jumpToState(state)
 
 
 class WizardProgressWidget(QWidget):
@@ -207,16 +217,5 @@ class WizardProgressWidget(QWidget):
         self.__state = self.__state.previous()
         return self.__state
 
-        def next(self):
-            if self.value == 3:
-                raise ValueError('Enumeration ended')
-            return WIZARD_PROGRESS_STATES(self.value + 1)
-
-        def previous(self):
-            if self.value == 0:
-                raise ValueError('Enumeration ended')
-            return WIZARD_PROGRESS_STATES(self.value - 1)
-
-        def toDisplayValue(self):
-            ENUM_DISPLAY_VALUES = ['Welcome', 'Network &\nDirectory', 'Accounts', 'Summary']
-            return ENUM_DISPLAY_VALUES[self.value]
+    def setState(self, state):
+        self.__state = state
