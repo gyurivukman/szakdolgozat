@@ -9,7 +9,7 @@ from model.events import ConnectionEvent, ConnectionEventTypes
 from services.hub import ServiceHub
 from view.infopanels import ConnectionErrorPanel
 from view.loaders import LoaderWidget
-from view.firststart import FirstStartWizard
+from view.firststart.wizard import FirstStartWizard
 
 from . import resources
 

@@ -38,12 +38,3 @@ class AccountData:
 
     def toJson(self):
         return {'accountType': self.accountType, 'identifier': self.identifier, 'cryptoKey': self.cryptoKey, 'data': self.data, 'id': self.id}
-
-
-@dataclass
-class AccountListChangeEvent:
-    CREATE_OR_UPDATE = 0
-    DELETE = 1
-
-    event: int
-    account: AccountData
