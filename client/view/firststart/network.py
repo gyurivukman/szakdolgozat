@@ -283,6 +283,25 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
         return directoryLayout
 
+    def __checkboxStateChanged(self, state):
+        echoMode = QLineEdit.Normal if state == Qt.Checked else QLineEdit.Password
+        self.__sshPasswordInput.setEchoMode(echoMode)
+
+    def __checkIsHostformFilled(self):
+        address = self.__remoteHostNameInput.text()
+        port = self.__remotePortInput.text()
+        aesKey = self.__aesKeyInput.text()
+
+        canTest = len(address) > 0 and len(port) > 0 and len(aesKey) == 16
+        self.__hostTestButton.setEnabled(canTest)
+
+    def __checkIsSshFormFilled(self):
+        username = self.__sshUsernameInput.text()
+        password = self.__sshPasswordInput.text()
+
+        canTest = len(username) > 0 and len(password) > 0
+        self.__sshTestButton.setEnabled(canTest)
+
     def __testConnection(self):
         self.__hostConnectionTestResultIcon.hide()
         self._serviceHub.networkStatusChannel.connect(self.__on_network_event)
@@ -311,14 +330,6 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self._serviceHub.networkStatusChannel.disconnect(self.__on_network_event)
         self.formValidityChanged.emit()
 
-    def __on_network_event(self, event):
-        if event.eventType == ConnectionEventTypes.HANDSHAKE_SUCCESSFUL:
-            self.__hostConnectionSuccessful()
-            self._serviceHub.disconnect()
-        elif event.eventType == ConnectionEventTypes.CONNECTION_ERROR:
-            self.__hostConnectionFailed(event.data['message'])
-            self._serviceHub.disconnect()
-
     def __test_ssh_connection(self):
         self.__sshConnectionTestResultIcon.hide()
         self.__sshConnectionTestResultIcon.setPixmap(self.__testSuccessIcon)
@@ -332,8 +343,17 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__syncDirInput.setText(self.__chosenDirectoryPath)
         self.formValidityChanged.emit()
 
+    def __on_network_event(self, event):
+        if event.eventType == ConnectionEventTypes.HANDSHAKE_SUCCESSFUL:
+            self.__hostConnectionSuccessful()
+            self._serviceHub.disconnect()
+        elif event.eventType == ConnectionEventTypes.CONNECTION_ERROR:
+            self.__hostConnectionFailed(event.data['message'])
+            self._serviceHub.disconnect()
+
     def __onHostFormInputChanged(self):
         self.__hostConnectionTestResultIcon.hide()
+        self.__remoteHostTestResultLabel.hide()
         self.__isConnectionOK = False
         self.__checkIsHostformFilled()
         self.formValidityChanged.emit()
@@ -343,22 +363,3 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__isSshOK = False
         self.__checkIsSshFormFilled()
         self.formValidityChanged.emit()
-
-    def __checkboxStateChanged(self, state):
-        echoMode = QLineEdit.Normal if state == Qt.Checked else QLineEdit.Password
-        self.__sshPasswordInput.setEchoMode(echoMode)
-
-    def __checkIsHostformFilled(self):
-        address = self.__remoteHostNameInput.text()
-        port = self.__remotePortInput.text()
-        aesKey = self.__aesKeyInput.text()
-
-        canTest = len(address) > 0 and len(port) > 0 and len(aesKey) == 16
-        self.__hostTestButton.setEnabled(canTest)
-
-    def __checkIsSshFormFilled(self):
-        username = self.__sshUsernameInput.text()
-        password = self.__sshPasswordInput.text()
-
-        canTest = len(username) > 0 and len(password) > 0
-        self.__sshTestButton.setEnabled(canTest)
