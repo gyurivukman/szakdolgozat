@@ -20,10 +20,10 @@ from model.config import AccountData, AccountTypes
 from model.message import NetworkMessage, MessageTypes
 from view import resources
 from view.loaders import LoaderWidget
-from view.firststart.abstract import FirstStartWizardMiddleWidget
+from view.firststart.abstract import FirstStartWizardMiddleWidget, SetupableComponent
 
 
-class AccountHelpDialog(QDialog):
+class AccountHelpDialog(QDialog, SetupableComponent):
 
     def __init__(self, *args, **kwargs):
         scrollWidget = kwargs.pop('scrollWidget')
@@ -129,7 +129,7 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
         self.formValidityChanged.emit(self.__canProceed)
 
 
-class SetupAccountsWidget(QWidget):
+class SetupAccountsWidget(QWidget, SetupableComponent):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -147,9 +147,9 @@ class SetupAccountsWidget(QWidget):
                 QPushButton#addAccountButton:hover{border:2px dashed #e36410;}
             """
         )
-        self.__setup()
+        self._setup()
 
-    def __setup(self):
+    def _setup(self):
         self.__noAccountsWidget = QLabel("No accounts could be found, please create new accounts by clicking the 'Add new account' button on the right hand side. \nYou can have a total of 8 accounts.")
         self.__noAccountsWidget.setFont(QFont("Nimbus Sans L", 13, False))
         self.__noAccountsWidget.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -271,7 +271,7 @@ class SetupAccountsWidget(QWidget):
             self.__accountEditorWidget.show()
 
 
-class AccountEditorWidget(QWidget):
+class AccountEditorWidget(QWidget, SetupableComponent):
     onSaveAccount = pyqtSignal(object)
 
     __hasAccountData = False
@@ -292,15 +292,15 @@ class AccountEditorWidget(QWidget):
         super().__init__(*args, **kwargs)
         self.setAttribute(Qt.WA_StyledBackground)
         self.setFixedSize(960, 480)
-        self.__accountForms = self.__createAccountForms()
         self.setObjectName("accountEditor")
         self.setStyleSheet("#accountEditor{border-right:2px solid #777777;}")
-        self.__setup()
+        self.__accountForms = self.__createAccountForms()
+        self._setup()
 
     def __createAccountForms(self):
         return [DropboxAccountForm(), DriveAccountForm()]
 
-    def __setup(self):
+    def _setup(self):
         layout = QVBoxLayout()
         layout.addWidget(AccountEditorSectionSeparatorWidget(sectionName="Account Type"))
         layout.addLayout(self.__createAccountTypeLayout())
@@ -378,6 +378,7 @@ class AccountEditorWidget(QWidget):
                 QPushButton:disabled {background-color:#D8D8D8;}
             """
         )
+        self.__saveAccountButton.setFocusPolicy(Qt.NoFocus)
         self.__saveAccountButton.clicked.connect(self.__onAccountSave)
         layout.addWidget(self.__saveAccountButton)
 
@@ -816,7 +817,7 @@ class DriveAccountForm(BaseAccountFormWidget):
         self.__credentialsLabels['disclaimerLabel'].hide()
 
 
-class AccountCard(QWidget):
+class AccountCard(QWidget, SetupableComponent):
     onSelected = pyqtSignal(int)
     removeButtonClicked = pyqtSignal(int)
 
@@ -838,9 +839,9 @@ class AccountCard(QWidget):
         self.__accountData = kwargs.pop("accountData")
         self.__index = kwargs.pop("index")
         super().__init__(*args, **kwargs)
-        self.__setup()
+        self._setup()
 
-    def __setup(self):
+    def _setup(self):
         self.setFixedSize(300, 45)
         self.setAttribute(Qt.WA_StyledBackground)
         self.setStyleSheet(self.__unselectedStyle)
@@ -870,6 +871,7 @@ class AccountCard(QWidget):
         removeButton = QPushButton("X")
         removeButton.setObjectName("removeButton")
         removeButton.clicked.connect(self.__onRemoveButtonClicked)
+        removeButton.setFocusPolicy(Qt.NoFocus)
 
         mainLayout.addWidget(containerWidget)
         mainLayout.addWidget(removeButton)

@@ -9,9 +9,10 @@ from PyQt5.QtWidgets import (
 )
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QIntValidator
+from PyQt5.QtGui import QFont, QIntValidator, QPixmap
 
 from model.events import ConnectionEventTypes, ConnectionEvent
+from model.iconsizes import IconSizes
 from view import resources
 from view.firststart.abstract import FirstStartWizardMiddleWidget
 
@@ -19,8 +20,18 @@ from view.firststart.abstract import FirstStartWizardMiddleWidget
 class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
         self.__chosenDirectoryPath = None
+
+        self.__testSuccessIcon = self.__createIcon(":check.png")
+        self.__testFailedIcon = self.__createIcon(":warning.png")
+
+        self.__hostConnectionTestResultIcon = QLabel()
+        self.__sshConnectionTestResultIcon = QLabel()
+
+        super().__init__(*args, **kwargs)
+
+    def __createIcon(self, resourcePath):
+        return QPixmap(resourcePath).scaled(24, 24, Qt.IgnoreAspectRatio)
 
     def canProceed(self):
         return self.__isConnectionOK and self.__isSshOK and self.__chosenDirectoryPath is not None
@@ -126,7 +137,6 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         hostFormLayout.setAlignment(Qt.AlignHCenter)
 
         self.__remoteHostTestResultLabel = QLabel()
-        self.__remoteHostTestResultLabel.setObjectName("connectionTestText")
         self.__remoteHostTestResultLabel.setFont(self.__formInputFont)
 
         aesKeyInputLabel = QLabel("Network encryption key")
@@ -148,10 +158,12 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         aesKeyFormLayout.addWidget(aesKeyDescription)
 
         testRemoteHostButton = QPushButton("Test Connection")
-        testRemoteHostButton.setObjectName("testConnection")
+        testRemoteHostButton.setFocusPolicy(Qt.NoFocus)
         testRemoteHostButton.clicked.connect(self.__testConnection)
 
         remoteHostTestLayout.addWidget(testRemoteHostButton)
+        remoteHostTestLayout.addWidget(self.__hostConnectionTestResultIcon)
+        remoteHostTestLayout.addSpacing(10)
         remoteHostTestLayout.addWidget(self.__remoteHostTestResultLabel)
         remoteHostTestLayout.setContentsMargins(0, 5, 0, 0)
         remoteHostTestLayout.setAlignment(Qt.AlignLeft)
@@ -204,13 +216,14 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         sshFormPasswordInputLayout.addWidget(self.__sshPasswordInput)
 
         self.__SSHTestResultLabel = QLabel()
-        self.__SSHTestResultLabel.setObjectName("sshTestText")
         self.__SSHTestResultLabel.setFont(self.__formInputFont)
 
         testSSHButton = QPushButton("Test SSH")
-        testSSHButton.setObjectName("testSSH")
+        testSSHButton.setFocusPolicy(Qt.NoFocus)
         testSSHButton.clicked.connect(self.__test_ssh_connection)
         sshFormTestConnectionLayout.addWidget(testSSHButton)
+        sshFormTestConnectionLayout.addWidget(self.__sshConnectionTestResultIcon)
+        sshFormTestConnectionLayout.addSpacing(10)
         sshFormTestConnectionLayout.addWidget(self.__SSHTestResultLabel)
         sshFormTestConnectionLayout.setContentsMargins(0, 5, 0, 0)
         sshFormTestConnectionLayout.setAlignment(Qt.AlignLeft)
@@ -265,6 +278,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         return directoryLayout
 
     def __testConnection(self):
+        self.__hostConnectionTestResultIcon.hide()
         self._serviceHub.networkStatusChannel.connect(self.__on_network_event)
         address = self.__remoteHostNameInput.text()
         port = self.__remotePortInput.text()
@@ -274,32 +288,35 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
             self._serviceHub.setNetworkInformation(address, int(port), aesKey.encode())
             self._serviceHub.connect()
         except (ConnectionError, gaierror):
-            self.__connectionTestFailed("Couldn't connect to the specified remote.")
+            self.__hostConnectionFailed("Couldn't connect to the specified remote.")
 
-    def __connectionTestSuccessful(self):
-        self.__remoteHostTestResultLabel.setStyleSheet("color:green;")
-        self.__remoteHostTestResultLabel.setText("OK")
+    def __hostConnectionSuccessful(self):
         self.__isConnectionOK = True
+        self.__hostConnectionTestResultIcon.setPixmap(self.__testSuccessIcon)
+        self.__hostConnectionTestResultIcon.show()
         self._serviceHub.networkStatusChannel.disconnect(self.__on_network_event)
         self.formValidityChanged.emit()
 
-    def __connectionTestFailed(self, message):
+    def __hostConnectionFailed(self, message):
         self.__isConnectionOK = False
-        self.__remoteHostTestResultLabel.setStyleSheet("color:red;")
+        self.__hostConnectionTestResultIcon.setPixmap(self.__testFailedIcon)
+        self.__hostConnectionTestResultIcon.show()
         self.__remoteHostTestResultLabel.setText(message)
         self._serviceHub.networkStatusChannel.disconnect(self.__on_network_event)
         self.formValidityChanged.emit()
 
     def __on_network_event(self, event):
         if event.eventType == ConnectionEventTypes.HANDSHAKE_SUCCESSFUL:
-            self.__connectionTestSuccessful()
+            self.__hostConnectionSuccessful()
             self._serviceHub.disconnect()
         elif event.eventType == ConnectionEventTypes.CONNECTION_ERROR:
-            self.__connectionTestFailed(event.data['message'])
+            self.__hostConnectionFailed(event.data['message'])
             self._serviceHub.disconnect()
 
     def __test_ssh_connection(self):
-        self.__SSHTestResultLabel.setStyleSheet("color:green;")
+        self.__sshConnectionTestResultIcon.hide()
+        self.__sshConnectionTestResultIcon.setPixmap(self.__testSuccessIcon)
+        self.__sshConnectionTestResultIcon.show()
         self.__SSHTestResultLabel.setText("OK")
         self.__isSshOK = True
 
@@ -311,6 +328,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.formValidityChanged.emit()
 
     def __onHostFormInputChanged(self):
+        self.__hostConnectionTestResultIcon.hide()
         self.__isConnectionOK = False
         self.__remoteHostTestResultLabel.setText("")
         self.formValidityChanged.emit()

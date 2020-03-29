@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (
-    QVBoxLayout, QLabel,
+    QWidget, QVBoxLayout, QLabel,
     QHBoxLayout, QPushButton
 )
 
@@ -7,11 +7,14 @@ from PyQt5.QtCore import Qt, pyqtSignal, QRect, QSize
 from PyQt5.QtGui import QFont, QPixmap, QIcon
 
 from model.config import AccountData, AccountTypes
+
 from view import resources
 from view.firststart.abstract import FirstStartWizardMiddleWidget
+from view.firststart.abstract import SetupableComponent
 
 
 class FirstStartSummaryWidget(FirstStartWizardMiddleWidget):
+    editPreviousPage = pyqtSignal()
 
     def _setup(self):
         layout = QVBoxLayout()
@@ -29,3 +32,10 @@ class FirstStartSummaryWidget(FirstStartWizardMiddleWidget):
 
     def setSummaryData(self, summary):
         print(summary)
+
+
+class FirstStartSummaryConfigPanel(QWidget, SetupableComponent):
+
+    def __init__(*args, **kwargs):
+        self._panelContent = kwargs.pop['panelContent']
+        super().__init__(*args, **kwargs)

@@ -31,6 +31,7 @@ class FirstStartWizard(QWidget):
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS] = setupAccountsWidget
 
         summaryWidget = FirstStartSummaryWidget()
+        summaryWidget.editPreviousPage.connect(self.__onSummaryEditClicked)
         widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY] = summaryWidget
 
         return widgetMap
@@ -83,15 +84,18 @@ class FirstStartWizard(QWidget):
         self.__layout.addStretch(1)
 
         self.__nextButton = QPushButton("Next")
-        self.__nextButton.clicked.connect(self.__goNext)
         self.__nextButton.setObjectName("controlButton")
+        self.__nextButton.setFocusPolicy(Qt.NoFocus)
+        self.__nextButton.clicked.connect(self.__goNext)
         self.__previousButton = QPushButton("Back")
         self.__previousButton.setObjectName("controlButton")
         self.__previousButton.setDisabled(True)
         self.__previousButton.clicked.connect(self.__goBack)
+        self.__previousButton.setFocusPolicy(Qt.NoFocus)
         self.__finishButton = QPushButton("Finish")
         self.__finishButton.setObjectName("controlButton")
         self.__finishButton.clicked.connect(self.__onFinishClicked)
+        self.__finishButton.setFocusPolicy(Qt.NoFocus)
         self.__finishButton.hide()
 
         controlLayout = QHBoxLayout()
@@ -127,9 +131,6 @@ class FirstStartWizard(QWidget):
 
         return {'network': networkData, 'accounts': accountsData}
 
-    def __onFinishClicked(self):
-        print("Finish!")
-
     def __update(self):
         if self.__state != WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY:
             self.__nextButton.show()
@@ -141,6 +142,12 @@ class FirstStartWizard(QWidget):
         self.__previousButton.setDisabled(not self.__widgetMap[self.__state].canGoBack())
         self.__progressWidget.update()
         self.update()
+
+    def __onFinishClicked(self):
+        print("Finish!")
+
+    def __onSummaryEditClicked(self, state):
+        pass
 
 
 class WizardProgressWidget(QWidget):

@@ -4,7 +4,13 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from services.hub import ServiceHub
 
 
-class FirstStartWizardMiddleWidget(QWidget):
+class SetupableComponent():
+
+    def _setup(self):
+        raise NotImplementedError('Derived class must implement method "_setup". It should create the components layouts and general look and return nothing.')
+
+
+class FirstStartWizardMiddleWidget(QWidget, SetupableComponent):
 
     formValidityChanged = pyqtSignal()
 
@@ -18,9 +24,6 @@ class FirstStartWizardMiddleWidget(QWidget):
     def __setupStylesheet(self):
         self.setAttribute(Qt.WA_StyledBackground)
         self.setStyleSheet(self._getStyle())
-
-    def _setup(self):
-        raise NotImplementedError('Derived class must implement method "_setup"')
 
     def _getStyle(self):
         raise NotImplementedError('Derived class must implement method "_getStyle". It should return a valid qss stylesheet string.')

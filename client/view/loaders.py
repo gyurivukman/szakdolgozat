@@ -7,7 +7,7 @@ from PyQt5.QtGui import QFont
 
 from . import resources
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
-from .iconsizes import IconSizes
+from model.iconsizes import IconSizes
 
 
 class LoaderWidget(QWidget):
