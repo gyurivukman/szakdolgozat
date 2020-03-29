@@ -28,6 +28,9 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__hostConnectionTestResultIcon = QLabel()
         self.__sshConnectionTestResultIcon = QLabel()
 
+        self.__hostTestButton = None
+        self.__sshTestButton = None
+
         super().__init__(*args, **kwargs)
 
     def __createIcon(self, resourcePath):
@@ -60,6 +63,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
             QLineEdit:hover {border:2px solid #E39910}
 
             QPushButton {width: 150px; max-width:150px; height:25px; border:0; margin-right:20px; background-color:#e36410; color:white;}
+            QPushButton:disabled {background-color:#D8D8D8;}
             QPushButton#chooseSyncDir{height:27px; width:80px;max-width:80px;margin-right:40px;}
             QPushButton:pressed {background-color:#e68a4e;}
 
@@ -157,11 +161,12 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         aesKeyFormLayout.addLayout(aesKeyInputLayout)
         aesKeyFormLayout.addWidget(aesKeyDescription)
 
-        testRemoteHostButton = QPushButton("Test Connection")
-        testRemoteHostButton.setFocusPolicy(Qt.NoFocus)
-        testRemoteHostButton.clicked.connect(self.__testConnection)
+        self.__hostTestButton = QPushButton("Test Connection")
+        self.__hostTestButton.setEnabled(False)
+        self.__hostTestButton.setFocusPolicy(Qt.NoFocus)
+        self.__hostTestButton.clicked.connect(self.__testConnection)
 
-        remoteHostTestLayout.addWidget(testRemoteHostButton)
+        remoteHostTestLayout.addWidget(self.__hostTestButton)
         remoteHostTestLayout.addWidget(self.__hostConnectionTestResultIcon)
         remoteHostTestLayout.addSpacing(10)
         remoteHostTestLayout.addWidget(self.__remoteHostTestResultLabel)
@@ -218,10 +223,11 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__SSHTestResultLabel = QLabel()
         self.__SSHTestResultLabel.setFont(self.__formInputFont)
 
-        testSSHButton = QPushButton("Test SSH")
-        testSSHButton.setFocusPolicy(Qt.NoFocus)
-        testSSHButton.clicked.connect(self.__test_ssh_connection)
-        sshFormTestConnectionLayout.addWidget(testSSHButton)
+        self.__sshTestButton = QPushButton("Test SSH")
+        self.__sshTestButton.setEnabled(False)
+        self.__sshTestButton.setFocusPolicy(Qt.NoFocus)
+        self.__sshTestButton.clicked.connect(self.__test_ssh_connection)
+        sshFormTestConnectionLayout.addWidget(self.__sshTestButton)
         sshFormTestConnectionLayout.addWidget(self.__sshConnectionTestResultIcon)
         sshFormTestConnectionLayout.addSpacing(10)
         sshFormTestConnectionLayout.addWidget(self.__SSHTestResultLabel)
@@ -317,7 +323,6 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__sshConnectionTestResultIcon.hide()
         self.__sshConnectionTestResultIcon.setPixmap(self.__testSuccessIcon)
         self.__sshConnectionTestResultIcon.show()
-        self.__SSHTestResultLabel.setText("OK")
         self.__isSshOK = True
 
         self.formValidityChanged.emit()
@@ -330,14 +335,30 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
     def __onHostFormInputChanged(self):
         self.__hostConnectionTestResultIcon.hide()
         self.__isConnectionOK = False
-        self.__remoteHostTestResultLabel.setText("")
+        self.__checkIsHostformFilled()
         self.formValidityChanged.emit()
 
     def __onSshFormInputChanged(self):
+        self.__sshConnectionTestResultIcon.hide()
         self.__isSshOK = False
-        self.__SSHTestResultLabel.setText("")
+        self.__checkIsSshFormFilled()
         self.formValidityChanged.emit()
 
     def __checkboxStateChanged(self, state):
         echoMode = QLineEdit.Normal if state == Qt.Checked else QLineEdit.Password
         self.__sshPasswordInput.setEchoMode(echoMode)
+
+    def __checkIsHostformFilled(self):
+        address = self.__remoteHostNameInput.text()
+        port = self.__remotePortInput.text()
+        aesKey = self.__aesKeyInput.text()
+
+        canTest = len(address) > 0 and len(port) > 0 and len(aesKey) == 16
+        self.__hostTestButton.setEnabled(canTest)
+
+    def __checkIsSshFormFilled(self):
+        username = self.__sshUsernameInput.text()
+        password = self.__sshPasswordInput.text()
+
+        canTest = len(username) > 0 and len(password) > 0
+        self.__sshTestButton.setEnabled(canTest)
