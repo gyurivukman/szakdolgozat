@@ -36,17 +36,25 @@ class ServiceHub(QObject):
 
             self._networkService = None
             self._networkThread = None
+            self._isNetworkServiceRunning = False
             self._networkQueue = None
 
             self._fileSyncService = None
+            self._isFileSyncServiceRunning = False
             self._fileSyncThread = None
 
             self._sshService = None
+            self._isSshServiceRunning = False
             self._sshThread = None
 
             self.initNetworkService()
             self.initFileSyncService()
             self.initSshService()
+
+    def _shutDownThreadedService(self, service, serviceThread):
+        service.stop()
+        if serviceThread.is_alive():
+            serviceThread.join()
 
     def initNetworkService(self):
         self._networkQueue = Queue()
@@ -62,23 +70,28 @@ class ServiceHub(QObject):
 
     def initSshService(self):
         self._sshService = SshClient(self._fileSyncService)
-        # self._sshService.messageArrived.connect(self._onNetworkMessageArrived)
+        # self._sshService.messageArrived.connect(self._onNetworkMessageArrived)é
         self._sshThread = Thread(target=self._sshService.run)
 
     def startNetworkService(self):
         self._networkThread.start()
+        self._isNetworkServiceRunning = True
         self._logger.debug("Network service started")
 
     def startFileSyncerService(self):
         self._fileSyncThread.start()
+        self._isFileSyncServiceRunning = True
+        self._logger.debug("File Sync service started")
 
     def startSshService(self):
         self._sshThread.start()
+        self._isSshServiceRunning = True
+        self._logger.debug("SSH service started")
 
     def startAllServices(self):
-        self._networkThread.start()
-        self._fileSyncThread.start()
-        self._sshThread.start()
+        self.startNetworkService()
+        self.startFileSyncerService()
+        self.startSshService()
 
     def shutdownAllServices(self):
         self._logger.debug("Stopping all services")
@@ -89,10 +102,13 @@ class ServiceHub(QObject):
 
         if self._fileSyncThread is not None and self._fileSyncThread.is_alive():
             self._fileSyncThread.join()
+            self._isFileSyncServiceRunning = False
         if self._networkThread is not None and self._fileSyncThread.is_alive():
             self._networkThread.join()
+            self._isNetworkServiceRunning = False
         if self._sshThread is not None and self._sshThread.is_alive():
             self._sshThread.join()
+            self._isSshServiceRunning = False
 
         self._logger.debug("Stopped all services")
 
@@ -100,16 +116,22 @@ class ServiceHub(QObject):
         self._shutDownThreadedService(self._networkService, self._networkThread)
         self._networkService = None
         self._networkThread = None
+        self._isNetworkServiceRunning = False
         self._logger.debug("Network service stopped")
 
     def shutdownFileSync(self):
         self._shutDownThreadedService(self._fileSyncService, self._fileSyncThread)
         self._fileSyncService = None
         self._fileSyncThread = None
+        self._isFileSyncServiceRunning = False
+        self._logger.debug("File Sync service stopped")
 
-    def _shutDownThreadedService(self, service, thread):
-        service.stop()
-        thread.join()
+    def shutdownSsh(self):
+        self._shutDownThreadedService(self._sshService, self._sshThread)
+        self._sshService = None
+        self._sshThread = None
+        self._isSshServiceRunning = False
+        self._logger.debug("SSH service stopped")
 
     def setNetworkInformation(self, address, port, aesKey):
         self._networkService.setNetworkInformation(address, port, aesKey)
@@ -128,6 +150,15 @@ class ServiceHub(QObject):
         if callBack:
             self._messageArchive[message.header.uuid] = callBack
         self._networkService.enqueuMessage(message)
+
+    def isNetworkServiceRunning(self):
+        return self._isNetworkServiceRunning
+
+    def isFileSyncServiceRunning(self):
+        return self._isFileSyncServiceRunning
+
+    def isSshServiceRunning(self):
+        return self._isSshServiceRunning
 
     def _onNetworkMessageArrived(self, message):
         if message.header.uuid in self._messageArchive:

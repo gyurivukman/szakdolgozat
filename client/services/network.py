@@ -190,6 +190,7 @@ class SshClient(QObject):
     def run(self):
         while self._shouldRun:
             time.sleep(2)
+            self._logger.debug("SSH Client working")
 
     def stop(self):
         self._shouldRun = False

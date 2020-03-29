@@ -101,7 +101,12 @@ class FirstStartWizard(QWidget):
         return widgetMap
 
     def __checkCanProceed(self):
-        self.__nextButton.setDisabled(not self.__widgetMap[self.__state].canProceed())
+        canProceed = self.__widgetMap[self.__state].canProceed()
+        self.__nextButton.setEnabled(canProceed)
+        if self.__state == WizardProgressWidget.WIZARD_PROGRESS_STATES.NETWORK and not canProceed:
+            accountsWidget = self.__widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS]
+            if accountsWidget.isInited():
+                accountsWidget.invalidate()
 
     def __setup(self):
         self.__state = WizardProgressWidget.WIZARD_PROGRESS_STATES.WELCOME
@@ -169,9 +174,9 @@ class FirstStartWizard(QWidget):
         self.__widgetMap[self.__state].hide()
         self.__state = self.__progressWidget.toNextState()
         self.__widgetMap[self.__state].show()
-        if self.__state != WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY:
+        if self.__state == WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS and not self.__widgetMap[WizardProgressWidget.WIZARD_PROGRESS_STATES.ACCOUNTS].isInited():
             self.__widgetMap[self.__state].initData()
-        else:
+        elif self.__state == WizardProgressWidget.WIZARD_PROGRESS_STATES.SUMMARY:
             self.__widgetMap[self.__state].setSummaryData(self.__gatherFormData())
         self.__update()
 
@@ -434,7 +439,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__remoteHostNameInput = QLineEdit()
         self.__remoteHostNameInput.setObjectName("hostName")
         self.__remoteHostNameInput.setFont(QFont("Nimbus Sans L", 12))
-        self.__remoteHostNameInput.textChanged.connect(self.__onFormInputChanged)
+        self.__remoteHostNameInput.textChanged.connect(self.__onHostFormInputChanged)
         remoteHostNameInputLayout.addWidget(remoteHostNameLabel)
         remoteHostNameInputLayout.addWidget(self.__remoteHostNameInput)
 
@@ -444,7 +449,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__remotePortInput.setObjectName("hostPort")
         self.__remotePortInput.setFont(self.__formInputFont)
         self.__remotePortInput.setValidator(QIntValidator(0, 65535))
-        self.__remotePortInput.textChanged.connect(self.__onFormInputChanged)
+        self.__remotePortInput.textChanged.connect(self.__onHostFormInputChanged)
         remoteHostPortInputLayout.addWidget(remoteHostPortLabel)
         remoteHostPortInputLayout.addWidget(self.__remotePortInput)
 
@@ -465,7 +470,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__aesKeyInput.setObjectName("aesKey")
         self.__aesKeyInput.setFont(self.__formInputFont)
         self.__aesKeyInput.setMaxLength(16)
-        self.__aesKeyInput.textChanged.connect(self.__onFormInputChanged)
+        self.__aesKeyInput.textChanged.connect(self.__onHostFormInputChanged)
 
         aesKeyInputLayout.addWidget(aesKeyInputLabel)
         aesKeyInputLayout.addWidget(self.__aesKeyInput)
@@ -505,7 +510,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__sshUsernameInput = QLineEdit()
         self.__sshUsernameInput.setObjectName("sshUsername")
         self.__sshUsernameInput.setFont(self.__formInputFont)
-        self.__sshUsernameInput.textChanged.connect(self.__onFormInputChanged)
+        self.__sshUsernameInput.textChanged.connect(self.__onSshFormInputChanged)
         sshFormUsernameInputLayout.addWidget(sshUsernameLabel)
         sshFormUsernameInputLayout.addWidget(self.__sshUsernameInput)
 
@@ -527,7 +532,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__sshPasswordInput.setObjectName("sshPassword")
         self.__sshPasswordInput.setFont(self.__formInputFont)
         self.__sshPasswordInput.setEchoMode(QLineEdit.Password)
-        self.__sshPasswordInput.textChanged.connect(self.__onFormInputChanged)
+        self.__sshPasswordInput.textChanged.connect(self.__onSshFormInputChanged)
 
         sshFormPasswordInputLayout.addLayout(sshPasswordLabelsLayout)
         sshFormPasswordInputLayout.addWidget(self.__sshPasswordInput)
@@ -639,11 +644,14 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__syncDirInput.setText(self.__chosenDirectoryPath)
         self.formValidityChanged.emit()
 
-    def __onFormInputChanged(self):
-        self.__isSshOK = False
+    def __onHostFormInputChanged(self):
         self.__isConnectionOK = False
-        self.__SSHTestResultLabel.setText("")
         self.__remoteHostTestResultLabel.setText("")
+        self.formValidityChanged.emit()
+
+    def __onSshFormInputChanged(self):
+        self.__isSshOK = False
+        self.__SSHTestResultLabel.setText("")
         self.formValidityChanged.emit()
 
     def __checkboxStateChanged(self, state):
@@ -654,20 +662,6 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
     __inited = False
     __canProceed = True
-
-    def canProceed(self):
-        return self.__canProceed
-
-    def canGoBack(self):
-        return True
-
-    def initData(self):
-        if self.__inited is False:
-            self.__formData = []
-            self._serviceHub.startNetworkService()
-            self._serviceHub.connect()
-            raw = {"header": {"messageType": MessageTypes.GET_ACCOUNT_LIST, "uuid": uuid4().hex}, "data": None}
-            self._serviceHub.sendNetworkMessage(NetworkMessage(raw), self.__onAccountsRetrieved)
 
     def _getStyle(self):
         return ""
@@ -684,17 +678,42 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
         self.__accountsWidget.hide()
         self.setLayout(self.__layout)
 
+    def canProceed(self):
+        return self.__canProceed
+
+    def canGoBack(self):
+        return True
+
+    def initData(self):
+        self._serviceHub.startNetworkService()
+        self._serviceHub.connect()
+        raw = {"header": {"messageType": MessageTypes.GET_ACCOUNT_LIST, "uuid": uuid4().hex}, "data": None}
+        self._serviceHub.sendNetworkMessage(NetworkMessage(raw), self.__onAccountsRetrieved)
+
+    def getFormData(self):
+        return self.__accountsWidget.getAccounts()
+
+    def isInited(self):
+        return self.__inited
+
+    def invalidate(self):
+        self.__inited = False
+        self.__accountsWidget.removeAllAccounts()
+        self.__accountsWidget.hide()
+        self.__loadingWidget.show()
+        if self._serviceHub.isNetworkServiceRunning():
+            self._serviceHub.shutdownNetwork()
+            self._serviceHub.initNetworkService()
+
     def __onAccountsRetrieved(self, accounts):
+        self._serviceHub.disconnect()
         self.__inited = True
-        self.__accountsWidget.setAccountData(accounts)
+        self.__accountsWidget.setAccounts(accounts)
         self.__loadingWidget.hide()
         self.__accountsWidget.show()
 
     def __onAccountListChanged(self, event):
         self.formValidityChanged.emit(self.__canProceed)
-
-    def getFormData(self):
-        return self.__accountsWidget.getAccounts()
 
 
 class SetupAccountsWidget(QWidget):
@@ -774,7 +793,20 @@ class SetupAccountsWidget(QWidget):
         self.__accountCardWidgets[index].setSelected(True)
         self.__accountEditorWidget.setAccountData(self.__accountCardWidgets[index].getAccountData())
 
-    def setAccountData(self, accounts):
+    def __setNoAccountsAvailable(self):
+        self.__selectedAccountIndex = None
+        self.__accountEditorWidget.hide()
+        self.__noAccountsWidget.show()
+
+    def __removeAccountCardAt(self, index):
+        self.__accountCardWidgets[index].hide()
+        self.__accountListLayout.removeWidget(self.__accountCardWidgets[index])
+        del self.__accountCardWidgets[index]
+
+    def getAccounts(self):
+        return [accountCard.getAccountData() for accountCard in self.__accountCardWidgets]
+
+    def setAccounts(self, accounts):
         accountCount = len(accounts)
         for accountData in accounts:
             self.__addAccountWidget(accountData)
@@ -783,6 +815,15 @@ class SetupAccountsWidget(QWidget):
             self.__selectAccount(0)
             self.__noAccountsWidget.hide()
             self.__accountEditorWidget.show()
+
+    def removeAllAccounts(self):
+        self.__setNoAccountsAvailable()
+        for index in range(len(self.__accountCardWidgets)):
+            self.__accountCardWidgets[index].hide()
+            self.__accountListLayout.removeWidget(self.__accountCardWidgets[index])
+
+        del self.__accountCardWidgets
+        self.__accountCardWidgets = []
 
     def __onAccountSaveClicked(self, account):
         self.__accountCardWidgets[self.__selectedAccountIndex].setAccountData(account)
@@ -793,9 +834,7 @@ class SetupAccountsWidget(QWidget):
         self.__selectAccount(index)
 
     def __onAccountCardRemoveClicked(self, index):
-        self.__accountCardWidgets[index].hide()
-        self.__accountListLayout.removeWidget(self.__accountCardWidgets[index])
-        del self.__accountCardWidgets[index]
+        self.__removeAccountCardAt(index)
         remainingAccountCount = len(self.__accountCardWidgets)
         if remainingAccountCount < 8:
             self.__addAccountButton.show()
@@ -810,19 +849,13 @@ class SetupAccountsWidget(QWidget):
             elif index < self.__selectedAccountIndex:
                 self.__selectedAccountIndex = self.__selectedAccountIndex - 1
         else:
-            self.__selectedAccountIndex = None
-            self.__accountEditorWidget.hide()
-            self.__noAccountsWidget.show()
+            self.__setNoAccountsAvailable()
 
     def __onAddNewAccountClicked(self, _):
         self.__addBlankAccount()
         if not self.__accountEditorWidget.isVisible():
             self.__noAccountsWidget.hide()
             self.__accountEditorWidget.show()
-
-    def getAccounts(self):
-        return [accountCard.getAccountData() for accountCard in self.__accountCardWidgets]
-
 
 class AccountEditorWidget(QWidget):
     onSaveAccount = pyqtSignal(object)

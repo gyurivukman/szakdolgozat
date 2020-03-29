@@ -53,11 +53,11 @@ class AccountHelpPageBase(QWidget):
 
 
 class DropboxHelpPage(AccountHelpPageBase):
-    
+
     def _createSteps(self):
         return [
             {
-                "text": "1. If you do not have an account, go to <a href=\"www.dropbox.com\">www.dropbox.com</a> and register a new account.",
+                "text": "1. If you do not have an account, go to <a href=\"https://www.dropbox.com\">www.dropbox.com</a> and register a new account.",
                 "figure": None
             },
             {
