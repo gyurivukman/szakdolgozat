@@ -291,20 +291,87 @@ class SyncDirSummaryContentPanel(SummaryContentPanel):
         self.__syncDirDataText.setText(data)
 
 
-class AccountsSummaryContentPanel(SummaryContentPanel):
+class AccountsSummaryContentPanel(SummaryContentPanel, SetupableComponent):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFixedWidth(400)
+        self.setFixedHeight(355)
+        self.__identifierFont = QFont("Nimbus Sans L", 16)
+        self.__driveIcon = QPixmap(":/googledrive.png").scaled(32, 32, Qt.IgnoreAspectRatio)
+        self.__dropboxIcon = QPixmap(":/dropbox.png").scaled(32, 32, Qt.IgnoreAspectRatio)
+        self.__accountWidgets = []
+        self.__layout = None
+
         self._setup()
 
     def _setup(self):
-        layout = QVBoxLayout()
-        layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        placeHolder = QLabel("ACCOUNTS PLACEHOLDER")
-        layout.addWidget(placeHolder)
-
-        self.setLayout(layout)
+        self.__layout = QVBoxLayout()
+        self.__layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.__layout.setSpacing(5)
+        self.__layout.addStretch(1)
+        self.setLayout(self.__layout)
 
     def setData(self, accounts):
-        print(f"AccountSummary received data: {accounts}")
+        currentAccountCount = len(self.__accountWidgets)
+        newAccountCount = len(accounts)
+
+        for i in range(newAccountCount):
+            identifier = accounts[i].identifier
+            pixMap = self.__driveIcon if accounts[i].accountType == AccountTypes.GoogleDrive else self.__dropboxIcon
+
+            if i > currentAccountCount - 1:
+                accountWidget = AccountSummaryCard(accountIdentifier=identifier, accountIdentifierFont=self.__identifierFont, accountIcon=pixMap)
+                if i < newAccountCount - 1:
+                    accountWidget.setUnderline(True)
+                self.__accountWidgets.append(accountWidget)
+                self.__layout.insertWidget(i, accountWidget)
+            else:
+                self.__accountWidgets[i].setData(identifier, pixMap)
+
+        if currentAccountCount > newAccountCount:
+            for i in range(newAccountCount, currentAccountCount):
+                self.__accountWidgets[i].hide()
+                self.__layout.removeWidget(self.__accountWidgets[i])
+            del self.__accountWidgets[newAccountCount:]
+
+
+class AccountSummaryCard(QWidget):
+
+    def __init__(self, *args, **kwargs):
+        accountIdentifier = kwargs.pop("accountIdentifier")
+        accountIconPixmap = kwargs.pop("accountIcon")
+        accountIdentifierFont = kwargs.pop("accountIdentifierFont")
+
+        super().__init__(*args, **kwargs)
+
+        self.__accountIdentifierWidget = QLabel(accountIdentifier)
+        self.__accountIdentifierWidget.setFont(accountIdentifierFont)
+
+        self.__accountIconWidget = QLabel()
+        self.__accountIconWidget.setPixmap(accountIconPixmap)
+
+        self.__layout = self.__createLayout()
+        self.setLayout(self.__layout)
+
+        self.setObjectName("accountSummaryCardContainer")
+
+    def __createLayout(self):
+        layout = QHBoxLayout()
+        layout.setAlignment(Qt.AlignLeft)
+
+        layout.addWidget(self.__accountIconWidget)
+        layout.addStretch(1)
+        layout.addWidget(self.__accountIdentifierWidget)
+
+        return layout
+
+    def setData(self, identifier, iconPixmap):
+        self.__accountIdentifierWidget.setText(identifier)
+        self.__accountIconWidget.setPixmap(iconPixmap)
+
+    def setUnderline(self, shouldUnderline):
+        if shouldUnderline:
+            self.setStyleSheet("QWidget#accountSummaryCardContainer{border-bottom: 1px solid #777777}")
+        else:
+            self.setStyleSheet("QWidget#accountSummaryCardContainer{border-bottom: none;}")
