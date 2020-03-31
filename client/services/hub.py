@@ -136,15 +136,28 @@ class ServiceHub(QObject):
     def setNetworkInformation(self, address, port, aesKey):
         self._networkService.setNetworkInformation(address, port, aesKey)
 
-    def connect(self):
+    def setSSHInformation(self, address, username, password):
+        self._sshService.setSSHInformation(address, username, password)
+
+    def connectToServer(self):
         try:
             self._networkService.connect()
         except ConnectionError as e:
             self._logger.debug("Connection Error!")
             self.networkStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.CONNECTION_ERROR, {"message": str(e)}))
 
-    def disconnect(self):
+    def connectToSSH(self):
+        try:
+            self._sshService.connect()
+        except ConnectionError as e:
+            self._logger.debug("SSH Connection Error!")
+            self.networkStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.CONNECTION_ERROR, {"message": str(e)}))
+
+    def disconnectServer(self):
         self._networkService.disconnect()
+
+    def disconnectSSH(self):
+        self._sshService.disconnect()
 
     def sendNetworkMessage(self, message, callBack=None):
         if callBack:

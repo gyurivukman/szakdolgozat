@@ -99,7 +99,7 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
 
     def initData(self):
         self._serviceHub.startNetworkService()
-        self._serviceHub.connect()
+        self._serviceHub.connectToServer()
         raw = {"header": {"messageType": MessageTypes.GET_ACCOUNT_LIST, "uuid": uuid4().hex}, "data": None}
         self._serviceHub.sendNetworkMessage(NetworkMessage(raw), self.__onAccountsRetrieved)
 
@@ -119,7 +119,7 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
             self._serviceHub.initNetworkService()
 
     def __onAccountsRetrieved(self, accounts):
-        self._serviceHub.disconnect()
+        self._serviceHub.disconnectServer()
         self.__inited = True
         self.__accountsWidget.setAccounts(accounts)
         self.__loadingWidget.hide()

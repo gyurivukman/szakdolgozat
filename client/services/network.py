@@ -9,6 +9,7 @@ from datetime import datetime
 from uuid import uuid4
 from queue import Queue, Empty
 
+import paramiko
 from Crypto.Cipher import AES
 from msgpack import Packer, Unpacker
 from PyQt5.QtCore import QObject, pyqtSignal
@@ -179,6 +180,7 @@ class NetworkClient(QObject):
 
 
 class SshClient(QObject):
+    #TODO Filestatuschanged signal?
 
     def __init__(self, fileSyncer):
         super().__init__()
@@ -186,11 +188,48 @@ class SshClient(QObject):
         self._fileSyncer = fileSyncer
         self._tasks = Queue()
         self._logger = logger.getChild("SshClient")
+        self._isConnected = False
+
+        self._hostname = None
+        self._port = 22
+        self._username = None
+        self._password = None
+
+        self._client = paramiko.client.SSHClient()
+        self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self._sftp = None
+
+        self._currentTask = None
 
     def run(self):
         while self._shouldRun:
-            time.sleep(2)
-            self._logger.debug("SSH Client working")
+            if self._isConnected:
+                try:
+                    if not self._currentTask:
+                        self._currentTask = self._tasks.get_nowait()
+                    self._handleCurrentTask()
+                except Empty:
+                    time.sleep(1)
+            else:
+                time.sleep(1)
+        self._disconnect()
+
+    def connect(self):
+        self._client.connect(self._hostname, self._port, self._username, self._password)
+        self._sftp = self._client.open_sftp()
 
     def stop(self):
         self._shouldRun = False
+
+    def disconnect(self):
+        self._client.close()
+        if self._sftp:
+            self._sftp.close()
+
+    def setSSHInformation(self, hostname, username, password):
+        self._hostname = hostname
+        self._username = username
+        self._password = password
+
+    def _handleCurrentTask(self):
+        print("Handling current task!")

@@ -1,5 +1,6 @@
 from os.path import expanduser
 from socket import gaierror
+from paramiko.ssh_exception import NoValidConnectionsError, AuthenticationException
 
 
 from PyQt5.QtWidgets import (
@@ -27,7 +28,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__testFailedIcon = self.__createIcon(":warning.png")
 
         self.__hostConnectionTestResultIcon = QLabel()
-        self.__sshConnectionTestResultIcon = QLabel()
+        self.__SSHConnectionTestResultIcon = QLabel()
 
         self.__hostTestButton = None
         self.__sshTestButton = None
@@ -220,9 +221,9 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__sshTestButton = QPushButton("Test SSH")
         self.__sshTestButton.setEnabled(False)
         self.__sshTestButton.setFocusPolicy(Qt.NoFocus)
-        self.__sshTestButton.clicked.connect(self.__test_ssh_connection)
+        self.__sshTestButton.clicked.connect(self.__testSSHConnection)
         sshFormTestConnectionLayout.addWidget(self.__sshTestButton)
-        sshFormTestConnectionLayout.addWidget(self.__sshConnectionTestResultIcon)
+        sshFormTestConnectionLayout.addWidget(self.__SSHConnectionTestResultIcon)
         sshFormTestConnectionLayout.addSpacing(10)
         sshFormTestConnectionLayout.addWidget(self.__SSHTestResultLabel)
         sshFormTestConnectionLayout.setContentsMargins(0, 5, 0, 0)
@@ -290,30 +291,33 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__hostTestButton.setEnabled(canTest)
 
     def __checkIsSshFormFilled(self):
+        address = self.__remoteHostNameInput.text()
         username = self.__sshUsernameInput.text()
         password = self.__sshPasswordInput.text()
 
-        canTest = len(username) > 0 and len(password) > 0
+        canTest = len(address) > 0 and len(username) > 0 and len(password) > 0
         self.__sshTestButton.setEnabled(canTest)
 
     def __testConnection(self):
         self.__hostConnectionTestResultIcon.hide()
-        self._serviceHub.networkStatusChannel.connect(self.__on_network_event)
+        self.__remoteHostTestResultLabel.hide()
+        self._serviceHub.networkStatusChannel.connect(self.__onNetworkEvent)
         address = self.__remoteHostNameInput.text()
         port = self.__remotePortInput.text()
         aesKey = self.__aesKeyInput.text()
 
         try:
             self._serviceHub.setNetworkInformation(address, int(port), aesKey.encode())
-            self._serviceHub.connect()
+            self._serviceHub.connectToServer()
         except (ConnectionError, gaierror):
             self.__hostConnectionFailed("Couldn't connect to the specified remote.")
+            self._serviceHub.disconnectServer()
 
     def __hostConnectionSuccessful(self):
         self.__isConnectionOK = True
         self.__hostConnectionTestResultIcon.setPixmap(self.__testSuccessIcon)
         self.__hostConnectionTestResultIcon.show()
-        self._serviceHub.networkStatusChannel.disconnect(self.__on_network_event)
+        self._serviceHub.networkStatusChannel.disconnect(self.__onNetworkEvent)
         self.formValidityChanged.emit()
 
     def __hostConnectionFailed(self, message):
@@ -322,39 +326,65 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__hostConnectionTestResultIcon.show()
         self.__remoteHostTestResultLabel.setText(message)
         self.__remoteHostTestResultLabel.show()
-        self._serviceHub.networkStatusChannel.disconnect(self.__on_network_event)
+        self._serviceHub.networkStatusChannel.disconnect(self.__onNetworkEvent)
+
         self.formValidityChanged.emit()
 
-    def __test_ssh_connection(self):
-        self.__sshConnectionTestResultIcon.hide()
-        self.__sshConnectionTestResultIcon.setPixmap(self.__testSuccessIcon)
-        self.__sshConnectionTestResultIcon.show()
+    def __sshConnectionSuccessful(self):
         self.__isSshOK = True
+        self.__SSHConnectionTestResultIcon.setPixmap(self.__testSuccessIcon)
+        self.__SSHConnectionTestResultIcon.show()
+        self.formValidityChanged.emit()
+
+    def __sshConnectionFailed(self, message):
+        self.__isConnectionOK = False
+        self.__SSHConnectionTestResultIcon.setPixmap(self.__testFailedIcon)
+        self.__SSHConnectionTestResultIcon.show()
+        self.__SSHTestResultLabel.setText(message)
+        self.__SSHTestResultLabel.show()
 
         self.formValidityChanged.emit()
+
+    def __testSSHConnection(self):
+        self.__SSHConnectionTestResultIcon.hide()
+
+        address = self.__remoteHostNameInput.text()
+        username = self.__sshUsernameInput.text()
+        password = self.__sshPasswordInput.text()
+
+        try:
+            self._serviceHub.setSSHInformation(address, username, password)
+            self._serviceHub.connectToSSH()
+            self.__sshConnectionSuccessful()
+        except (gaierror, NoValidConnectionsError, AuthenticationException) as e:
+            self.__sshConnectionFailed(str(e))
+        finally:
+            self._serviceHub.disconnectSSH()
 
     def __openDirectoryBrowser(self):
         self.__chosenDirectoryPath = str(QFileDialog.getExistingDirectory(self, "Select the synchronization directory", expanduser("~"), QFileDialog.ShowDirsOnly))
         self.__syncDirInput.setText(self.__chosenDirectoryPath)
         self.formValidityChanged.emit()
 
-    def __on_network_event(self, event):
+    def __onNetworkEvent(self, event):
         if event.eventType == ConnectionEventTypes.HANDSHAKE_SUCCESSFUL:
             self.__hostConnectionSuccessful()
-            self._serviceHub.disconnect()
+            self._serviceHub.disconnectServer()
         elif event.eventType == ConnectionEventTypes.CONNECTION_ERROR:
             self.__hostConnectionFailed(event.data['message'])
-            self._serviceHub.disconnect()
+            self._serviceHub.disconnectServer()
 
     def __onHostFormInputChanged(self):
         self.__hostConnectionTestResultIcon.hide()
         self.__remoteHostTestResultLabel.hide()
         self.__isConnectionOK = False
         self.__checkIsHostformFilled()
+        self.__checkIsSshFormFilled()
         self.formValidityChanged.emit()
 
     def __onSshFormInputChanged(self):
-        self.__sshConnectionTestResultIcon.hide()
+        self.__SSHConnectionTestResultIcon.hide()
+        self.__SSHTestResultLabel.hide()
         self.__isSshOK = False
         self.__checkIsSshFormFilled()
         self.formValidityChanged.emit()
