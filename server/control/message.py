@@ -69,7 +69,9 @@ class SetAccountListHandler(AbstractTaskHandler):
         return moduleLogger.getChild("SetAccountListHandler")
 
     def handle(self):
+        self._logger.debug("Updating accounts")
         for raw in self._task.data['accounts']:
             account = AccountData(id=raw.get('id', None), identifier=raw['identifier'], accountType=raw['accountType'], cryptoKey=raw['cryptoKey'], data=raw['data'])
             # TODO Atomitás
             self.__databaseAccess.createOrUpdateAccount(account)
+        self._logger.debug("Accounts updated")

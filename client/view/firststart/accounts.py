@@ -126,7 +126,7 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
                 identifier=raw['identifier'],
                 accountType=raw['accountType'],
                 cryptoKey=raw['cryptoKey'],
-                data=json.loads(raw['data'])
+                data=raw['data']
             ) for raw in response['accounts']
         ]
         self._serviceHub.disconnectServer()
@@ -443,6 +443,7 @@ class AccountEditorSectionSeparatorWidget(QWidget):
 
 
 class BaseAccountFormWidget(QWidget):
+    _id = None
     _accountType = None
     _formLabelFont = QFont("Nimbus Sans L", 13)
     _descriptionFont = QFont("Nimbus Sans L", 10)
@@ -561,9 +562,16 @@ class DropboxAccountForm(BaseAccountFormWidget):
         accountIdenfitifer = self._identifierInput.text().strip()
         apiToken = self._tokenInput.text().strip()
         cryptoKey = self._cryptoInput.text().strip()
-        return AccountData(self._accountType, accountIdenfitifer, cryptoKey, {'apiToken': apiToken})
+        return AccountData(
+            id=self._id,
+            accountType=self._accountType,
+            identifier=accountIdenfitifer,
+            cryptoKey=cryptoKey,
+            data={'apiToken': apiToken}
+        )
 
     def setAccountData(self, accountData):
+        self._id = accountData.id
         self._identifierInput.setText(accountData.identifier)
         self._cryptoInput.setText(accountData.cryptoKey)
         self._tokenInput.setText(accountData.data['apiToken'])
@@ -721,9 +729,16 @@ class DriveAccountForm(BaseAccountFormWidget):
     def getAccountData(self):
         accountIdenfitifer = self._identifierInput.text().strip()
         cryptoKey = self._cryptoInput.text().strip()
-        return AccountData(self._accountType, accountIdenfitifer, cryptoKey, {'service_account_credentials': self.__formData['data']})
+        return AccountData(
+            id=self._id,
+            accountType=self._accountType,
+            identifier=accountIdenfitifer,
+            cryptoKey=cryptoKey,
+            data={'service_account_credentials': self.__formData}
+        )
 
     def setAccountData(self, accountData):
+        self._id = accountData.id
         self._identifierInput.setText(accountData.identifier)
         self._cryptoInput.setText(accountData.cryptoKey)
         self.__formData = accountData.data['service_account_credentials']
