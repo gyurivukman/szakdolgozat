@@ -222,6 +222,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__sshTestButton.setEnabled(False)
         self.__sshTestButton.setFocusPolicy(Qt.NoFocus)
         self.__sshTestButton.clicked.connect(self.__testSSHConnection)
+
         sshFormTestConnectionLayout.addWidget(self.__sshTestButton)
         sshFormTestConnectionLayout.addWidget(self.__SSHConnectionTestResultIcon)
         sshFormTestConnectionLayout.addSpacing(10)
@@ -299,6 +300,9 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.__sshTestButton.setEnabled(canTest)
 
     def __testConnection(self):
+        self.__hostTestButton.setEnabled(False)
+        self.__hostTestButton.repaint()
+
         self.__hostConnectionTestResultIcon.hide()
         self.__remoteHostTestResultLabel.hide()
         self._serviceHub.networkStatusChannel.connect(self.__onNetworkEvent)
@@ -311,7 +315,9 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
             self._serviceHub.connectToServer()
         except (ConnectionError, gaierror):
             self.__hostConnectionFailed("Couldn't connect to the specified remote.")
+        finally:
             self._serviceHub.disconnectServer()
+            self.__hostTestButton.setEnabled(True)
 
     def __hostConnectionSuccessful(self):
         self.__isConnectionOK = True
@@ -346,6 +352,8 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.formValidityChanged.emit()
 
     def __testSSHConnection(self):
+        self.__sshTestButton.setEnabled(False)
+        self.__sshTestButton.repaint()
         self.__SSHConnectionTestResultIcon.hide()
 
         address = self.__remoteHostNameInput.text()
@@ -359,6 +367,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         except (gaierror, NoValidConnectionsError, AuthenticationException) as e:
             self.__sshConnectionFailed(str(e))
         finally:
+            self.__sshTestButton.setEnabled(True)
             self._serviceHub.disconnectSSH()
 
     def __openDirectoryBrowser(self):

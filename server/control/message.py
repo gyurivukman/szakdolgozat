@@ -47,6 +47,6 @@ class GetAccountsListHandler(AbstractTaskHandler):
         rawData = {"accounts": [acc.serialize() for acc in self.__databaseAccess.getAllAccounts()]}
 
         response = NetworkMessage({"header": rawHeader, "data": rawData})
-        self._logger.debug("Sending response: {rawHeader},  {rawData}")
+        self._logger.debug(f"Sending response: {rawHeader},  {rawData}")
         self._messageDispatcher.outgoing_message_queue.put(response)
         self._task = None

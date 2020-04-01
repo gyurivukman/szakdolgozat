@@ -19,9 +19,6 @@ class LoaderWidget(QWidget):
         self._statusLabel = None
         self._setupPanel(statusText, iconSize)
 
-    def setStatusText(self, statusText):
-        self._statusLabel.setText(statusText)
-
     def _setupPanel(self, statusText, iconSize):
         self._layout = QVBoxLayout()
         self._layout.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -52,3 +49,25 @@ class LoaderWidget(QWidget):
         statusLayout.addWidget(self._statusLabel)
 
         return statusLayout
+
+    def setStatusText(self, statusText):
+        self._statusLabel.setText(statusText)
+
+
+class SpinnerLoaderWidget(QWidget):
+
+    def __init__(self, sizeX, sizeY, iconSize=IconSizes.NORMAL):
+        super().__init__()
+        self.setFixedSize(sizeX, sizeY)
+        self._layout = None
+        self._setupPanel(iconSize)
+
+    def _setupPanel(self, iconSize):
+        layout = QHBoxLayout()
+        layout.setAlignment(Qt.AlignHCenter)
+
+        svgWidget = QSvgWidget(':spinnerLoader.svg')
+        svgWidget.setFixedSize(iconSize, iconSize)
+        layout.addWidget(svgWidget)
+
+        self.setLayout(layout)

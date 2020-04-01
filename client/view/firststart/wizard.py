@@ -1,7 +1,7 @@
 from enum import IntEnum
 
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
-from PyQt5.QtCore import QSettings, Qt, QRect
+from PyQt5.QtCore import QSettings, Qt, QRect, pyqtSignal
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen
 
 from model.config import FirstStartConfig
@@ -13,6 +13,8 @@ from view.firststart.summary import FirstStartSummaryWidget
 
 
 class FirstStartWizard(QWidget):
+    finished = pyqtSignal(FirstStartConfig)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__settings = QSettings()
@@ -146,9 +148,9 @@ class FirstStartWizard(QWidget):
         self.update()
 
     def __onFinishClicked(self):
-        print("Finish!")
         config = self.__widgetMap[WIZARD_PROGRESS_STATES.SUMMARY].getConfigData()
-        print(config)
+        self.finished.emit(config)
+
 
     def __jumpToState(self, state):
         self.__widgetMap[self.__state].hide()

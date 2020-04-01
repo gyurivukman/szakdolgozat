@@ -2,10 +2,11 @@ import logging
 import time
 
 from PyQt5.QtWidgets import QMainWindow, QAction
-from PyQt5.QtCore import Qt, QSettings, QCoreApplication, QSize
+from PyQt5.QtCore import Qt, QSettings, QCoreApplication, QSize, pyqtSlot
 from PyQt5.QtGui import QIcon
 
 from model.events import ConnectionEvent, ConnectionEventTypes
+from model.config import FirstStartConfig
 from services.hub import ServiceHub
 from view.infopanels import ConnectionErrorPanel
 from view.loaders import LoaderWidget
@@ -56,6 +57,7 @@ class MainWindow(QMainWindow):
         self.setFixedSize(self.__FIRST_START_SIZE)
         self._moveToCenter(screenSize)
         self._mainPanel = FirstStartWizard(self)
+        self._mainPanel.finished.connect(self._onFirstStartFinished)
         self.setCentralWidget(self._mainPanel)
 
     def _moveToCenter(self, screenSize):
@@ -106,7 +108,7 @@ class MainWindow(QMainWindow):
             self.setCentralWidget(self._errorPanel)
 
     def _onErrorPanelRetryClicked(self):
-        # TODO qsettingsbol kiolvasni a connect parametereit, újra és újra minden alkalommal.
+        # TODO qsettingsbol kiolvasni a connect parametereit, újra és újra minden alkalommal. Ehhez persze kell a config nézet ahol ezt lehet állogatni.
         self._loader = LoaderWidget(360, 720, "Connecting to server")
         self.setCentralWidget(self._loader)
         self._serviceHub.setNetworkInformation("localhost", 11000, b"sixteen byte key")
@@ -123,5 +125,8 @@ class MainWindow(QMainWindow):
     def _isFirstStart(self):
         isFirstStart = self._settings.value("firstStart/isConfigured")
         # return True if isFirstStart is None else isFirstStart
-        return False
-        # return True
+        return True
+
+    @pyqtSlot(FirstStartConfig)
+    def _onFirstStartFinished(self, config):
+        self._logger.debug(f"\n Finished firstStart: {config} \n")
