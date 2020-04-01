@@ -1,5 +1,6 @@
 import sqlite3
 import json
+import logging
 
 from os import mkdir, unlink
 from os.path import expanduser
@@ -8,15 +9,19 @@ from .abstract import Singleton
 from model.account import AccountTypes, AccountData
 
 
+module_logger = logging.getLogger(__name__)
+
+
 class DatabaseAccess(metaclass=Singleton):
 
     def __init__(self):
+        self._logger = module_logger.getChild("DatabaseAccess")
         try:
             dbDir = f"{expanduser('~')}/cryptstorepi_server"
             mkdir(dbDir)
+            self._logger.debug("Database not found, new created.")
         except FileExistsError:
-            #temporary, should be a pass.
-            unlink(f"{expanduser('~')}/cryptstorepi_server/accounts.db")
+            self._logger.debug("Database found, skipping creation.")
 
         dbPath = f"{dbDir}/accounts.db"
         self.__conn = sqlite3.connect(dbPath)
@@ -33,5 +38,6 @@ class DatabaseAccess(metaclass=Singleton):
         rawAccounts = self.__cursor.fetchall()
         return [AccountData(id=raw[0], identifier=raw[1], accountType=raw[2], cryptoKey=raw[3], data=json.loads(raw[4])) for raw in rawAccounts]
 
-    def __del__(self):
+    def close(self):
+        self._logger.debug("Closing database connection.")
         self.__conn.close()

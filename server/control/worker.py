@@ -34,7 +34,7 @@ class Worker():
 
     def __init__(self):
         self._shouldRun = True
-        self._logger = module_logger.getChild(str(self.__class__))
+        self._logger = self._getLogger()
         self._messageDispatcher = MessageDispatcher()
         self._currentTask = None
         self._handlerMap = None
@@ -50,6 +50,10 @@ class Worker():
                 self._work()
             except Empty:
                 time.sleep(1.0)
+        self._databaseAccess.close()
+
+    def _getLogger(self):
+        raise NotImplementedError("Derived class must implement method '_getLogger'! It should return a logger.")
 
     def _work(self):
         raise NotImplementedError("Derived class must implement method '_work()' !")
@@ -79,3 +83,6 @@ class InstantWorker(Worker):
     def _getNewTask(self):
         message = self._messageDispatcher.incoming_instant_task_queue.get_nowait()
         return Task(taskType=message.header.messageType, stale=False, state="INIT", uuid=message.header.uuid, data=message.data)
+
+    def _getLogger(self):
+        return module_logger.getChild("InstantWorker")
