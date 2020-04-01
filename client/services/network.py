@@ -137,7 +137,7 @@ class NetworkClient(QObject):
                     self._logger.debug(f"Message sent. ({msg_obj.header.messageType})")
                 self._outgoing_queue.task_done()
             except Empty:
-                time.sleep(1)
+                time.sleep(0.5)
 
     def disconnect(self):
         self._logger.debug("Disconnecting")
@@ -188,10 +188,10 @@ class SshClient(QObject):
                         self._currentTask = self._tasks.get_nowait()
                     self._handleCurrentTask()
                 except Empty:
-                    time.sleep(1)
+                    time.sleep(0.5)
             else:
-                time.sleep(1)
-        self._disconnect()
+                time.sleep(0.5)
+        self.disconnect()
 
     def connect(self):
         self._client.connect(self._hostname, self._port, self._username, self._password)

@@ -35,12 +35,13 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('CryptStorePi')
         self.setWindowIcon(QIcon(':logo.png'))
         if self._isFirstStart():
+            self._logger.debug("Setting up for first start.")
             self._setupForFirstStart()
         else:
             self._setupForRegularView()
             self._serviceHub.startAllServices()
             self._serviceHub.setNetworkInformation("localhost", 11000, b"sixteen byte key")
-            self._serviceHub.connect()
+            self._serviceHub.connectToServer()
         self.show()
 
     def closeEvent(self, event):
@@ -109,7 +110,7 @@ class MainWindow(QMainWindow):
         self._loader = LoaderWidget(360, 720, "Connecting to server")
         self.setCentralWidget(self._loader)
         self._serviceHub.setNetworkInformation("localhost", 11000, b"sixteen byte key")
-        self._serviceHub.connect()
+        self._serviceHub.connectToServer()
 
     def _onSettingsMenuItemClicked(self):
         print("SETTINGS TODO")
@@ -120,4 +121,7 @@ class MainWindow(QMainWindow):
         QCoreApplication.instance().quit()
 
     def _isFirstStart(self):
-        return True
+        isFirstStart = self._settings.value("firstStart/isConfigured")
+        # return True if isFirstStart is None else isFirstStart
+        return False
+        # return True

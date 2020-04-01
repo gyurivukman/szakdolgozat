@@ -32,7 +32,7 @@ class FileSynchronizer(QObject):
                 self._processEvent(event)
                 self._eventQueue.task_done()
             except Empty as _:
-                time.sleep(1)
+                time.sleep(0.5)
         self._logger.debug("Stopped")
 
     def stop(self):
