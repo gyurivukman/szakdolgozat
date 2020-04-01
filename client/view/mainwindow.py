@@ -148,7 +148,7 @@ class MainWindow(QMainWindow):
         self.__settings.setValue("firstStart/isFirstStart", False)
         self.__settings.setValue("server/address", self.__firstStartConfig.network.remote.address)
         self.__settings.setValue("server/port", self.__firstStartConfig.network.remote.port)
-        self.__settings.setValue("server/encryptionKey", self.__firstStartConfig.network.remote.encryptionKey)
+        self.__settings.setValue("server/encryptionKey", self.__firstStartConfig.network.remote.encryptionKey.encode())
 
         self.__settings.setValue("ssh/username", self.__firstStartConfig.network.ssh.username)
         self.__settings.setValue("ssh/password", self.__firstStartConfig.network.ssh.password)

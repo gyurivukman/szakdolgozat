@@ -100,20 +100,14 @@ class ServiceHub(QObject):
         self._sshService.stop()
 
         if self._fileSyncThread is not None and self._fileSyncThread.is_alive():
-            self._logger.debug("Joining FILESYNC")
             self._fileSyncThread.join()
             self._isFileSyncServiceRunning = False
-            self._logger.debug("Joined FILESYNC")
         if self._networkThread is not None and self._networkThread.is_alive():
-            self._logger.debug("Joining NETWORK")
             self._networkThread.join()
             self._isNetworkServiceRunning = False
-            self._logger.debug("Joined NETWORK")
         if self._sshThread is not None and self._sshThread.is_alive():
-            self._logger.debug("Joining SSH")
             self._sshThread.join()
             self._isSshServiceRunning = False
-            self._logger.debug("Joined SSH")
 
         self._logger.debug("Stopped all services")
 

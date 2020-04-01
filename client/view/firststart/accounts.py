@@ -120,7 +120,6 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
             self._serviceHub.initNetworkService()
 
     def __onAccountsRetrieved(self, response):
-        print(f"raw accounts retrieved: {response}")
         serializedAccounts = [
             AccountData(
                 id=raw['id'],
@@ -130,7 +129,6 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
                 data=json.loads(raw['data'])
             ) for raw in response['accounts']
         ]
-        print(f"serialized: {serializedAccounts}")
         self._serviceHub.disconnectServer()
         self.__inited = True
         self.__accountsWidget.setAccounts(serializedAccounts)

@@ -193,7 +193,6 @@ class SshClient(QObject):
             else:
                 time.sleep(0.5)
         self.disconnect()
-        print("SSH SERVICE GOODBYE")
 
     def connect(self):
         self._logger.debug("Connecting to SSH")
@@ -202,6 +201,7 @@ class SshClient(QObject):
         self._logger.debug("SSH Ready")
 
     def stop(self):
+        self._logger.debug("Stopping")
         self._shouldRun = False
 
     def disconnect(self):
