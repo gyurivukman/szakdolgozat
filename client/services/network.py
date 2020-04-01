@@ -128,21 +128,13 @@ class NetworkClient(QObject):
 
     def _handleOutgoingMessage(self, writable):
         for s in writable:
-            # shouldSendAMessage = random.randint(0, 100) % 4 == 0
-            # if shouldSendAMessage:
-            #     message = self._generateRandomMessage()
-            #     serialized = self._packer.pack(message)
-            #     encrypted = self._encoder.encrypt(serialized)
-            #     if self._shouldRun:
-            #         s.sendall(encrypted)
-            #         self._logger.info("Random message sent.")
             try:
                 msg_obj = self._outgoing_queue.get_nowait()
                 serialized = self._packer.pack(msg_obj.raw)
                 encrypted = self._encoder.encrypt(serialized)
                 if self._shouldRun:
                     s.sendall(encrypted)
-                    self._logger.info("Proper message sent.")
+                    self._logger.debug(f"Message sent. ({msg_obj.header.messageType})")
                 self._outgoing_queue.task_done()
             except Empty:
                 time.sleep(1)
@@ -157,19 +149,6 @@ class NetworkClient(QObject):
     def _handleErroneousSocket(self, in_error):
         for s in in_error:
             self.disconnect()
-
-    def _generateRandomMessage(self):
-        return {
-            "header": {
-                "uuid": uuid4().hex,
-                "messageType": MessageTypes.TEST
-            },
-            "data": {
-                "filePath": ''.join(random.choice(string.ascii_lowercase) for i in range(random.randint(1, 30))),
-                "size": random.randint(1, 1000000000),
-                "lastmodified": random.randint(0, 2**32)
-            }
-        }
 
     def stop(self):
         self._logger.debug("Stopping")

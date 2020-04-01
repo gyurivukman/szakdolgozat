@@ -16,10 +16,6 @@ class TaskPriorities(IntEnum):
     LOW = 2
 
 
-class TaskTypes(IntEnum):
-    GET_ACCOUNTS = 0
-
-
 @dataclass(order=True)
 class Task:
     priority: int
@@ -31,14 +27,14 @@ class Task:
 
 @dataclass
 class AccountData:
-    accountType: int
+    accountType: AccountTypes
     identifier: str
     cryptoKey: str
     data: dict
     id: int = None
 
-    def toJson(self):
-        return {'accountType': self.accountType, 'identifier': self.identifier, 'cryptoKey': self.cryptoKey, 'data': self.data, 'id': self.id}
+    def serialize(self):
+        return {'id': self.id, 'accountType': self.accountType, 'identifier': self.identifier, 'cryptoKey': self.cryptoKey, 'data': self.data}
 
 
 @dataclass

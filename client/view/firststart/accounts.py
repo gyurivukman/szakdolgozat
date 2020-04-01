@@ -84,6 +84,7 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
         self.__layout.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
         self.__loadingWidget = LoaderWidget(1280, 480)
+        self.__loadingWidget.setStatusText("Retrieving accounts, please wait...")
         self.__accountsWidget = SetupAccountsWidget()
 
         self.__layout.addWidget(self.__loadingWidget)
@@ -118,10 +119,21 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
             self._serviceHub.shutdownNetwork()
             self._serviceHub.initNetworkService()
 
-    def __onAccountsRetrieved(self, accounts):
+    def __onAccountsRetrieved(self, response):
+        print(f"raw accounts retrieved: {response}")
+        serializedAccounts = [
+            AccountData(
+                id=raw['id'],
+                identifier=raw['identifier'],
+                accountType=raw['accountType'],
+                cryptoKey=raw['cryptoKey'],
+                data=json.loads(raw['data'])
+            ) for raw in response['accounts']
+        ]
+        print(f"serialized: {serializedAccounts}")
         self._serviceHub.disconnectServer()
         self.__inited = True
-        self.__accountsWidget.setAccounts(accounts)
+        self.__accountsWidget.setAccounts(serializedAccounts)
         self.__loadingWidget.hide()
         self.__accountsWidget.show()
 

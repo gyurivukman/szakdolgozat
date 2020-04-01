@@ -43,8 +43,8 @@ class Server(object):
 
         self._logger = logging.getLogger(__name__).getChild("Server")
 
-        self._messageDispatcher = MessageDispatcher.getInstance()
-        self._workerPool = WorkerPool.getInstance()
+        self._messageDispatcher = MessageDispatcher()
+        self._workerPool = WorkerPool()
 
     def start(self):
         self._workerPool.start()
@@ -108,7 +108,7 @@ class Server(object):
     def _processIncomingMessages(self):
         for message in self._unpacker:
             msg_obj = NetworkMessage(message)
-            # TODO itt majd szétválasztani a random test messaget a másik workerre.
+            # TODO Messageszétválasztás.
             self._messageDispatcher.incoming_instant_task_queue.put(msg_obj)
 
     def _acceptClient(self):
@@ -134,18 +134,12 @@ class Server(object):
     def _handleWritable(self, writable):
         try:
             for s in writable:
-                shouldSendAMessage = random.randint(0, 100) % 7 == 0
-                if shouldSendAMessage:
-                    message = self._generateRandomResponse()
-                    serialized = self._packer.pack(message.raw)
-                    encrypted = self._encoder.encrypt(serialized)
-                    s.sendall(encrypted)
                 try:
-                    msg_obj = self._messageDispatcher.outgoing_task_queue.get_nowait()
+                    msg_obj = self._messageDispatcher.outgoing_message_queue.get_nowait()
                     serialized = self._packer.pack(msg_obj.raw)
                     encrypted = self._encoder.encrypt(serialized)
                     s.sendall(encrypted)
-                    self._messageDispatcher.outgoing_task_queue.task_done()
+                    self._messageDispatcher.outgoing_message_queue.task_done()
                 except Empty:
                     time.sleep(1)
         except OSError as e:
@@ -159,17 +153,3 @@ class Server(object):
             if s in self._outputs:
                 self._outputs.remove(s)
             s.close()
-
-    def _generateRandomResponse(self):
-        raw = {
-            "header": {
-                "uuid": uuid4().hex,
-                "messageType": MessageTypes.TEST
-            },
-            "data": {
-                "kukken": "tosszen",
-                "message": ''.join(random.choice(string.ascii_lowercase) for i in range(random.randint(1, 32))),
-            }
-        }
-
-        return NetworkMessage(raw)

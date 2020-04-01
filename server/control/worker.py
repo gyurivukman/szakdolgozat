@@ -4,36 +4,22 @@ import time
 from threading import Thread
 from queue import Empty
 
-# TODO temporary imports
-import string
-import random
-from uuid import uuid4
+from .message import MessageDispatcher, MessageTypes
+from .message import GetAccountsListHandler
+from .abstract import Singleton
+from .database import DatabaseAccess
 
-from .message import MessageDispatcher
-from model.message import NetworkMessage, MessageTypes
+from model.task import Task
 
 module_logger = logging.getLogger(__name__)
 
 
-class WorkerPool(object):
-    __instance = None
+class WorkerPool(metaclass=Singleton):
 
     def __init__(self):
-        if WorkerPool.__instance is not None:
-            raise Exception("This class is a singleton! use WorkerPool.getInstance() instead!")
-        else:
-            WorkerPool.__instance = self
-
-            self._logger = logging.getLogger(__name__).getChild("WorkerPool")
-
-            self._instant_worker = InstantWorker()
-            self._instant_worker_thread = Thread(target=self._instant_worker.start)
-
-    @staticmethod
-    def getInstance():
-        if WorkerPool.__instance is None:
-            WorkerPool()
-        return WorkerPool.__instance
+        self._logger = logging.getLogger(__name__).getChild("WorkerPool")
+        self._instant_worker = InstantWorker()
+        self._instant_worker_thread = Thread(target=self._instant_worker.start)
 
     def start(self):
         self._instant_worker_thread.start()
@@ -47,12 +33,16 @@ class WorkerPool(object):
 class Worker():
 
     def __init__(self):
-        self._messageDispatcher = MessageDispatcher.getInstance()
         self._shouldRun = True
         self._logger = module_logger.getChild(str(self.__class__))
+        self._messageDispatcher = MessageDispatcher()
         self._currentTask = None
+        self._handlerMap = None
+        self._databaseAccess = None
 
     def start(self):
+        self._databaseAccess = DatabaseAccess()
+        self._handlerMap = self._createHandlerMap()
         while self._shouldRun:
             try:
                 if not self._currentTask:
@@ -73,30 +63,19 @@ class Worker():
 
 class InstantWorker(Worker):
 
-    def _work(self):
-        self._logger.debug(f"{self._currentTask.header.uuid} {self._currentTask.header.messageType} {self._currentTask.data}")
-        response = None
-        if self._currentTask.header.messageType == MessageTypes.GET_ACCOUNT_LIST:
-            raw = {"header": {"uuid": self._currentTask.header.uuid, "messageType": MessageTypes.RESPONSE}, "data": []}
-            response = NetworkMessage(raw)
-        else:
-            response = NetworkMessage(self._generateRandomResponse())
-        self._currentTask = None
-        self._messageDispatcher.incoming_instant_task_queue.task_done()
-        self._messageDispatcher.outgoing_task_queue.put(response)
-
-    def _getNewTask(self):
-        return self._messageDispatcher.incoming_instant_task_queue.get_nowait()
-
-    def _generateRandomResponse(self):
-        raw = {
-            "header": {
-                "messageType": MessageTypes.TEST,
-                "uuid": uuid4().hex,
-            },
-            "data": {
-                "message": ''.join(random.choice(string.ascii_lowercase) for i in range(random.randint(1, 32))),
-            }
+    def _createHandlerMap(self):
+        return {
+            MessageTypes.GET_ACCOUNT_LIST: GetAccountsListHandler(self._databaseAccess)
         }
 
-        return NetworkMessage(raw)
+    def _work(self):
+        self._logger.debug(f"{self._currentTask.uuid} {self._currentTask.taskType} {self._currentTask.data}")
+        handler = self._handlerMap[self._currentTask.taskType]
+        handler.setTask(self._currentTask)
+        handler.handle()
+        self._currentTask = None
+        self._messageDispatcher.incoming_instant_task_queue.task_done()
+
+    def _getNewTask(self):
+        message = self._messageDispatcher.incoming_instant_task_queue.get_nowait()
+        return Task(taskType=message.header.messageType, stale=False, state="INIT", uuid=message.header.uuid, data=message.data)

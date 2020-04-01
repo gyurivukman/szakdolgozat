@@ -2,9 +2,8 @@ from enum import IntEnum
 
 
 class MessageTypes(IntEnum):
-    TEST = 0
-    GET_ACCOUNT_LIST = 1
-    RESPONSE = 2
+    GET_ACCOUNT_LIST = 0
+    RESPONSE = 1
 
 
 class NetworkMessageHeader():
