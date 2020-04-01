@@ -38,6 +38,9 @@ class DatabaseAccess(metaclass=Singleton):
         rawAccounts = self.__cursor.fetchall()
         return [AccountData(id=raw[0], identifier=raw[1], accountType=raw[2], cryptoKey=raw[3], data=json.loads(raw[4])) for raw in rawAccounts]
 
+    def createOrUpdateAccount(self, accountData):
+        self._logger.debug(f"CREATE OR UPDATE: {accountData}")
+
     def close(self):
         self._logger.debug("Closing database connection.")
         self.__conn.close()

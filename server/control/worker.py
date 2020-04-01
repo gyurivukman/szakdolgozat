@@ -5,7 +5,7 @@ from threading import Thread
 from queue import Empty
 
 from .message import MessageDispatcher, MessageTypes
-from .message import GetAccountsListHandler
+from .message import GetAccountsListHandler, SetAccountListHandler
 from .abstract import Singleton
 from .database import DatabaseAccess
 
@@ -69,11 +69,11 @@ class InstantWorker(Worker):
 
     def _createHandlerMap(self):
         return {
-            MessageTypes.GET_ACCOUNT_LIST: GetAccountsListHandler(self._databaseAccess)
+            MessageTypes.GET_ACCOUNT_LIST: GetAccountsListHandler(self._databaseAccess),
+            MessageTypes.SET_ACCOUNT_LIST: SetAccountListHandler(self._databaseAccess)
         }
 
     def _work(self):
-        self._logger.debug(f"{self._currentTask.uuid} {self._currentTask.taskType} {self._currentTask.data}")
         handler = self._handlerMap[self._currentTask.taskType]
         handler.setTask(self._currentTask)
         handler.handle()

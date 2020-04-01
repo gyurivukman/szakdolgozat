@@ -70,7 +70,6 @@ class ServiceHub(QObject):
 
     def initSshService(self):
         self._sshService = SshClient(self._fileSyncService)
-        # self._sshService.messageArrived.connect(self._onNetworkMessageArrived)é
         self._sshThread = Thread(target=self._sshService.run)
 
     def startNetworkService(self):
@@ -101,14 +100,20 @@ class ServiceHub(QObject):
         self._sshService.stop()
 
         if self._fileSyncThread is not None and self._fileSyncThread.is_alive():
+            self._logger.debug("Joining FILESYNC")
             self._fileSyncThread.join()
             self._isFileSyncServiceRunning = False
-        if self._networkThread is not None and self._fileSyncThread.is_alive():
+            self._logger.debug("Joined FILESYNC")
+        if self._networkThread is not None and self._networkThread.is_alive():
+            self._logger.debug("Joining NETWORK")
             self._networkThread.join()
             self._isNetworkServiceRunning = False
+            self._logger.debug("Joined NETWORK")
         if self._sshThread is not None and self._sshThread.is_alive():
+            self._logger.debug("Joining SSH")
             self._sshThread.join()
             self._isSshServiceRunning = False
+            self._logger.debug("Joined SSH")
 
         self._logger.debug("Stopped all services")
 

@@ -263,6 +263,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
         chooseSyncDirButton = QPushButton("Choose")
         chooseSyncDirButton.setObjectName("chooseSyncDir")
+        chooseSyncDirButton.setFocusPolicy(Qt.NoFocus)
         chooseSyncDirButton.clicked.connect(self.__openDirectoryBrowser)
 
         directoryFormLayout.setContentsMargins(0, 0, 0, 0)

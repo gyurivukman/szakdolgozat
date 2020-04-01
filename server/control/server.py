@@ -108,8 +108,7 @@ class Server(object):
     def _processIncomingMessages(self):
         for message in self._unpacker:
             msg_obj = NetworkMessage(message)
-            # TODO Messageszétválasztás.
-            self._messageDispatcher.incoming_instant_task_queue.put(msg_obj)
+            self._messageDispatcher.dispatchMessage(msg_obj)
 
     def _acceptClient(self):
         self._client, self._clientAddress = self._server.accept()

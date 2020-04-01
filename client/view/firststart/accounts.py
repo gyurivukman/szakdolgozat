@@ -341,12 +341,14 @@ class AccountEditorWidget(QWidget, SetupableComponent):
         dropboxButton = QPushButton("Dropbox")
         dropboxButton.setIcon(QIcon(':/dropbox.png'))
         dropboxButton.setIconSize(accountIconSize)
+        dropboxButton.setFocusPolicy(Qt.NoFocus)
         dropboxButton.setStyleSheet(self.__activeButtonStyle)
         dropboxButton.clicked.connect(lambda: self.__onAccountTypeSelected(0))
 
         driveButton = QPushButton("Google Drive")
         driveButton.setIcon(QIcon(':googledrive.png'))
         driveButton.setIconSize(accountIconSize)
+        driveButton.setFocusPolicy(Qt.NoFocus)
         driveButton.setStyleSheet(self.__inactiveButtonStyle)
         driveButton.clicked.connect(lambda: self.__onAccountTypeSelected(1))
 
@@ -359,6 +361,7 @@ class AccountEditorWidget(QWidget, SetupableComponent):
             self.__selectedAccountTypeIndex = index
             self.__accountForms[index].reset()
             self.__saveAccountButton.setEnabled(self.__accountForms[self.__selectedAccountTypeIndex].isFormValid())
+            # TODO invalidálni ha más accra vált a user.
 
     def __updateAccountTypeButtons(self, index):
         self.__accountTypeButtons[self.__selectedAccountTypeIndex].setStyleSheet(self.__inactiveButtonStyle)
@@ -754,12 +757,14 @@ class DriveAccountForm(BaseAccountFormWidget):
 
         openCredentialsButton = QPushButton("Open Credentials File")
         openCredentialsButton.setObjectName("openCredentials")
+        openCredentialsButton.setFocusPolicy(Qt.NoFocus)
         openCredentialsButton.clicked.connect(self.__openCredentialsBrowser)
         controlsLayout.addWidget(openCredentialsButton)
 
         openHelpButton = QPushButton("How to get credentials?")
         openHelpButton.setObjectName("helpButton")
         openHelpButton.clicked.connect(self._openHelpFrame)
+        openHelpButton.setFocusPolicy(Qt.NoFocus)
         controlsLayout.addWidget(openHelpButton)
 
         controlsLayout.addWidget(self.__credentialsLabels['errorLabel'])

@@ -57,7 +57,8 @@ class NetworkClient(QObject):
                     self._handleErroneousSocket([self._socket])
             else:
                 time.sleep(1)
-        self.disconnect()
+        if self._isConnected:
+            self.disconnect()
 
     def connect(self):
         self._socket = self._createNewSocket()
@@ -192,10 +193,13 @@ class SshClient(QObject):
             else:
                 time.sleep(0.5)
         self.disconnect()
+        print("SSH SERVICE GOODBYE")
 
     def connect(self):
+        self._logger.debug("Connecting to SSH")
         self._client.connect(self._hostname, self._port, self._username, self._password)
         self._sftp = self._client.open_sftp()
+        self._logger.debug("SSH Ready")
 
     def stop(self):
         self._shouldRun = False

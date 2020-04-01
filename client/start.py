@@ -49,6 +49,7 @@ def onExit():
     mainWindow.hide()
     mainWindow.stop()
     app.quit()
+    sys.exit(0)
 
 
 def createTrayMenu():
