@@ -32,6 +32,7 @@ class DatabaseAccess(metaclass=Singleton):
         self.__conn.commit()
 
     def __createAccount(self, accountData):
+        self._logger.debug(f"Creating new account with identifier: {accountData.identifier}")
         self.__cursor.execute("SELECT MAX(id) from accounts;")
         highestID = self.__cursor.fetchone()[0]
 
@@ -43,9 +44,9 @@ class DatabaseAccess(metaclass=Singleton):
                 VALUES({newID}, '{accountData.identifier}', {accountData.accountType}, '{accountData.cryptoKey}', '{json.dumps(accountData.data)}')
             """
         )
-        self.__conn.commit()
 
     def __updateAccount(self, accountData):
+        self._logger.debug(f"Updating account with identifier: {accountData.identifier} (ID: {accountData.id})")
         self.__cursor.execute(
             f"""
                 UPDATE accounts
@@ -56,7 +57,6 @@ class DatabaseAccess(metaclass=Singleton):
                     id = {accountData.id}
             """
         )
-        self.__conn.commit()
 
     def getAllAccounts(self):
         self.__cursor.execute("SELECT * FROM accounts;")
@@ -69,8 +69,11 @@ class DatabaseAccess(metaclass=Singleton):
         else:
             self.__createAccount(accountData)
 
-        # data = json.dumps({"apiToken": "myCuteLittleApiKey"})
-        # self.__cursor.execute(f"INSERT INTO accounts(id, identifier, type, cryptoKey, data) VALUES (1, 'droppy', 0, 'sixteen byte key', '{json.dumps(data)}');")
+    def deleteAccount(self, id):
+        self.__cursor.execute(f"DELETE FROM accounts WHERE id={id}")
+
+    def commit(self):
+        self.__conn.commit()
 
     def close(self):
         self._logger.debug("Closing database connection.")

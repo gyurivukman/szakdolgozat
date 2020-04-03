@@ -69,9 +69,18 @@ class SetAccountListHandler(AbstractTaskHandler):
         return moduleLogger.getChild("SetAccountListHandler")
 
     def handle(self):
-        self._logger.debug("Updating accounts")
-        for raw in self._task.data['accounts']:
-            account = AccountData(id=raw.get('id', None), identifier=raw['identifier'], accountType=raw['accountType'], cryptoKey=raw['cryptoKey'], data=raw['data'])
-            # TODO Atomitás
+        self._logger.debug("Updating account list")
+        currentAccounts = {acc.id: acc.identifier for acc in self.__databaseAccess.getAllAccounts()}
+        newAccounts = [AccountData(id=raw.get('id', None), identifier=raw['identifier'], accountType=raw['accountType'], cryptoKey=raw['cryptoKey'], data=raw['data']) for raw in self._task.data['accounts']]
+        newAccountIDs = [acc.id for acc in newAccounts]
+
+        for accID, accName in currentAccounts.items():
+            if accID not in newAccountIDs:
+                self._logger.debug(f"Deleting account: {accName}(ID: {accID})")
+                self.__databaseAccess.deleteAccount(accID)
+
+        for account in newAccounts:
             self.__databaseAccess.createOrUpdateAccount(account)
+
+        self.__databaseAccess.commit()
         self._logger.debug("Accounts updated")

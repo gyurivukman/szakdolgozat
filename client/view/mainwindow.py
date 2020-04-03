@@ -179,7 +179,8 @@ class MainWindow(QMainWindow):
         self.__loader.setStatusText("Updating accounts")
 
         raw = {"header": {"messageType": MessageTypes.SET_ACCOUNT_LIST, "uuid": uuid4().hex}, "data": {"accounts": [acc.serialize() for acc in self.__firstStartConfig.accounts]}}
+        self.__logger.debug(f"\n\n Sending account setup message with accounts: {[acc.serialize() for acc in self.__firstStartConfig.accounts]}\n")
         message = NetworkMessage(raw)
 
         self.__serviceHub.sendNetworkMessage(message)
-        self.__loader.setStatusText("Accounts updated! TODO.")
+        self.__loader.setStatusText("Accounts updated!\nRetrieving file list...")

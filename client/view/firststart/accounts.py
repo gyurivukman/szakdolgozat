@@ -141,13 +141,13 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
 
 class SetupAccountsWidget(QWidget, SetupableComponent):
 
+    __accountCardWidgets = []
+    __accountListLayout = None
+    __selectedAccountIndex = None
+    __addAccountButton = None
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__accountCardWidgets = []
-        self.__accountListLayout = None
-        self.__selectedAccountIndex = None
-        self.__addAccountButton = None
-
         self.setFixedSize(1280, 480)
         self.setStyleSheet(
             """
@@ -288,22 +288,28 @@ class AccountEditorWidget(QWidget, SetupableComponent):
     __accountTypeButtons = []
     __selectedAccountTypeIndex = 0
     __accountForms = []
+    __accountTypeChangeDisabledLabel = None
 
-    __activeButtonStyle = """
-            QPushButton{background-color:#FFFFFF; border:2px solid #e36410; width:350px; max-width:350px; height:60px; font-size:18px;}
-            QPushButton:pressed{border:2px solid #e36410;}
+    __selectedAccountTypeStyle = """
+            QPushButton{background-color:#FFFFFF; border:3px solid #e36410; width:350px; max-width:350px; height:60px; font-size:18px;}
+            QPushButton:pressed{border:3px solid #e36410;}
+            QPushButton:disabled{background-color:#D8D8D8;}
         """
-    __inactiveButtonStyle = """
-            QPushButton{background-color:#FFFFFF; border:2px solid #777777; width:350px; max-width:350px; height:60px; font-size:18px;}
-            QPushButton:pressed{border:2px solid #e36410;}
+    __unSelectedAccountTypeStyle = """
+            QPushButton{background-color:#FFFFFF; border:3px solid #777777; width:350px; max-width:350px; height:60px; font-size:18px;}
+            QPushButton:pressed{border:3px solid #e36410;}
+            QPushButton:disabled{background-color:#D8D8D8;}
         """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setAttribute(Qt.WA_StyledBackground)
+        self.__accountTypeChangeDisabledLabel = QLabel("Already existing accounts cannot have their type changed!")
+        self.__accountTypeChangeDisabledLabel.setObjectName("noTypeChangeLabel")
+        self.__accountTypeChangeDisabledLabel.setFont(QFont("Arial", 12, 2))
         self.setFixedSize(960, 480)
         self.setObjectName("accountEditor")
-        self.setStyleSheet("#accountEditor{border-right:2px solid #777777;}")
+        self.setStyleSheet("#accountEditor{border-right:2px solid #777777;} QLabel#noTypeChangeLabel{color:red;}")
         self.__accountForms = self.__createAccountForms()
         self._setup()
 
@@ -325,11 +331,20 @@ class AccountEditorWidget(QWidget, SetupableComponent):
         self.setLayout(layout)
 
     def __createAccountTypeLayout(self):
-        accountTypeLayout = QHBoxLayout()
+        accountTypeLayout = QVBoxLayout()
         accountTypeLayout.setContentsMargins(0, 15, 0, 15)
+        accountTypeButtonsLayout = QHBoxLayout()
+        noAccountTypeChangeLayout = QHBoxLayout()
+        noAccountTypeChangeLayout.setAlignment(Qt.AlignBottom | Qt.AlignHCenter)
+
         self.__accountTypeButtons = self.__createAccountButtons()
-        accountTypeLayout.addWidget(self.__accountTypeButtons[0])
-        accountTypeLayout.addWidget(self.__accountTypeButtons[1])
+        accountTypeButtonsLayout.addWidget(self.__accountTypeButtons[0])
+        accountTypeButtonsLayout.addWidget(self.__accountTypeButtons[1])
+
+        noAccountTypeChangeLayout.addWidget(self.__accountTypeChangeDisabledLabel)
+
+        accountTypeLayout.addLayout(accountTypeButtonsLayout)
+        accountTypeLayout.addLayout(noAccountTypeChangeLayout)
 
         return accountTypeLayout
 
@@ -340,14 +355,14 @@ class AccountEditorWidget(QWidget, SetupableComponent):
         dropboxButton.setIcon(QIcon(':/dropbox.png'))
         dropboxButton.setIconSize(accountIconSize)
         dropboxButton.setFocusPolicy(Qt.NoFocus)
-        dropboxButton.setStyleSheet(self.__activeButtonStyle)
+        dropboxButton.setStyleSheet(self.__selectedAccountTypeStyle)
         dropboxButton.clicked.connect(lambda: self.__onAccountTypeSelected(0))
 
         driveButton = QPushButton("Google Drive")
         driveButton.setIcon(QIcon(':googledrive.png'))
         driveButton.setIconSize(accountIconSize)
         driveButton.setFocusPolicy(Qt.NoFocus)
-        driveButton.setStyleSheet(self.__inactiveButtonStyle)
+        driveButton.setStyleSheet(self.__unSelectedAccountTypeStyle)
         driveButton.clicked.connect(lambda: self.__onAccountTypeSelected(1))
 
         return [dropboxButton, driveButton]
@@ -361,9 +376,17 @@ class AccountEditorWidget(QWidget, SetupableComponent):
             self.__saveAccountButton.setEnabled(self.__accountForms[self.__selectedAccountTypeIndex].isFormValid())
             # TODO invalidálni ha más accra vált a user.
 
-    def __updateAccountTypeButtons(self, index):
-        self.__accountTypeButtons[self.__selectedAccountTypeIndex].setStyleSheet(self.__inactiveButtonStyle)
-        self.__accountTypeButtons[index].setStyleSheet(self.__activeButtonStyle)
+    def __updateAccountTypeButtons(self, index, canChangeType=True):
+        self.__accountTypeButtons[self.__selectedAccountTypeIndex].setStyleSheet(self.__unSelectedAccountTypeStyle)
+        self.__accountTypeButtons[index].setStyleSheet(self.__selectedAccountTypeStyle)
+        if canChangeType:
+            self.__accountTypeChangeDisabledLabel.hide()
+            self.__accountTypeButtons[0].setEnabled(True)
+            self.__accountTypeButtons[1].setEnabled(True)
+        else:
+            self.__accountTypeChangeDisabledLabel.show()
+            self.__accountTypeButtons[0].setEnabled(False)
+            self.__accountTypeButtons[1].setEnabled(False)
 
     def __displayNewAccountForm(self, index):
         self.__accountForms[self.__selectedAccountTypeIndex].hide()
@@ -408,7 +431,8 @@ class AccountEditorWidget(QWidget, SetupableComponent):
 
     def setAccountData(self, accountData):
         index = 0 if accountData.accountType == AccountTypes.Dropbox else 1
-        self.__updateAccountTypeButtons(index)
+        canChangeType = False if accountData.id is not None else True
+        self.__updateAccountTypeButtons(index, canChangeType)
         self.__displayNewAccountForm(index)
         self.__accountForms[index].setAccountData(accountData)
 
@@ -476,7 +500,7 @@ class BaseAccountFormWidget(QWidget):
         identifierInputLabel.setFont(self._formLabelFont)
 
         self._identifierInput = QLineEdit()
-        self._identifierInput.setMaxLength(40)
+        self._identifierInput.setMaxLength(20)
         self._identifierInput.setFont(self._formInputFont)
         self._identifierInput.textChanged.connect(self._baseInputChanged)
 
@@ -734,14 +758,14 @@ class DriveAccountForm(BaseAccountFormWidget):
             accountType=self._accountType,
             identifier=accountIdenfitifer,
             cryptoKey=cryptoKey,
-            data={'service_account_credentials': self.__formData}
+            data=self.__formData
         )
 
     def setAccountData(self, accountData):
         self._id = accountData.id
         self._identifierInput.setText(accountData.identifier)
         self._cryptoInput.setText(accountData.cryptoKey)
-        self.__formData = accountData.data['service_account_credentials']
+        self.__formData = accountData.data
 
         self.__credentialsLabels['errorLabel'].setText("")
         self.__credentialsLabels['projectIDLabel'].setText(f"Project ID: {self.__formData['project_id']}")
@@ -798,11 +822,11 @@ class DriveAccountForm(BaseAccountFormWidget):
                 try:
                     with open(credentials_file_path, 'r') as f:
                         credentials = json.loads(f.read())
-                        self.__formData['data'] = credentials
+                        self.__formData = credentials
                         self.__credentialsLabels['errorLabel'].setText("")
-                        self.__credentialsLabels['projectIDLabel'].setText(f"Project ID: {self.__formData['data']['project_id']}")
-                        self.__credentialsLabels['clientEmailLabel'].setText(f"Client Email: {self.__formData['data']['client_email']}")
-                        self.__credentialsLabels['clientIDLabel'].setText(f"Client ID: {self.__formData['data']['client_id']}")
+                        self.__credentialsLabels['projectIDLabel'].setText(f"Project ID: {self.__formData['project_id']}")
+                        self.__credentialsLabels['clientEmailLabel'].setText(f"Client Email: {self.__formData['client_email']}")
+                        self.__credentialsLabels['clientIDLabel'].setText(f"Client ID: {self.__formData['client_id']}")
                         self.__credentialsLabels['disclaimerLabel'].show()
                 except json.decoder.JSONDecodeError:
                     self.__credentialsLabels['errorLabel'].setText(self.__INVALID_CREDENTIALS_TEXT)
@@ -811,7 +835,7 @@ class DriveAccountForm(BaseAccountFormWidget):
 
     def __createDriveCredentialsWidget(self):
         widget = QWidget()
-        widget.setFixedSize(942, 80)
+        widget.setFixedSize(942, 70)
         widget.setAttribute(Qt.WA_StyledBackground)
         widget.setObjectName("credentialsData")
         widget.setLayout(self.__createDriveCredentialsLayout())
@@ -820,7 +844,7 @@ class DriveAccountForm(BaseAccountFormWidget):
 
     def __createDriveCredentialsLayout(self):
         mainLayout = QVBoxLayout()
-        mainLayout.setContentsMargins(5, 5, 5, 5)
+        mainLayout.setContentsMargins(5, 1, 5, 1)
 
         firstRowLayout = QHBoxLayout()
         firstRowLayout.addWidget(self.__credentialsLabels['projectIDLabel'])
@@ -832,7 +856,6 @@ class DriveAccountForm(BaseAccountFormWidget):
         mainLayout.addLayout(firstRowLayout)
         mainLayout.addLayout(secondRowLayout)
         mainLayout.addWidget(self.__credentialsLabels['disclaimerLabel'])
-        mainLayout.addStretch(1)
 
         return mainLayout
 

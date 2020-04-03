@@ -344,7 +344,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.formValidityChanged.emit()
 
     def __sshConnectionFailed(self, message):
-        self.__isConnectionOK = False
+        self.__isSshOK = False
         self.__SSHConnectionTestResultIcon.setPixmap(self.__testFailedIcon)
         self.__SSHConnectionTestResultIcon.show()
         self.__SSHTestResultLabel.setText(message)
