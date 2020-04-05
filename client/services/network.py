@@ -53,7 +53,7 @@ class NetworkClient(QObject):
                     self._handleErroneousSocket(in_error)
                 except ConnectionError as e:
                     self._logger.error(f"Server disconnected: {e}")
-                    self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.DISCONNECTED, {"message": str(e)}))
+                    self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.NETWORK_DISCONNECTED, {"message": str(e)}))
                     self._handleErroneousSocket([self._socket])
             else:
                 time.sleep(1)
@@ -94,13 +94,13 @@ class NetworkClient(QObject):
         decoded = self._decoder.decrypt(sessionMessage['encodeTest'])
 
         if decoded == sessionMessage['iv']:
-            self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.HANDSHAKE_SUCCESSFUL, None))
+            self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.NETWORK_HANDSHAKE_SUCCESSFUL, None))
             self._logger.debug("Successfully set up session!")
             self._isConnected = True
         else:
             message = f"Wrong Aeskey! Sessionkey: {sessionMessage['iv']} , Decoded: {decoded}"
             self._logger.error(message)
-            self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.CONNECTION_ERROR, {"message": "Wrong AES key!"}))
+            self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.NETWORK_CONNECTION_ERROR, {"message": "Wrong AES key!"}))
             self.disconnect()
 
     def _createNewSocket(self):
@@ -113,7 +113,7 @@ class NetworkClient(QObject):
         self._logger.debug("Connecting to server")
         self._socket.connect(self._hostInfo)
         self._logger.debug("Connected")
-        self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.CONNECTED, None))
+        self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.NETWORK_CONNECTED, None))
 
     def _handleIncomingMessage(self, readable):
         for s in readable:
@@ -160,7 +160,7 @@ class NetworkClient(QObject):
 
 
 class SshClient(QObject):
-    #TODO Filestatuschanged signal?
+    connectionStatusChanged = pyqtSignal(object)
 
     def __init__(self, fileSyncer):
         super().__init__()
@@ -199,6 +199,7 @@ class SshClient(QObject):
         self._client.connect(self._hostname, self._port, self._username, self._password)
         self._sftp = self._client.open_sftp()
         self._logger.debug("SSH Ready")
+        self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.SSH_CONNECTED, None))
 
     def stop(self):
         self._logger.debug("Stopping")

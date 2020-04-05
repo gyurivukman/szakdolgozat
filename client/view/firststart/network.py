@@ -377,10 +377,10 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         self.formValidityChanged.emit()
 
     def __onNetworkEvent(self, event):
-        if event.eventType == ConnectionEventTypes.HANDSHAKE_SUCCESSFUL:
+        if event.eventType == ConnectionEventTypes.NETWORK_HANDSHAKE_SUCCESSFUL:
             self.__hostConnectionSuccessful()
             self._serviceHub.disconnectServer()
-        elif event.eventType == ConnectionEventTypes.CONNECTION_ERROR:
+        elif event.eventType == ConnectionEventTypes.NETWORK_CONNECTION_ERROR:
             self.__hostConnectionFailed(event.data['message'])
             self._serviceHub.disconnectServer()
 

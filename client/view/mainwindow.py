@@ -1,5 +1,4 @@
 import logging
-import time
 from uuid import uuid4
 
 from PyQt5.QtWidgets import QMainWindow, QAction
@@ -15,17 +14,18 @@ from services.hub import ServiceHub
 from view.infopanels import ConnectionErrorPanel
 from view.loaders import LoaderWidget
 from view.firststart.wizard import FirstStartWizard
+from view.mainpanel import MainPanel
 
 from . import resources
 
 
 class MainWindow(QMainWindow):
     __FIRST_START_SIZE = QSize(1280, 720)
-    __NORMAL_SIZE = QSize(360, 720)
+    __NORMAL_SIZE = QSize(480, 720)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__loader = LoaderWidget(360, 720, "Connecting to server")
+        self.__loader = LoaderWidget(480, 720, "Connecting to server")
         self.__errorPanel = None
         self.__mainPanel = None
         self.__settings = QSettings()
@@ -44,11 +44,13 @@ class MainWindow(QMainWindow):
             self.__setupForFirstStart()
         else:
             self.__setupForRegularView()
-            self.__serviceHub.filesChannel.connect(self._onFileStatusChanged)
-            self.__serviceHub.networkStatusChannel.connect(self._onNetworkStatusChanged)
-            self.__serviceHub.startAllServices()
-            self.__serviceHub.setNetworkInformation("localhost", 11000, b"sixteen byte key")
-            self.__serviceHub.connectToServer()
+            self.__mainPanel = MainPanel()
+            self.setCentralWidget(self.__mainPanel)
+            # TODO TODO TODO
+            # self.__serviceHub.networkStatusChannel.connect(self.__onNetworkStatusChanged)
+            # self.__serviceHub.startAllServices()
+            # self.__serviceHub.setNetworkInformation("localhost", 11000, b"sixteen byte key")
+            # self.__serviceHub.connectToServer()
         self.show()
 
     def closeEvent(self, event):
@@ -93,21 +95,18 @@ class MainWindow(QMainWindow):
 
     def __createErrorPanel(self):
         panel = ConnectionErrorPanel()
-        panel.setFixedSize(360, 720)
+        panel.setFixedSize(480, 720)
 
         panel.retry.connect(self.__onErrorPanelRetryClicked)
 
         return panel
 
-    def __onFileStatusChanged(self, event):
-        self._logger.info(event)
-
     def __onNetworkStatusChanged(self, event):
-        if event.eventType == ConnectionEventTypes.CONNECTED:
+        if event.eventType == ConnectionEventTypes.NETWORK_CONNECTED:
             self.__loader.setStatusText("Connected, retrieving session key...")
-        elif event.eventType == ConnectionEventTypes.HANDSHAKE_SUCCESSFUL:
+        elif event.eventType == ConnectionEventTypes.NETWORK_HANDSHAKE_SUCCESSFUL:
             self.__loader.setStatusText("Handshake successful")
-        elif event.eventType == ConnectionEventTypes.CONNECTION_ERROR:
+        elif event.eventType == ConnectionEventTypes.NETWORK_CONNECTION_ERROR:
             self.__errorPanel = self.__createErrorPanel()
             self.setCentralWidget(self.__errorPanel)
 
@@ -134,15 +133,15 @@ class MainWindow(QMainWindow):
     @pyqtSlot(FirstStartConfig)
     def __onFirstStartFinished(self, config):
         self.__mainPanel.finished.disconnect(self.__onFirstStartFinished)
-        self.__loader.setStatusText("Saving settings..")
+        self.__loader.setStatusText("Saving settings...")
         self.__setupForRegularView()
         self.setCentralWidget(self.__loader)
         self.repaint()
 
         self.__firstStartConfig = config
         self.__firstStartSaveSettings()
-        self.__loader.setStatusText("Starting services..")
-        self.__startAllServices()
+        self.__loader.setStatusText("Starting services...")
+        self.__startNetworkServices()
 
     def __firstStartSaveSettings(self):
         self.__settings.setValue("firstStart/isFirstStart", False)
@@ -155,24 +154,24 @@ class MainWindow(QMainWindow):
 
         self.__settings.setValue("syncDir/path", self.__firstStartConfig.network.syncDir)
 
-    def __startAllServices(self):
+    def __startNetworkServices(self):
         self.__serviceHub.initSshService()
         self.__serviceHub.startSshService()
 
-        self.__serviceHub.networkStatusChannel.connect(self.__onFirstStartConnected)
+        self.__serviceHub.networkStatusChannel.connect(self.__onFirstStartNetworkConnectionChanged)
 
         self.__serviceHub.setNetworkInformation(self.__firstStartConfig.network.remote.address, int(self.__firstStartConfig.network.remote.port), self.__firstStartConfig.network.remote.encryptionKey.encode())
         self.__serviceHub.setSSHInformation(self.__firstStartConfig.network.remote.address, self.__firstStartConfig.network.ssh.username, self.__firstStartConfig.network.ssh.password)
 
         self.__serviceHub.connectToServer()
-        self.__serviceHub.connectToSSH()
 
-    def __onFirstStartConnected(self, event):
-        if event.eventType == ConnectionEventTypes.CONNECTED:
+    def __onFirstStartNetworkConnectionChanged(self, event):
+        if event.eventType == ConnectionEventTypes.NETWORK_CONNECTED:
             self.__loader.setStatusText("Connected, retrieving session key...")
-        elif event.eventType == ConnectionEventTypes.HANDSHAKE_SUCCESSFUL:
+        elif event.eventType == ConnectionEventTypes.NETWORK_HANDSHAKE_SUCCESSFUL:
             self.__loader.setStatusText("Handshake successful")
-            self.__serviceHub.networkStatusChannel.disconnect(self.__onFirstStartConnected)
+            self.__serviceHub.networkStatusChannel.disconnect(self.__onFirstStartNetworkConnectionChanged)
+            # TODO ha közben DC valahol, akkor kezeljük.
             self.__firstStartSetupAccounts()
 
     def __firstStartSetupAccounts(self):
@@ -183,4 +182,19 @@ class MainWindow(QMainWindow):
         message = NetworkMessage(raw)
 
         self.__serviceHub.sendNetworkMessage(message)
-        self.__loader.setStatusText("Accounts updated!\nRetrieving file list...")
+        self.__loader.setStatusText("Accounts updated!\nConnecting to SSH...")
+        self.__serviceHub.sshStatusChannel.connect(self.__onFirstStartSSHConnectionChanged)
+        self.__serviceHub.connectToSSH()
+
+    def __onFirstStartSSHConnectionChanged(self, event):
+        if event.eventType == ConnectionEventTypes.SSH_CONNECTED:
+            self.__loader.setStatusText("Synchronizing file list,\nplease wait!")
+            self.__serviceHub.sshStatusChannel.disconnect(self.__onFirstStartSSHConnectionChanged)
+            self.__mainPanel = MainPanel()
+            self.__mainPanel.ready.connect(self.__onMainPanelReady)
+            self.__mainPanel.syncFileList()
+
+    def __onMainPanelReady(self, event):
+        self.__mainPanel.ready.disconnect(self.__onMainPanelReady)
+        self.setCentralWidget(self.__mainPanel)
+        self.repaint()

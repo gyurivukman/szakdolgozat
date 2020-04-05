@@ -5,6 +5,7 @@ class MessageTypes(IntEnum):
     RESPONSE = 0
     GET_ACCOUNT_LIST = 1
     SET_ACCOUNT_LIST = 2
+    SYNC_FILES = 3
 
 
 # TODO refaktor.

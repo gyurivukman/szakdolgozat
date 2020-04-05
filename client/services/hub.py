@@ -17,6 +17,7 @@ class ServiceHub(QObject):
 
     filesChannel = pyqtSignal(object)
     networkStatusChannel = pyqtSignal(object)
+    sshStatusChannel = pyqtSignal(object)
     errorChannel = pyqtSignal(object)
 
     @staticmethod
@@ -31,61 +32,62 @@ class ServiceHub(QObject):
         else:
             super().__init__()
             ServiceHub.__instance = self
-            self._logger = logging.getLogger(__name__).getChild("ServiceHub")
-            self._messageArchive = {}
+            self.__logger = logging.getLogger(__name__).getChild("ServiceHub")
+            self.__messageArchive = {}
 
-            self._networkService = None
-            self._networkThread = None
-            self._isNetworkServiceRunning = False
-            self._networkQueue = None
+            self.__networkService = None
+            self.__networkThread = None
+            self.__isNetworkServiceRunning = False
+            self.__networkQueue = None
 
-            self._fileSyncService = None
-            self._isFileSyncServiceRunning = False
-            self._fileSyncThread = None
+            self.__fileSyncService = None
+            self.__isFileSyncServiceRunning = False
+            self.__fileSyncThread = None
 
-            self._sshService = None
-            self._isSshServiceRunning = False
-            self._sshThread = None
+            self.__sshService = None
+            self.__isSshServiceRunning = False
+            self.__sshThread = None
 
             self.initNetworkService()
             self.initFileSyncService()
             self.initSshService()
 
-    def _shutDownThreadedService(self, service, serviceThread):
+    def __shutDownThreadedService(self, service, serviceThread):
         service.stop()
         if serviceThread.is_alive():
             serviceThread.join()
 
     def initNetworkService(self):
-        self._networkQueue = Queue()
-        self._networkService = NetworkClient(self._networkQueue)
-        self._networkService.messageArrived.connect(self._onNetworkMessageArrived)
-        self._networkService.connectionStatusChanged.connect(self._onConnectionEvent)
-        self._networkThread = Thread(target=self._networkService.run)
+        self.__networkQueue = Queue()
+        self.__networkService = NetworkClient(self.__networkQueue)
+        self.__networkService.messageArrived.connect(self.__onNetworkMessageArrived)
+        self.__networkService.connectionStatusChanged.connect(self.__onNetworkConnectionEvent)
+        self.__networkThread = Thread(target=self.__networkService.run)
 
     def initFileSyncService(self):
-        self._fileSyncService = FileSynchronizer()
-        self._fileSyncService.fileEvent.connect(self._onFileEvent)
-        self._fileSyncThread = Thread(target=self._fileSyncService.run)
+        self.__fileSyncService = FileSynchronizer()
+        self.__fileSyncService.fileEvent.connect(self.__onFileEvent)
+        self.__fileSyncThread = Thread(target=self.__fileSyncService.run)
 
     def initSshService(self):
-        self._sshService = SshClient(self._fileSyncService)
-        self._sshThread = Thread(target=self._sshService.run)
+        self.__sshService = SshClient(self.__fileSyncService)
+        self.__sshService.connectionStatusChanged.connect(self.__onSSHConnectionEvent)
+        self.__sshThread = Thread(target=self.__sshService.run)
 
     def startNetworkService(self):
-        self._networkThread.start()
-        self._isNetworkServiceRunning = True
-        self._logger.debug("Network service started")
+        self.__networkThread.start()
+        self.__isNetworkServiceRunning = True
+        self.__logger.debug("Network service started")
 
     def startFileSyncerService(self):
-        self._fileSyncThread.start()
-        self._isFileSyncServiceRunning = True
-        self._logger.debug("File Sync service started")
+        self.__fileSyncThread.start()
+        self.__isFileSyncServiceRunning = True
+        self.__logger.debug("File Sync service started")
 
     def startSshService(self):
-        self._sshThread.start()
-        self._isSshServiceRunning = True
-        self._logger.debug("SSH service started")
+        self.__sshThread.start()
+        self.__isSshServiceRunning = True
+        self.__logger.debug("SSH service started")
 
     def startAllServices(self):
         self.startNetworkService()
@@ -93,96 +95,99 @@ class ServiceHub(QObject):
         self.startSshService()
 
     def shutdownAllServices(self):
-        self._logger.debug("Stopping all services")
+        self.__logger.debug("Stopping all services")
 
-        self._networkService.stop()
-        self._fileSyncService.stop()
-        self._sshService.stop()
+        self.__networkService.stop()
+        self.__fileSyncService.stop()
+        self.__sshService.stop()
 
-        if self._fileSyncThread is not None and self._fileSyncThread.is_alive():
-            self._fileSyncThread.join()
-            self._isFileSyncServiceRunning = False
-        if self._networkThread is not None and self._networkThread.is_alive():
-            self._networkThread.join()
-            self._isNetworkServiceRunning = False
-        if self._sshThread is not None and self._sshThread.is_alive():
-            self._sshThread.join()
-            self._isSshServiceRunning = False
+        if self.__fileSyncThread is not None and self.__fileSyncThread.is_alive():
+            self.__fileSyncThread.join()
+            self.__isFileSyncServiceRunning = False
+        if self.__networkThread is not None and self.__networkThread.is_alive():
+            self.__networkThread.join()
+            self.__isNetworkServiceRunning = False
+        if self.__sshThread is not None and self.__sshThread.is_alive():
+            self.__sshThread.join()
+            self.__isSshServiceRunning = False
 
-        self._logger.debug("Stopped all services")
+        self.__logger.debug("Stopped all services")
 
     def shutdownNetwork(self):
-        self._shutDownThreadedService(self._networkService, self._networkThread)
-        self._networkService = None
-        self._networkThread = None
-        self._isNetworkServiceRunning = False
-        self._logger.debug("Network service stopped")
+        self.__shutDownThreadedService(self.__networkService, self.__networkThread)
+        self.__networkService = None
+        self.__networkThread = None
+        self.__isNetworkServiceRunning = False
+        self.__logger.debug("Network service stopped")
 
     def shutdownFileSync(self):
-        self._shutDownThreadedService(self._fileSyncService, self._fileSyncThread)
-        self._fileSyncService = None
-        self._fileSyncThread = None
-        self._isFileSyncServiceRunning = False
-        self._logger.debug("File Sync service stopped")
+        self.__shutDownThreadedService(self.__fileSyncService, self.__fileSyncThread)
+        self.__fileSyncService = None
+        self.__fileSyncThread = None
+        self.__isFileSyncServiceRunning = False
+        self.__logger.debug("File Sync service stopped")
 
     def shutdownSsh(self):
-        self._shutDownThreadedService(self._sshService, self._sshThread)
-        self._sshService = None
-        self._sshThread = None
-        self._isSshServiceRunning = False
-        self._logger.debug("SSH service stopped")
+        self.___shutDownThreadedService(self._sshService, self.__sshThread)
+        self.__sshService = None
+        self.__sshThread = None
+        self.__isSshServiceRunning = False
+        self.__logger.debug("SSH service stopped")
 
     def setNetworkInformation(self, address, port, aesKey):
-        self._networkService.setNetworkInformation(address, port, aesKey)
+        self.__networkService.setNetworkInformation(address, port, aesKey)
 
     def setSSHInformation(self, address, username, password):
-        self._sshService.setSSHInformation(address, username, password)
+        self.__sshService.setSSHInformation(address, username, password)
 
     def connectToServer(self):
         try:
-            self._networkService.connect()
+            self.__networkService.connect()
         except ConnectionError as e:
-            self._logger.debug("Connection Error!")
-            self.networkStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.CONNECTION_ERROR, {"message": str(e)}))
+            self.__logger.debug("Connection Error!")
+            self.networkStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.NETWORK_CONNECTION_ERROR, {"message": str(e)}))
 
     def connectToSSH(self):
         try:
-            self._sshService.connect()
+            self.__sshService.connect()
         except ConnectionError as e:
-            self._logger.debug("SSH Connection Error!")
-            self.networkStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.CONNECTION_ERROR, {"message": str(e)}))
+            self.__logger.debug("SSH Connection Error!")
+            self.networkStatusChannel.emit(ConnectionEvent(ConnectionEventTypes.NETWORK_CONNECTION_ERROR, {"message": str(e)}))
 
     def disconnectServer(self):
-        self._networkService.disconnect()
+        self.__networkService.disconnect()
 
     def disconnectSSH(self):
-        self._sshService.disconnect()
+        self.__sshService.disconnect()
 
     def sendNetworkMessage(self, message, callBack=None):
         if callBack:
-            self._messageArchive[message.header.uuid] = callBack
-        self._networkService.enqueuMessage(message)
+            self.__messageArchive[message.header.uuid] = callBack
+        self.__networkService.enqueuMessage(message)
 
     def isNetworkServiceRunning(self):
-        return self._isNetworkServiceRunning
+        return self.__isNetworkServiceRunning
 
     def isFileSyncServiceRunning(self):
-        return self._isFileSyncServiceRunning
+        return self.__isFileSyncServiceRunning
 
     def isSshServiceRunning(self):
-        return self._isSshServiceRunning
+        return self.__isSshServiceRunning
 
-    def _onNetworkMessageArrived(self, message):
-        if message.header.uuid in self._messageArchive:
-            self._logger.debug(f"Response: {message.header} {message.data}")
-            callBack = self._messageArchive[message.header.uuid]
+    def __onNetworkMessageArrived(self, message):
+        if message.header.uuid in self.__messageArchive:
+            self.__logger.debug(f"Response: {message.header} {message.data}")
+            callBack = self.__messageArchive[message.header.uuid]
             callBack(message.data)
-            del self._messageArchive[message.header.uuid]
+            del self.__messageArchive[message.header.uuid]
         else:
-            self._logger.info(f"Random message: {message.header} {message.data}")
+            self.__logger.info(f"Random message: {message.header} {message.data}")
 
-    def _onFileEvent(self, event):
+    def __onFileEvent(self, event):
         self.filesChannel.emit(event)
 
-    def _onConnectionEvent(self, event):
+    def __onNetworkConnectionEvent(self, event):
         self.networkStatusChannel.emit(event)
+
+    def __onSSHConnectionEvent(self, event):
+        self.sshStatusChannel.emit(event)

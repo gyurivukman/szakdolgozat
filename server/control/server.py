@@ -108,7 +108,7 @@ class Server(object):
     def _processIncomingMessages(self):
         for message in self._unpacker:
             msg_obj = NetworkMessage(message)
-            self._messageDispatcher.dispatchMessage(msg_obj)
+            self._messageDispatcher.dispatchIncomingMessage(msg_obj)
 
     def _acceptClient(self):
         self._client, self._clientAddress = self._server.accept()
@@ -134,11 +134,11 @@ class Server(object):
         try:
             for s in writable:
                 try:
-                    msg_obj = self._messageDispatcher.outgoing_message_queue.get_nowait()
+                    msg_obj = self._messageDispatcher.outgoing_message_queue.get_nowait() # TODO Majd refaktor kicsit.
                     serialized = self._packer.pack(msg_obj.raw)
                     encrypted = self._encoder.encrypt(serialized)
                     s.sendall(encrypted)
-                    self._messageDispatcher.outgoing_message_queue.task_done()
+                    self._messageDispatcher.outgoing_message_queue.task_done() # TODO Majd refaktor kicsit.
                 except Empty:
                     time.sleep(1)
         except OSError as e:

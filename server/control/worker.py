@@ -5,7 +5,7 @@ from threading import Thread
 from queue import Empty
 
 from .message import MessageDispatcher, MessageTypes
-from .message import GetAccountsListHandler, SetAccountListHandler
+from .message import *
 from .abstract import Singleton
 from .database import DatabaseAccess
 
@@ -70,7 +70,8 @@ class InstantWorker(Worker):
     def _createHandlerMap(self):
         return {
             MessageTypes.GET_ACCOUNT_LIST: GetAccountsListHandler(self._databaseAccess),
-            MessageTypes.SET_ACCOUNT_LIST: SetAccountListHandler(self._databaseAccess)
+            MessageTypes.SET_ACCOUNT_LIST: SetAccountListHandler(self._databaseAccess),
+            MessageTypes.SYNC_FILES: GetFileListHandler(self._databaseAccess)
         }
 
     def _work(self):
