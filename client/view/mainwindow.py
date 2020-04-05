@@ -46,11 +46,12 @@ class MainWindow(QMainWindow):
             self.__setupForRegularView()
             self.__mainPanel = MainPanel()
             self.setCentralWidget(self.__mainPanel)
-            # TODO TODO TODO
-            # self.__serviceHub.networkStatusChannel.connect(self.__onNetworkStatusChanged)
-            # self.__serviceHub.startAllServices()
-            # self.__serviceHub.setNetworkInformation("localhost", 11000, b"sixteen byte key")
-            # self.__serviceHub.connectToServer()
+            self.__serviceHub.networkStatusChannel.connect(self.__onNetworkStatusChanged)
+            self.__serviceHub.startAllServices()
+
+            self.__serviceHub.setNetworkInformation(self.__settings.value("server/address"), int(self.__settings.value("server/port")), self.__settings.value("server/encryptionKey"))
+            self.__serviceHub.setSSHInformation(self.__settings.value("server/address"), str(self.__settings.value("ssh/username")), str(self.__settings.value("ssh/password")))
+            self.__serviceHub.connectToServer()
         self.show()
 
     def closeEvent(self, event):
@@ -105,10 +106,20 @@ class MainWindow(QMainWindow):
         if event.eventType == ConnectionEventTypes.NETWORK_CONNECTED:
             self.__loader.setStatusText("Connected, retrieving session key...")
         elif event.eventType == ConnectionEventTypes.NETWORK_HANDSHAKE_SUCCESSFUL:
-            self.__loader.setStatusText("Handshake successful")
+            self.__loader.setStatusText("Handshake successful\n Starting SSH service...")
+            self.__serviceHub.sshStatusChannel.connect(self.__onSSHStatusChanged)
+            self.__serviceHub.connectToSSH()
         elif event.eventType == ConnectionEventTypes.NETWORK_CONNECTION_ERROR:
             self.__errorPanel = self.__createErrorPanel()
             self.setCentralWidget(self.__errorPanel)
+
+    def __onSSHStatusChanged(self, event):
+        if event.eventType == ConnectionEventTypes.SSH_CONNECTED:
+            self.__loader.setStatusText("Retrieving file list,\n please wait!")
+            self.__mainPanel = MainPanel()
+            self.__mainPanel.ready.connect(self.__onMainPanelReady)
+            self.__mainPanel.syncFileList()
+        # TODO
 
     def __onErrorPanelRetryClicked(self):
         # TODO qsettingsbol kiolvasni a connect parametereit, újra és újra minden alkalommal. Ehhez persze kell a config nézet ahol ezt lehet állogatni.
@@ -126,9 +137,10 @@ class MainWindow(QMainWindow):
         QCoreApplication.instance().quit()
 
     def __isFirstStart(self):
-        isFirstStart = self.__settings.value("firstStart/isConfigured")
-        # return True if isFirstStart is None else isFirstStart
-        return True
+        isFirstStart = self.__settings.value("firstStart/isFirstStart")
+
+        return True if isFirstStart is None or isFirstStart == "true" else False
+        # return True
 
     @pyqtSlot(FirstStartConfig)
     def __onFirstStartFinished(self, config):
@@ -165,6 +177,7 @@ class MainWindow(QMainWindow):
 
         self.__serviceHub.connectToServer()
 
+    @pyqtSlot(ConnectionEvent)
     def __onFirstStartNetworkConnectionChanged(self, event):
         if event.eventType == ConnectionEventTypes.NETWORK_CONNECTED:
             self.__loader.setStatusText("Connected, retrieving session key...")
@@ -186,6 +199,7 @@ class MainWindow(QMainWindow):
         self.__serviceHub.sshStatusChannel.connect(self.__onFirstStartSSHConnectionChanged)
         self.__serviceHub.connectToSSH()
 
+    @pyqtSlot(ConnectionEvent)
     def __onFirstStartSSHConnectionChanged(self, event):
         if event.eventType == ConnectionEventTypes.SSH_CONNECTED:
             self.__loader.setStatusText("Synchronizing file list,\nplease wait!")
@@ -194,7 +208,7 @@ class MainWindow(QMainWindow):
             self.__mainPanel.ready.connect(self.__onMainPanelReady)
             self.__mainPanel.syncFileList()
 
+    @pyqtSlot()
     def __onMainPanelReady(self, event):
-        self.__mainPanel.ready.disconnect(self.__onMainPanelReady)
         self.setCentralWidget(self.__mainPanel)
         self.repaint()
