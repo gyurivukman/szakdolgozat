@@ -114,12 +114,12 @@ class GetFileListHandler(AbstractTaskHandler):
             accountFileList = account.getFileList()
             for filePart in accountFileList:
                 filename = self.__getRealFilename(filePart.filename)
-                if filename not in fileList:
-                    fileList[filename] = {"data": filePart, "availableCount": 1, "totalCount": self.__getFilePartCount(filePart.filename)}
-                    fileList[filename]["data"].filename = filename
+                if filePart.fullPath not in fileList:
+                    fileList[filePart.fullPath] = {"data": filePart, "availableCount": 1, "totalCount": self.__getFilePartCount(filePart.filename)}
+                    fileList[filePart.fullPath]["data"].filename = filename
                 else:
-                    fileList[filename]["data"].size += filePart.size
-                    fileList[filename]["availableCount"] += 1
+                    fileList[filePart.fullPath]["data"].size += filePart.size
+                    fileList[filePart.fullPath]["availableCount"] += 1
         fullFiles = [remoteFile["data"].serialize() for key, remoteFile in fileList.items() if remoteFile["availableCount"] == remoteFile["totalCount"]]
         self._logger.debug(f"Found the following full files: {fullFiles}")
 
