@@ -1,6 +1,7 @@
 import sys
 import logging
 import signal
+import argparse
 
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from PyQt5.QtCore import QCoreApplication, QSettings, Qt
@@ -16,7 +17,18 @@ trayIcon = None
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
-logger = logging.getLogger()
+rootLogger = logging.getLogger()
+
+argumentToLogLevelMap = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+    "off": 60
+}
+
+parser = argparse.ArgumentParser(prog="CryptStorePi Client")
+parser.add_argument("--loglevel", dest="loglevel", type=str, action="store", default="debug", required=False, choices=["debug", "info", "warning", "error", "off"], help="Log level for the client")
 
 
 def setupOrganization():
@@ -44,7 +56,7 @@ def showMainWindow():
 
 
 def onExit():
-    logger.info("Exiting, please wait...")
+    rootLogger.info("Exiting, please wait...")
     trayIcon.hide()
     mainWindow.hide()
     mainWindow.stop()
@@ -57,29 +69,18 @@ def createTrayMenu():
     openAction = menu.addAction("Open")
     openAction.triggered.connect(showMainWindow)
 
-    # settingsAction = menu.addAction("Settings")
-    # settingsAction.triggered.connect(onSettingsClicked)
-
     exitAction = menu.addAction("Exit")
     exitAction.triggered.connect(onExit)
 
     return menu
 
 
-# def onSettingsClicked():
-#     settings = QSettings()
-#     isFirstStart = not settings.contains('IsFirstStart') or settings.contains('IsFirstStart') and settings.value('IsFirstStart').toBool()
-
-#     if isFirstStart:
-#         mainWindow.show()
-#     else:
-#         pass
-
-
 if __name__ == '__main__':
+    arguments = parser.parse_args()
+
     logging.basicConfig(
         format='%(asctime)s %(name)s    [%(levelname)s]    %(message)s',
-        level=logging.DEBUG,
+        level=argumentToLogLevelMap[arguments.loglevel],
         datefmt='%Y-%m-%d %H:%M:%S',
         stream=sys.stdout
     )

@@ -3,12 +3,6 @@ import select
 import logging
 import time
 
-
-# TODO Temporary imports
-import random
-from uuid import uuid4
-import string
-
 from queue import Empty
 
 from msgpack import Packer, Unpacker
