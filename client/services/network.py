@@ -12,10 +12,11 @@ from queue import Queue, Empty
 import paramiko
 from Crypto.Cipher import AES
 from msgpack import Packer, Unpacker
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, QSettings, pyqtSignal
 
 from model.events import ConnectionEventTypes, ConnectionEvent
 from model.message import NetworkMessage, MessageTypes
+from model.permission import WorkspacePermissionValidator
 
 
 logger = logging.getLogger(__name__)
@@ -221,31 +222,31 @@ class SshClient(QObject):
     def _handleCurrentTask(self):
         print("Handling current task!")
 
-    def cleanRemoteWorkspace(self):
-        pass
-    #     if self._isConnected:
-    #         self.__cleanRemoteWorkspace()
-    #     else:
-    #         raise Exception("SSH client is not connected. call 'connect' first.")
+    def cleanRemoteWorkspace(self, path):
+        if self._isConnected:
+            self.__cleanRemoteWorkspace(path)
+        else:
+            raise Exception("SSH client is not connected. call 'connect' first.")
 
-    # def __cleanRemoteWorkspace(self):
-    #     try:
-    #         self._sftp.chdir("cryptstorepi_workspace/client/")
-    #         self._client.exec_command("rm -rf cryptstorepi_workspace/client/*")
-    #     except FileNotFoundError:
-    #         self._logger.info(f"Workspace not found, creating workspace {self._sftp.normalize(".")}/cryptstorepi_workspace/client/")
-    #         self.__createRemoteWorkspaceDirs()
+    def __cleanRemoteWorkspace(self, path):
+        settings = QSettings()
+        username = settings.value("ssh/username")
 
-    # def __createRemoteWorkspaceDirs(self):
-    #     try:
-    #         self._sftp.chdir("cryptstorepi_workspace")
-    #     except FileNotFoundError:
-    #         self._sftp.mkdir("cryptstorepi_workspace")
-    #         self._sftp.chdir("cryptstorepi_workspace")
+        try:
+            stdin, stdout, stderr = self._client.exec_command(f"ls -ld {path}")
+            permissionResult = [line for line in stdout][0]
 
-    #     try:
-    #         self._sftp.chdir("client")
-    #         self._client.exec_command("rm -rf ./cryptstorepi_workspace/client/*")
-    #     except FileNotFoundError:
-    #         self._sftp.mkdir("client")
-    #         self._sftp.chdir("client")
+            stdin, stdout, stderr = self._client.exec_command(f"groups {username}")
+            membershipResult = [line for line in stdout][0]
+
+            permissionValidator = WorkspacePermissionValidator(username, path, permissionResult, membershipResult)
+            permissionValidator.validate()
+
+            clientWorkspacePath = f"{path}/client/"
+
+            self._sftp.chdir(clientWorkspacePath)
+            self._client.exec_command(f"rm -rf {clientWorkspacePath}/*")
+        except FileNotFoundError:
+            self._logger.info(f"Workspace not found, creating client workspace {clientWorkspacePath}")
+            self._sftp.mkdir(clientWorkspacePath)
+            self._sftp.chdir(clientWorkspacePath)

@@ -1,13 +1,14 @@
 import logging
 from uuid import uuid4
 
-from PyQt5.QtWidgets import QMainWindow, QAction
+from PyQt5.QtWidgets import QMainWindow, QAction, QMessageBox
 from PyQt5.QtCore import Qt, QSettings, QCoreApplication, QSize, pyqtSlot, QThread
 from PyQt5.QtGui import QIcon
 
 from model.events import ConnectionEvent, ConnectionEventTypes
 from model.config import FirstStartConfig
 from model.message import MessageTypes, NetworkMessage
+from model.permission import InvalidWorkspacePermissionException
 
 from services.hub import ServiceHub
 
@@ -165,13 +166,19 @@ class MainWindow(QMainWindow):
             self.__serviceHub.sendNetworkMessage(message, self.__onWorkspaceRetrieved)
 
     def __onWorkspaceRetrieved(self, response):
-        self.__logger.debug("\n\n")
-        self.__logger.debug(response)
+        try:
+            self.__serviceHub.cleanRemoteSSHWorkspace(response['workspace'])
+            self.__serviceHub.startFileSyncerService()
+            self.setCentralWidget(self.__mainPanel)
+            self.repaint()
+        except InvalidWorkspacePermissionException as e:
+            errorDialog = QMessageBox(self)
+            errorDialog.setIcon(QMessageBox.Critical)
+            errorDialog.setWindowTitle("Critical error")
+            errorDialog.setText(str(e))
+            errorDialog.buttonClicked.connect(self.__exitApplication)
+            errorDialog.show()
 
-        # self.__serviceHub.cleanRemoteSSHWorkspace()
-        # self.__serviceHub.startFileSyncerService()
-        # self.setCentralWidget(self.__mainPanel)
-        # self.repaint()
 
     @pyqtSlot()
     def __onErrorPanelRetryClicked(self):
@@ -186,6 +193,9 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def __onExitMenuItemClicked(self):
+        self.__exitApplication()
+
+    def __exitApplication(self):
         self.hide()
         self.stop()
         QCoreApplication.instance().quit()
