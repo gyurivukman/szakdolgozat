@@ -3,8 +3,12 @@ import logging
 import signal
 import argparse
 
+from os import unlink
+from os.path import expanduser
+
+
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu
-from PyQt5.QtCore import QCoreApplication, QSettings, Qt
+from PyQt5.QtCore import QCoreApplication
 from PyQt5.QtGui import QIcon
 
 from view.mainwindow import MainWindow
@@ -29,6 +33,7 @@ argumentToLogLevelMap = {
 
 parser = argparse.ArgumentParser(prog="CryptStorePi Client")
 parser.add_argument("--loglevel", dest="loglevel", type=str, action="store", default="debug", required=False, choices=["debug", "info", "warning", "error", "off"], help="Log level for the client")
+parser.add_argument("--purgesettings", dest="purge", action="store_true", required=False, help="Remove all the settings, resetting the client. USE THIS WITH CAUTION!")
 
 
 def setupOrganization():
@@ -75,8 +80,22 @@ def createTrayMenu():
     return menu
 
 
+def confirmPurge():
+    userChoice = input("Are you sure you want to remove all the settings and reset CryptStorePi? Y/N: ")
+    if userChoice == "Y":
+        try:
+            unlink(f"{expanduser('~')}/.config/elte/cryptstorepi.conf")
+        except FileNotFoundError as _:
+            pass
+    elif userChoice != "N":
+        print("Unknown choice! Please use either 'Y' or 'N' as your answer.")
+        sys.exit(0)
+
+
 if __name__ == '__main__':
     arguments = parser.parse_args()
+    if arguments.purge:
+        confirmPurge()
 
     logging.basicConfig(
         format='%(asctime)s %(name)s    [%(levelname)s]    %(message)s',
