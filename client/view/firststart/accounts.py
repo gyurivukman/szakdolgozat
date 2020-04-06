@@ -245,7 +245,6 @@ class SetupAccountsWidget(QWidget, SetupableComponent):
             self.__accountCardWidgets[index].hide()
             self.__accountListLayout.removeWidget(self.__accountCardWidgets[index])
 
-        del self.__accountCardWidgets
         self.__accountCardWidgets = []
 
     def __onAccountSaveClicked(self, account):

@@ -2,7 +2,7 @@ import logging
 from uuid import uuid4
 
 from PyQt5.QtWidgets import QMainWindow, QAction
-from PyQt5.QtCore import Qt, QSettings, QCoreApplication, QSize, pyqtSlot
+from PyQt5.QtCore import Qt, QSettings, QCoreApplication, QSize, pyqtSlot, QThread
 from PyQt5.QtGui import QIcon
 
 from model.events import ConnectionEvent, ConnectionEventTypes
@@ -162,6 +162,7 @@ class MainWindow(QMainWindow):
     def __onSSHStatusChanged(self, event):
         if event.eventType == ConnectionEventTypes.SSH_CONNECTED:
             self.__loader.setStatusText("Cleaning remote workspace")
+            self.__serviceHub.startFileSyncerService()
             # self.setCentralWidget(self.__mainPanel)
             # self.repaint()
 
@@ -217,6 +218,5 @@ class MainWindow(QMainWindow):
         self.__loader.setStatusText("Starting SSH service")
         self.__serviceHub.setSSHInformation(self.__settings.value("server/address"), self.__settings.value("ssh/username"), self.__settings.value("ssh/password"))
         self.__serviceHub.sshStatusChannel.connect(self.__onSSHStatusChanged)
-        self.__serviceHub.startFileSyncerService()
         self.__serviceHub.startSshService()
         self.__serviceHub.connectToSSH()
