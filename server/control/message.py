@@ -58,8 +58,7 @@ class GetAccountsListHandler(AbstractTaskHandler):
         rawHeader = {"messageType": MessageTypes.RESPONSE, "uuid": self._task.uuid}
         rawData = {"accounts": [acc.serialize() for acc in self._databaseAccess.getAllAccounts()]}
 
-        response = NetworkMessage({"header": rawHeader, "data": rawData})
-        self._logger.debug(f"Sending response: {rawHeader},  {rawData}")
+        response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(rawData).build()
         self._messageDispatcher.dispatchResponse(response)
         self._task = None
 
@@ -86,9 +85,8 @@ class SetAccountListHandler(AbstractTaskHandler):
         self._databaseAccess.commit()
         self._logger.debug("Accounts updated")
 
-        raw = {"header": {"messageType": MessageTypes.RESPONSE, "uuid": self._task.uuid}, "data": {}}  # TODO átírni builderre
-        message = NetworkMessage(raw)
-        self._messageDispatcher.dispatchResponse(message)
+        response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).build()
+        self._messageDispatcher.dispatchResponse(response)
 
 
 class GetFileListHandler(AbstractTaskHandler):
@@ -144,7 +142,5 @@ class GetFileListHandler(AbstractTaskHandler):
         return int(match[1].split("__")[1])
 
     def __sendResponse(self, fullFiles):
-        raw = {"header": {"messageType": MessageTypes.RESPONSE, "uuid": self._task.uuid}, "data": fullFiles}
-        response = NetworkMessage(raw)
-
+        response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(fullFiles).build()
         self._messageDispatcher.dispatchResponse(response)

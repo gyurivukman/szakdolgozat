@@ -36,8 +36,7 @@ class MainPanel(QWidget):
 
     def syncFileList(self):
         self.__logger.debug("Syncing file list")
-        rawMessage = {"header": {"messageType": MessageTypes.SYNC_FILES, "uuid": uuid4().hex}, "data": {}}
-        message = NetworkMessage(rawMessage)
+        message = NetworkMessage.Builder(MessageTypes.SYNC_FILES).withRandomUUID().build()
 
         self.__serviceHub.sendNetworkMessage(message, self.__onFilelistRetrieved)
 

@@ -22,3 +22,26 @@ class NetworkMessage():
         self.raw = raw
         self.header = NetworkMessageHeader(raw["header"])
         self.data = raw.get("data")
+
+    class Builder():
+        __messageType = None
+        __uuid = None
+        __data = {}
+
+        def __init__(self, messageType):
+            self.__messageType = messageType
+
+        def withUUID(self, uuid):
+            self.__uuid = uuid
+            return self
+
+        def withRandomUUID(self):
+            self.__uuid = uuid4().hex
+            return self
+
+        def withData(self, data):
+            self.__data = data
+            return self
+
+        def build(self):
+            return NetworkMessage({"header": {"messageType": self.__messageType, "uuid": self.__uuid}, "data": self.__data})

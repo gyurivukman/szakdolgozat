@@ -101,8 +101,8 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
     def initData(self):
         self._serviceHub.startNetworkService()
         self._serviceHub.connectToServer()
-        raw = {"header": {"messageType": MessageTypes.GET_ACCOUNT_LIST, "uuid": uuid4().hex}, "data": None}
-        self._serviceHub.sendNetworkMessage(NetworkMessage(raw), self.__onAccountsRetrieved)
+        message = NetworkMessage.Builder(MessageTypes.GET_ACCOUNT_LIST).withRandomUUID().build()
+        self._serviceHub.sendNetworkMessage(message, self.__onAccountsRetrieved)
 
     def getFormData(self):
         return self.__accountsWidget.getAccounts()

@@ -199,9 +199,8 @@ class MainWindow(QMainWindow):
 
     def __firstStartSetupAccounts(self):
         self.__loader.setStatusText("Updating accounts")
-
-        raw = {"header": {"messageType": MessageTypes.SET_ACCOUNT_LIST, "uuid": uuid4().hex}, "data": {"accounts": [acc.serialize() for acc in self.__firstStartAccounts]}}
-        message = NetworkMessage(raw)
+        data = {"accounts": [acc.serialize() for acc in self.__firstStartAccounts]}
+        message = NetworkMessage.Builder(MessageTypes.SET_ACCOUNT_LIST).withRandomUUID().withData(data).build()
 
         self.__serviceHub.sendNetworkMessage(message, self.__onFirstStartAccountsSaved)
 
