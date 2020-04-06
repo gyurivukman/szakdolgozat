@@ -40,7 +40,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('CryptStorePi')
         self.setWindowIcon(QIcon(':logo.png'))
         if self.__isFirstStart():
-            self.__logger.debug("Setting up for first start.")
+            self.__logger.debug("Setting up for é start.")
             self.__setupForFirstStart()
             self.show()
         else:
@@ -143,7 +143,6 @@ class MainWindow(QMainWindow):
         isFirstStart = self.__settings.value("firstStart/isFirstStart")
 
         return True if isFirstStart is None or isFirstStart == "true" else False
-        # return True
 
     @pyqtSlot(ConnectionEvent)
     def __onNetworkStatusChanged(self, event):
@@ -162,16 +161,23 @@ class MainWindow(QMainWindow):
     def __onSSHStatusChanged(self, event):
         if event.eventType == ConnectionEventTypes.SSH_CONNECTED:
             self.__loader.setStatusText("Cleaning remote workspace")
-            self.__serviceHub.cleanRemoteSSHWorkspace()
-            self.__serviceHub.startFileSyncerService()
-            self.setCentralWidget(self.__mainPanel)
-            self.repaint()
+            message = NetworkMessage.Builder(MessageTypes.GET_WORKSPACE).withRandomUUID().build()
+            self.__serviceHub.sendNetworkMessage(message, self.__onWorkspaceRetrieved)
+
+    def __onWorkspaceRetrieved(self, response):
+        self.__logger.debug("\n\n")
+        self.__logger.debug(response)
+
+        # self.__serviceHub.cleanRemoteSSHWorkspace()
+        # self.__serviceHub.startFileSyncerService()
+        # self.setCentralWidget(self.__mainPanel)
+        # self.repaint()
 
     @pyqtSlot()
     def __onErrorPanelRetryClicked(self):
         self.__loader = LoaderWidget(480, 720, "Connecting to server")
         self.setCentralWidget(self.__loader)
-        self.__serviceHub.setNetworkInformation(self.__firstStartConfig.network.remote.address, int(self.__firstStartConfig.network.remote.port), self.__firstStartConfig.network.remote.encryptionKey.encode())
+        self.__serviceHub.setNetworkInformation(self.__settings.value("server/address"), int(self.__settings.value("server/port")), self.__settings.value("server/encryptionKey"))
         self.__serviceHub.connectToServer()
 
     @pyqtSlot()

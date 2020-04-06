@@ -222,29 +222,30 @@ class SshClient(QObject):
         print("Handling current task!")
 
     def cleanRemoteWorkspace(self):
-        if self._isConnected:
-            self.__cleanRemoteWorkspace()
-        else:
-            raise Exception("SSH client is not connected. call 'connect' first.")
+        pass
+    #     if self._isConnected:
+    #         self.__cleanRemoteWorkspace()
+    #     else:
+    #         raise Exception("SSH client is not connected. call 'connect' first.")
 
-    def __cleanRemoteWorkspace(self):
-        try:
-            self._sftp.chdir("cryptstorepi_workspace/client/")
-            self._client.exec_command("rm -rf cryptstorepi_workspace/client/*")
-        except FileNotFoundError:
-            self._logger.info(f"Workspace not found, creating workspace {self._sftp.normalize(".")}/cryptstorepi_workspace/client/")
-            self.__createRemoteWorkspaceDirs()
+    # def __cleanRemoteWorkspace(self):
+    #     try:
+    #         self._sftp.chdir("cryptstorepi_workspace/client/")
+    #         self._client.exec_command("rm -rf cryptstorepi_workspace/client/*")
+    #     except FileNotFoundError:
+    #         self._logger.info(f"Workspace not found, creating workspace {self._sftp.normalize(".")}/cryptstorepi_workspace/client/")
+    #         self.__createRemoteWorkspaceDirs()
 
-    def __createRemoteWorkspaceDirs(self):
-        try:
-            self._sftp.chdir("cryptstorepi_workspace")
-        except FileNotFoundError:
-            self._sftp.mkdir("cryptstorepi_workspace")
-            self._sftp.chdir("cryptstorepi_workspace")
+    # def __createRemoteWorkspaceDirs(self):
+    #     try:
+    #         self._sftp.chdir("cryptstorepi_workspace")
+    #     except FileNotFoundError:
+    #         self._sftp.mkdir("cryptstorepi_workspace")
+    #         self._sftp.chdir("cryptstorepi_workspace")
 
-        try:
-            self._sftp.chdir("client")
-            self._client.exec_command("rm -rf ./cryptstorepi_workspace/client/*")
-        except FileNotFoundError:
-            self._sftp.mkdir("client")
-            self._sftp.chdir("client")
+    #     try:
+    #         self._sftp.chdir("client")
+    #         self._client.exec_command("rm -rf ./cryptstorepi_workspace/client/*")
+    #     except FileNotFoundError:
+    #         self._sftp.mkdir("client")
+    #         self._sftp.chdir("client")

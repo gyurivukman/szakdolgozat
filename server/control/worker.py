@@ -4,7 +4,6 @@ import time
 from threading import Thread
 from queue import Empty
 
-from .message import MessageDispatcher, MessageTypes
 from .message import *
 from .abstract import Singleton
 from .database import DatabaseAccess
@@ -71,7 +70,8 @@ class InstantWorker(Worker):
         return {
             MessageTypes.GET_ACCOUNT_LIST: GetAccountsListHandler(self._databaseAccess),
             MessageTypes.SET_ACCOUNT_LIST: SetAccountListHandler(self._databaseAccess),
-            MessageTypes.SYNC_FILES: GetFileListHandler(self._databaseAccess)
+            MessageTypes.SYNC_FILES: GetFileListHandler(self._databaseAccess),
+            MessageTypes.GET_WORKSPACE: GetWorkspaceHandler(self._databaseAccess)
         }
 
     def _work(self):

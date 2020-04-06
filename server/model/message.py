@@ -3,9 +3,10 @@ from enum import IntEnum
 
 class MessageTypes(IntEnum):
     RESPONSE = 0
-    GET_ACCOUNT_LIST = 1
-    SET_ACCOUNT_LIST = 2
-    SYNC_FILES = 3
+    GET_WORKSPACE = 1
+    GET_ACCOUNT_LIST = 2
+    SET_ACCOUNT_LIST = 3
+    SYNC_FILES = 4
 
 
 class NetworkMessageHeader():

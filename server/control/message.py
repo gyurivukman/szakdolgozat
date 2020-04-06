@@ -6,6 +6,7 @@ from queue import Queue
 from .abstract import Singleton
 
 from control.account import SFTPCloudAccount
+import control.cli
 
 from model.message import NetworkMessage, NetworkMessageHeader, MessageTypes
 from model.file import FileData
@@ -17,6 +18,8 @@ moduleLogger = logging.getLogger(__name__)
 
 class MessageDispatcher(metaclass=Singleton):
 
+    __INSTANT_TASK_TYPES = [MessageTypes.GET_ACCOUNT_LIST, MessageTypes.SET_ACCOUNT_LIST, MessageTypes.SYNC_FILES, MessageTypes.GET_WORKSPACE]
+
     def __init__(self):
         self.incoming_instant_task_queue = Queue()
         self.incoming_task_queue = Queue()
@@ -25,8 +28,9 @@ class MessageDispatcher(metaclass=Singleton):
         self._logger = moduleLogger.getChild("MessageDispatcher")
 
     def dispatchIncomingMessage(self, message):
-        if message.header.messageType in [MessageTypes.GET_ACCOUNT_LIST, MessageTypes.SET_ACCOUNT_LIST, MessageTypes.SYNC_FILES]:
+        if message.header.messageType in self.__INSTANT_TASK_TYPES:
             self.incoming_instant_task_queue.put(message)
+        # TODO elif message.header.messageType in self.__SLOW_TASK_TYPES:
         else:
             self._logger.warning(f"Unknown message: {message}")
 
@@ -55,10 +59,9 @@ class GetAccountsListHandler(AbstractTaskHandler):
         return moduleLogger.getChild("GetAccountListHandler")
 
     def handle(self):
-        rawHeader = {"messageType": MessageTypes.RESPONSE, "uuid": self._task.uuid}
-        rawData = {"accounts": [acc.serialize() for acc in self._databaseAccess.getAllAccounts()]}
+        data = {"accounts": [acc.serialize() for acc in self._databaseAccess.getAllAccounts()]}
 
-        response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(rawData).build()
+        response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(data).build()
         self._messageDispatcher.dispatchResponse(response)
         self._task = None
 
@@ -144,3 +147,16 @@ class GetFileListHandler(AbstractTaskHandler):
     def __sendResponse(self, fullFiles):
         response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(fullFiles).build()
         self._messageDispatcher.dispatchResponse(response)
+
+
+class GetWorkspaceHandler(AbstractTaskHandler):
+
+    def _getLogger(self):
+        return moduleLogger.getChild("GetWorkspaceHandler")
+
+    def handle(self):
+        data = {"workspace": control.cli.CONSOLE_ARGUMENTS.workspace}
+
+        response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(data).build()
+        self._messageDispatcher.dispatchResponse(response)
+        self._task = None

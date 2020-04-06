@@ -91,6 +91,7 @@ def confirmPurge():
         print("Unknown choice! Please use either 'Y' or 'N' as your answer.")
         sys.exit(0)
 
+
 if __name__ == '__main__':
     arguments = parser.parse_args()
     if arguments.purge:
