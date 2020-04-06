@@ -86,6 +86,10 @@ class SetAccountListHandler(AbstractTaskHandler):
         self._databaseAccess.commit()
         self._logger.debug("Accounts updated")
 
+        raw = {"header": {"messageType": MessageTypes.RESPONSE, "uuid": self._task.uuid}, "data": {}}  # TODO átírni builderre
+        message = NetworkMessage(raw)
+        self._messageDispatcher.dispatchResponse(message)
+
 
 class GetFileListHandler(AbstractTaskHandler):
     # TEMPORARY
@@ -114,8 +118,10 @@ class GetFileListHandler(AbstractTaskHandler):
             accountFileList = account.getFileList()
             for filePart in accountFileList:
                 filename = self.__getRealFilename(filePart.filename)
+                filePart.fullPath = f"{filePart.path}{filename}"
                 if filePart.fullPath not in fileList:
                     fileList[filePart.fullPath] = {"data": filePart, "availableCount": 1, "totalCount": self.__getFilePartCount(filePart.filename)}
+                    fileList[filePart.fullPath]["data"].filename = filename
                     fileList[filePart.fullPath]["data"].filename = filename
                 else:
                     fileList[filePart.fullPath]["data"].size += filePart.size

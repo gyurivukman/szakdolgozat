@@ -7,10 +7,7 @@ class FileData:
     modified: int
     size: int
     path: str
-    fullPath: str = field(init=False)
+    fullPath: str = None
 
     def serialize(self):
         return {"filename": self.filename, "modified": self.modified, "size": self.size, "path": self.path}
-
-    def __post_init__(self):
-        self.fullPath = f"{self.path}{self.filename}"

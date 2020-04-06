@@ -19,7 +19,7 @@ class SFTPCloudAccount():
         raw_files = self.__sftp.listdir_attr("remoteStorage")
 
         return [
-            FileData(raw.filename, raw.st_mtime, raw.st_size, raw.filename)
+            FileData(raw.filename, raw.st_mtime, raw.st_size, "")
             for raw in raw_files
             if re.match("[a-zA-Z_0-9\.]+\.enc$", raw.filename)
         ]

@@ -43,3 +43,4 @@ class MainPanel(QWidget):
 
     def __onFilelistRetrieved(self, rawFileList):
         self.__logger.debug(f"Retrieved file list: {rawFileList}")
+        self.ready.emit()
