@@ -174,6 +174,9 @@ class ServiceHub(QObject):
     def isSshServiceRunning(self):
         return self.__isSshServiceRunning
 
+    def cleanRemoteSSHWorkspace(self):
+        self.__sshService.cleanRemoteWorkspace()
+
     def __onNetworkMessageArrived(self, message):
         if message.header.uuid in self.__messageArchive:
             self.__logger.debug(f"Response: {message.header} {message.data}")

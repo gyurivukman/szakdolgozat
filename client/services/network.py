@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 class NetworkClient(QObject):
     messageArrived = pyqtSignal(NetworkMessage)
-    connectionStatusChanged = pyqtSignal(object)
+    connectionStatusChanged = pyqtSignal(ConnectionEvent)
 
     def __init__(self, outgoing_queue):
         super().__init__()
@@ -160,7 +160,8 @@ class NetworkClient(QObject):
 
 
 class SshClient(QObject):
-    connectionStatusChanged = pyqtSignal(object)
+    connectionStatusChanged = pyqtSignal(ConnectionEvent)
+    fileStatusChanged = pyqtSignal(object) # TODO
 
     def __init__(self, fileSyncer):
         super().__init__()
@@ -198,7 +199,8 @@ class SshClient(QObject):
         self._logger.debug("Connecting to SSH")
         self._client.connect(self._hostname, self._port, self._username, self._password)
         self._sftp = self._client.open_sftp()
-        self._logger.debug("SSH Ready")
+        self._logger.debug("SSH Connected")
+        self._isConnected = True
         self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.SSH_CONNECTED, None))
 
     def stop(self):
@@ -209,6 +211,7 @@ class SshClient(QObject):
         self._client.close()
         if self._sftp:
             self._sftp.close()
+        self._isConnected = False
 
     def setSSHInformation(self, hostname, username, password):
         self._hostname = hostname
@@ -217,3 +220,31 @@ class SshClient(QObject):
 
     def _handleCurrentTask(self):
         print("Handling current task!")
+
+    def cleanRemoteWorkspace(self):
+        if self._isConnected:
+            self.__cleanRemoteWorkspace()
+        else:
+            raise Exception("SSH client is not connected. call 'connect' first.")
+
+    def __cleanRemoteWorkspace(self):
+        try:
+            self._sftp.chdir("cryptstorepi_workspace/client/")
+            self._client.exec_command("rm -rf cryptstorepi_workspace/client/*")
+        except FileNotFoundError:
+            self._logger.info(f"Workspace not found, creating workspace {self._sftp.normalize(".")}/cryptstorepi_workspace/client/")
+            self.__createRemoteWorkspaceDirs()
+
+    def __createRemoteWorkspaceDirs(self):
+        try:
+            self._sftp.chdir("cryptstorepi_workspace")
+        except FileNotFoundError:
+            self._sftp.mkdir("cryptstorepi_workspace")
+            self._sftp.chdir("cryptstorepi_workspace")
+
+        try:
+            self._sftp.chdir("client")
+            self._client.exec_command("rm -rf ./cryptstorepi_workspace/client/*")
+        except FileNotFoundError:
+            self._sftp.mkdir("client")
+            self._sftp.chdir("client")

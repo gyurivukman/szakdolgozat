@@ -162,9 +162,10 @@ class MainWindow(QMainWindow):
     def __onSSHStatusChanged(self, event):
         if event.eventType == ConnectionEventTypes.SSH_CONNECTED:
             self.__loader.setStatusText("Cleaning remote workspace")
+            self.__serviceHub.cleanRemoteSSHWorkspace()
             self.__serviceHub.startFileSyncerService()
-            # self.setCentralWidget(self.__mainPanel)
-            # self.repaint()
+            self.setCentralWidget(self.__mainPanel)
+            self.repaint()
 
     @pyqtSlot()
     def __onErrorPanelRetryClicked(self):
