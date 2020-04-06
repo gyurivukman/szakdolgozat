@@ -21,13 +21,13 @@ from model.message import NetworkMessage, MessageTypes
 
 class Server(object):
 
-    def __init__(self):
-        #TODO refactor ezt itt.
+    def __init__(self, port, key):
         self._CHUNK_SIZE = 2048
         self._shouldRun = True
 
+        self._port = port
+        self._key = key.encode()
         self._server = self._createServerSocket()
-        self._key = b"sixteen byte key"
 
         self._inputs = [self._server]
         self._outputs = []
@@ -67,7 +67,7 @@ class Server(object):
     def _createServerSocket(self):
         serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         serverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        serverSocket.bind(("localhost", 11000))
+        serverSocket.bind(("localhost", self._port))
         serverSocket.listen(1)
 
         return serverSocket

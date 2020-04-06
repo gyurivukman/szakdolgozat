@@ -65,7 +65,6 @@ class MainWindow(QMainWindow):
     def __firstStartStartupSequence(self, config):
         self.__mainPanel.finished.disconnect(self.__onFirstStartFinished)
         self.__firstStartAccounts = config.accounts
-        # self.__serviceHub.initSshService() LEHET HOGY NEM JÓ ÍGY
         self.__loader.setStatusText("Saving settings")
         self.__setupForRegularView()
         self.setCentralWidget(self.__loader)
@@ -143,8 +142,8 @@ class MainWindow(QMainWindow):
     def __isFirstStart(self):
         isFirstStart = self.__settings.value("firstStart/isFirstStart")
 
-        # return True if isFirstStart is None or isFirstStart == "true" else False
-        return True
+        return True if isFirstStart is None or isFirstStart == "true" else False
+        # return True
 
     @pyqtSlot(ConnectionEvent)
     def __onNetworkStatusChanged(self, event):
@@ -218,5 +217,6 @@ class MainWindow(QMainWindow):
         self.__loader.setStatusText("Starting SSH service")
         self.__serviceHub.setSSHInformation(self.__settings.value("server/address"), self.__settings.value("ssh/username"), self.__settings.value("ssh/password"))
         self.__serviceHub.sshStatusChannel.connect(self.__onSSHStatusChanged)
+        self.__serviceHub.startFileSyncerService()
         self.__serviceHub.startSshService()
         self.__serviceHub.connectToSSH()
