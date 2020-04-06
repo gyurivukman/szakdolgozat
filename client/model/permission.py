@@ -69,3 +69,5 @@ class WorkspacePermissionValidator():
 
         if not validWorkspace:
             raise InvalidWorkspacePermissionException(f"User '{self.__username}' has no read and write permissions for remote workspace '{self.__path}'. Please provide read and write permissions.'")
+
+    #TODO: Klienst és servert is a server hozza létre ha nem létezne. Server csak a sajátját takarítja.
