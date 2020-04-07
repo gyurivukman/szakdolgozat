@@ -31,7 +31,7 @@ class WorkerPool(metaclass=Singleton):
 
 class Worker():
 
-    def __init__(self):
+    def __init__(self, ):
         self._shouldRun = True
         self._logger = self._getLogger()
         self._messageDispatcher = MessageDispatcher()
@@ -48,7 +48,7 @@ class Worker():
                     self._currentTask = self._getNewTask()
                 self._work()
             except Empty:
-                time.sleep(1.0)
+                time.sleep(1.0) # TODO Busy waiting is bad mkay?
         self._databaseAccess.close()
 
     def _getLogger(self):

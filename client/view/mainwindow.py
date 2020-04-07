@@ -41,7 +41,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('CryptStorePi')
         self.setWindowIcon(QIcon(':logo.png'))
         if self.__isFirstStart():
-            self.__logger.debug("Setting up for é start.")
+            self.__logger.debug("Setting up for first start.")
             self.__setupForFirstStart()
             self.show()
         else:

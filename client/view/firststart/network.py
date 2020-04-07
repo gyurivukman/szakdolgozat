@@ -1,4 +1,6 @@
 from os.path import expanduser
+from os import access, R_OK, W_OK
+
 from socket import gaierror
 from paramiko.ssh_exception import NoValidConnectionsError, AuthenticationException
 
@@ -22,11 +24,14 @@ from view.firststart.abstract import FirstStartWizardMiddleWidget
 class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
     def __init__(self, *args, **kwargs):
+        self.__isDirOK = False
         self.__chosenDirectoryPath = None
+        self.__chosenDirectoryTestErrorLabel = None
 
         self.__testSuccessIcon = self.__createIcon(":check.png")
         self.__testFailedIcon = self.__createIcon(":warning.png")
 
+        self.__chosenDirectoryTestResultIcon = QLabel()
         self.__hostConnectionTestResultIcon = QLabel()
         self.__SSHConnectionTestResultIcon = QLabel()
 
@@ -39,7 +44,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         return QPixmap(resourcePath).scaled(24, 24, Qt.IgnoreAspectRatio)
 
     def canProceed(self):
-        return self.__isConnectionOK and self.__isSshOK and self.__chosenDirectoryPath is not None
+        return self.__isConnectionOK and self.__isSshOK and self.__isDirOK
 
     def canGoBack(self):
         return True
@@ -245,7 +250,10 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         return sshLayout
 
     def __createSyncDirectoryLayout(self):
+        containerLayout = QVBoxLayout()
+
         directoryLayout = QHBoxLayout()
+        permissionTestResultLayout = QHBoxLayout()
         directoryFormLayout = QVBoxLayout()
         chooseButtonLayout = QVBoxLayout()
 
@@ -258,7 +266,7 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
         self.__syncDirInput = QLineEdit()
         self.__syncDirInput.setObjectName("syncDirectory")
-        self.__syncDirInput.setFont(QFont("Nimbus Sans L", 12))
+        self.__syncDirInput.setFont(QFont(self.__formInputFont))
         self.__syncDirInput.setEnabled(False)
 
         chooseSyncDirButton = QPushButton("Choose")
@@ -278,7 +286,20 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
         directoryLayout.addWidget(syncDirDescription)
         directoryLayout.setContentsMargins(0, 25, 0, 0)
 
-        return directoryLayout
+        self.__chosenDirectoryTestErrorLabel = QLabel()
+        self.__chosenDirectoryTestErrorLabel.setFont(self.__formInputFont)
+
+        permissionTestResultLayout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        permissionTestResultLayout.setContentsMargins(0, 5, 0, 0)
+        permissionTestResultLayout.addWidget(self.__chosenDirectoryTestResultIcon)
+        permissionTestResultLayout.addSpacing(5)
+        permissionTestResultLayout.addWidget(self.__chosenDirectoryTestErrorLabel)
+
+        containerLayout.addLayout(directoryLayout)
+        containerLayout.addLayout(permissionTestResultLayout)
+        containerLayout.addStretch(1)
+
+        return containerLayout
 
     def __checkboxStateChanged(self, state):
         echoMode = QLineEdit.Normal if state == Qt.Checked else QLineEdit.Password
@@ -373,7 +394,15 @@ class SetupNetworkWidget(FirstStartWizardMiddleWidget):
 
     def __openDirectoryBrowser(self):
         self.__chosenDirectoryPath = str(QFileDialog.getExistingDirectory(self, "Select the synchronization directory", expanduser("~"), QFileDialog.ShowDirsOnly))
+        self.__isDirOK = access(self.__chosenDirectoryPath, R_OK) and access(self.__chosenDirectoryPath, W_OK)
         self.__syncDirInput.setText(self.__chosenDirectoryPath)
+        if self.__isDirOK:
+            self.__chosenDirectoryTestResultIcon.setPixmap(self.__testSuccessIcon)
+            self.__chosenDirectoryTestErrorLabel.setText("Permission OK!")
+        else:
+            self.__chosenDirectoryTestResultIcon.setPixmap(self.__testFailedIcon)
+            self.__chosenDirectoryTestErrorLabel.setText("Insufficient permissions! Please choose a directory where Cryptstorepi has read and write permissions!")
+        self.repaint()
         self.formValidityChanged.emit()
 
     def __onNetworkEvent(self, event):

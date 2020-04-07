@@ -20,12 +20,10 @@ class FileSynchronizer(QObject):
         super().__init__()
         self._eventQueue = Queue()
         self._detector = FileSystemEventDetector(self._eventQueue, syncDir)
-        # self._detectorThread = Thread(target=self._detector.run)
         self._logger = logger.getChild("FileSynchronizer")
         self._shouldRun = True
 
     def run(self):
-        # self._detectorThread.start()
         self._detector.start()
         self._logger.debug("Started detector object.")
         while self._shouldRun:
@@ -41,8 +39,6 @@ class FileSynchronizer(QObject):
         self._shouldRun = False
         self._logger.debug("Stopping")
         self._detector.stop()
-        # if self._detectorThread.is_alive():
-        #     self._detectorThread.join()
 
     def _processEvent(self, event):
         self.fileEvent.emit(event)
@@ -75,7 +71,8 @@ class FileSystemEventDetector(QObject):
 
     def stop(self):
         self._logger.debug("Stopping observer")
-        self._observer.stop()
-        self._logger.debug("Stopped observer")
-        self._observer.join()
+        if self._observer.is_alive():
+            self._observer.stop()
+            self._observer.join()
+            self._logger.debug("Stopped observer")
         self._logger.debug("Stopped detector.")
