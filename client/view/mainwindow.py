@@ -168,6 +168,7 @@ class MainWindow(QMainWindow):
     def __onWorkspaceRetrieved(self, response):
         try:
             self.__serviceHub.cleanRemoteSSHWorkspace(response['workspace'])
+            self.__serviceHub.initFileSyncService()
             self.__serviceHub.startFileSyncerService()
             self.setCentralWidget(self.__mainPanel)
             self.repaint()
@@ -178,7 +179,6 @@ class MainWindow(QMainWindow):
             errorDialog.setText(str(e))
             errorDialog.buttonClicked.connect(self.__exitApplication)
             errorDialog.show()
-
 
     @pyqtSlot()
     def __onErrorPanelRetryClicked(self):

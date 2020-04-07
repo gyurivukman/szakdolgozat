@@ -232,21 +232,16 @@ class SshClient(QObject):
         settings = QSettings()
         username = settings.value("ssh/username")
 
-        try:
-            stdin, stdout, stderr = self._client.exec_command(f"ls -ld {path}")
-            permissionResult = [line for line in stdout][0]
+        stdin, stdout, stderr = self._client.exec_command(f"ls -ld {path}")
+        permissionResult = [line for line in stdout][0]
 
-            stdin, stdout, stderr = self._client.exec_command(f"groups {username}")
-            membershipResult = [line for line in stdout][0]
+        stdin, stdout, stderr = self._client.exec_command(f"groups {username}")
+        membershipResult = [line for line in stdout][0]
 
-            permissionValidator = WorkspacePermissionValidator(username, path, permissionResult, membershipResult)
-            permissionValidator.validate()
+        permissionValidator = WorkspacePermissionValidator(username, path, permissionResult, membershipResult)
+        permissionValidator.validate()
 
-            clientWorkspacePath = f"{path}/client/"
+        clientWorkspacePath = f"{path}/client/"
 
-            self._sftp.chdir(clientWorkspacePath)
-            self._client.exec_command(f"rm -rf {clientWorkspacePath}/*")
-        except FileNotFoundError:
-            self._logger.info(f"Workspace not found, creating client workspace {clientWorkspacePath}")
-            self._sftp.mkdir(clientWorkspacePath)
-            self._sftp.chdir(clientWorkspacePath)
+        self._sftp.chdir(clientWorkspacePath)
+        self._client.exec_command(f"rm -rf {clientWorkspacePath}/*")

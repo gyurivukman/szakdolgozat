@@ -9,7 +9,7 @@ from .network import NetworkClient, SshClient
 from .files import FileSynchronizer
 
 
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, QSettings, pyqtSignal
 
 
 class ServiceHub(QObject):
@@ -65,7 +65,8 @@ class ServiceHub(QObject):
         self.__networkThread = Thread(target=self.__networkService.run)
 
     def initFileSyncService(self):
-        self.__fileSyncService = FileSynchronizer()
+        settings = QSettings()
+        self.__fileSyncService = FileSynchronizer(settings.value("syncDir/path"))
         self.__fileSyncService.fileEvent.connect(self.__onFileEvent)
         self.__fileSyncThread = Thread(target=self.__fileSyncService.run)
 

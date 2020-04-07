@@ -56,10 +56,21 @@ class CreateWorkspaceAction(Action):
 
     def __call__(self, parser, namespace, value, option_string=None):
         setattr(namespace, self.dest, value)
+        path = value.rstrip("/", 1) if value[-1] == "/" else value
+        self.__createServerWorkspace(path)
+        self.__createClientWorkspace(path)
+
+    def __createServerWorkspace(self, workspacePath):
+
         try:
-            path = value.rstrip("/", 1) if value[-1] == "/" else value
-            mkdir(f"{path}/server")
+            mkdir(f"{workspacePath}/server")
         except FileExistsError:
-            target = f"{path}/server"
+            target = f"{workspacePath}/server"
             rmtree(target)
             mkdir(target)
+
+    def __createClientWorkspace(self, workspacePath):
+        try:
+            mkdir(f"{workspacePath}/client")
+        except FileExistsError:
+            pass

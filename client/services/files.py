@@ -16,16 +16,18 @@ logger = logging.getLogger(__name__)
 class FileSynchronizer(QObject):
     fileEvent = pyqtSignal(object)
 
-    def __init__(self):
+    def __init__(self, syncDir):
         super().__init__()
         self._eventQueue = Queue()
-        self._detector = FileSystemEventDetector(self._eventQueue)
-        self._detectorThread = Thread(target=self._detector.run)
+        self._detector = FileSystemEventDetector(self._eventQueue, syncDir)
+        # self._detectorThread = Thread(target=self._detector.run)
         self._logger = logger.getChild("FileSynchronizer")
         self._shouldRun = True
 
     def run(self):
-        self._detectorThread.start()
+        # self._detectorThread.start()
+        self._detector.start()
+        self._logger.debug("Started detector object.")
         while self._shouldRun:
             try:
                 event = self._eventQueue.get_nowait()
@@ -39,8 +41,8 @@ class FileSynchronizer(QObject):
         self._shouldRun = False
         self._logger.debug("Stopping")
         self._detector.stop()
-        if self._detectorThread.is_alive():
-            self._detectorThread.join()
+        # if self._detectorThread.is_alive():
+        #     self._detectorThread.join()
 
     def _processEvent(self, event):
         self.fileEvent.emit(event)
@@ -53,32 +55,27 @@ class MyEventHandler(FileSystemEventHandler):
         self._event_queue = event_queue
 
     def on_any_event(self, event):
-        self._event_queue.put({"source": "FileDetector", "event": event})
+        print(event)
+        # self._event_queue.put({"source": "FileDetector", "event": event})
 
 
 class FileSystemEventDetector(QObject):
 
-    def __init__(self, event_queue):
+    def __init__(self, eventQueue, syncDir):
         super().__init__()
-        self._path = "/home/gyuri/Asztal/sync_dir"
-        self._event_handler = MyEventHandler(event_queue)
+        self._path = syncDir
+        self._eventHandler = MyEventHandler(eventQueue)
         self._observer = Observer()
         self._logger = logger.getChild("FileSystemEventDetector")
-        self._shouldRun = True
 
-    def run(self):
+    def start(self):
         self._logger.debug("Starting file detector")
-        self._observer.schedule(self._event_handler, self._path, recursive=True)
+        self._observer.schedule(self._eventHandler, self._path, recursive=True)
         self._observer.start()
 
-        while self._shouldRun:
-            time.sleep(1)
+    def stop(self):
         self._logger.debug("Stopping observer")
         self._observer.stop()
         self._logger.debug("Stopped observer")
         self._observer.join()
         self._logger.debug("Stopped detector.")
-
-    def stop(self):
-        self._logger.debug("Stopping")
-        self._shouldRun = False
