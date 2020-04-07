@@ -1,5 +1,7 @@
 from enum import IntEnum
 
+# TODO DELETE nem kell ez a fos.
+
 
 class IconSizes(IntEnum):
     SMALL = 50

@@ -1,13 +1,16 @@
 import time
 import logging
 
+
+from os import scandir
 from threading import Thread
 from queue import Empty, Queue
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-
 from PyQt5.QtCore import QObject, pyqtSignal
+
+from model.file import FileData
 
 
 logger = logging.getLogger(__name__)
@@ -18,19 +21,29 @@ class FileSynchronizer(QObject):
 
     def __init__(self, syncDir):
         super().__init__()
-        self._eventQueue = Queue()
-        self._detector = FileSystemEventDetector(self._eventQueue, syncDir)
+        self.__syncDir = syncDir
+        self.__fileStore = None
+        self.__mutedFiles = []
+        self.__eventQueue = Queue()
+
+        self._detector = FileSystemEventDetector(self.__eventQueue, syncDir)
         self._logger = logger.getChild("FileSynchronizer")
         self._shouldRun = True
+
+    def scanLocalFiles(self):
+        return {data.fullPath: data for data in self.__scantree()}
+
+    def setSyncDir(self, syncDir):
+        self.__syncDir = syncDir
 
     def run(self):
         self._detector.start()
         self._logger.debug("Started detector object.")
         while self._shouldRun:
             try:
-                event = self._eventQueue.get_nowait()
+                event = self.__eventQueue.get_nowait()
                 self._processEvent(event)
-                self._eventQueue.task_done()
+                self.__eventQueue.task_done()
             except Empty as _:
                 time.sleep(0.5)
         self._logger.debug("Stopped")
@@ -39,6 +52,20 @@ class FileSynchronizer(QObject):
         self._shouldRun = False
         self._logger.debug("Stopping")
         self._detector.stop()
+
+    def __scantree(self):
+        for entry in scandir(self.__syncDir):
+            if entry.is_dir(follow_symlinks=False):
+                yield from scantree(entry.path)
+            else:
+                fullPath = entry.path
+                splitted = fullPath.split("/")
+
+                path = "/".join(splitted[:-1])
+                filename = splitted[-1]
+                stats = entry.stat()
+
+                yield FileData(filename=filename, modified=stats.st_mtime, size=stats.st_size, path=path, fullPath=fullPath)
 
     def _processEvent(self, event):
         self.fileEvent.emit(event)
