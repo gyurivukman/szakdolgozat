@@ -16,13 +16,21 @@ class SFTPCloudAccount():
         self.__sftp = self.__client.open_sftp()
 
     def getFileList(self):
-        raw_files = self.__sftp.listdir_attr("remoteStorage")
+        stdin, stdout, stderr = self.__client.exec_command("find . -type f -name \\*.enc -printf '%T@ %s %P %p\n'")
 
-        return [
-            FileData(raw.filename, raw.st_mtime, raw.st_size, "")
-            for raw in raw_files
-            if re.match("[a-zA-Z_0-9\.]+\.enc$", raw.filename)
-        ]
+        fileList = []
+
+        for line in stdout:
+            splitted = line.split(" ")
+            modified = int(float(splitted[0]))
+            size = int(splitted[1])
+            filename = splitted[2]
+            fullPath = splitted[3][1:-1]
+            path = fullPath.replace(f"/{filename}", "")
+
+            fileList.append(FileData(filename, modified, size, path, fullPath))
+
+        return fileList
 
     def __del__(self):
         self.__sftp.close()
