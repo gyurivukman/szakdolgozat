@@ -96,7 +96,8 @@ class MainWindow(QMainWindow):
         self.__loader.setStatusText("Accounts saved!")
         del self.__firstStartAccounts
 
-        self.__loader.setStatusText("Synchronizing file list,\nplease wait!")
+        self.__serviceHub.initFileSyncService()
+
         self.__mainPanel = MainPanel()
         self.__mainPanel.ready.connect(self.__onMainPanelReady)
         self.__mainPanel.syncFileList()
@@ -170,7 +171,6 @@ class MainWindow(QMainWindow):
     def __onWorkspaceRetrieved(self, response):
         try:
             self.__serviceHub.cleanRemoteSSHWorkspace(response['workspace'])
-            self.__serviceHub.initFileSyncService()
             self.__serviceHub.startFileSyncerService()
             self.setCentralWidget(self.__mainPanel)
             self.repaint()
@@ -222,15 +222,6 @@ class MainWindow(QMainWindow):
         message = NetworkMessage.Builder(MessageTypes.SET_ACCOUNT_LIST).withRandomUUID().withData(data).build()
 
         self.__serviceHub.sendNetworkMessage(message, self.__onFirstStartAccountsSaved)
-
-    @pyqtSlot(ConnectionEvent)
-    def __onFirstStartSSHConnectionChanged(self, event):
-        if event.eventType == ConnectionEventTypes.SSH_CONNECTED:
-            self.__loader.setStatusText("Synchronizing file list,\nplease wait!")
-            self.__serviceHub.sshStatusChannel.disconnect(self.__onFirstStartSSHConnectionChanged)
-            self.__mainPanel = MainPanel()
-            self.__mainPanel.ready.connect(self.__onMainPanelReady)
-            self.__mainPanel.syncFileList()
 
     @pyqtSlot()
     def __onMainPanelReady(self):
