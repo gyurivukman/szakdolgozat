@@ -136,7 +136,7 @@ class NetworkClient(QObject):
                 encrypted = self._encoder.encrypt(serialized)
                 if self._shouldRun:
                     s.sendall(encrypted)
-                    self._logger.debug(f"Message sent. ({msg_obj.header.messageType})")
+                    self._logger.debug(f"Message sent. ({msg_obj.header.messageType.name})")
                 self._outgoing_queue.task_done()
             except Empty:
                 time.sleep(0.5)

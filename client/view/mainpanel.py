@@ -8,7 +8,7 @@ from PyQt5.QtGui import QPixmap
 
 from services.hub import ServiceHub
 from model.message import MessageTypes, NetworkMessage
-from model.file import FileData, FileStatuses
+from model.file import FileData, FileStatuses, FileTask, FileTaskTypes
 
 from . import resources
 
@@ -50,11 +50,11 @@ class MainPanel(QWidget):
         super().__init__(*args, **kwargs)
         self.setAttribute(Qt.WA_StyledBackground)
         self.__serviceHub = ServiceHub.getInstance()
+        self.__serviceHub.filesChannel.connect(self.__onFileStatusEvent)
+
         self.__fileTrackerIconAtlas = FileTrackerIconAtlas()
         self.__logger = moduleLogger.getChild("MainPanel")
         self.__filesLayout = self.__createFilesLayout()
-        self.__filesLayout.setSizeConstraint(QLayout.SetMinimumSize)
-        self.__filesLayout.setContentsMargins(5, 5, 5, 5)
 
         scrollableContainerWidget = self.__createScrollableContainerWidget(self.__filesLayout)
         scroll = self.__createScrollArea()
@@ -66,6 +66,7 @@ class MainPanel(QWidget):
         self.setStyleSheet(
             """
                 QScrollArea, QWidget#scrollContainer{background-color:white;margin:0px;}
+                QScrollArea {border:1px solid #E36410;}
 
                 QScrollBar:vertical {
                     background-color: white;
@@ -155,6 +156,9 @@ class MainPanel(QWidget):
 
     def __createFilesLayout(self):
         layout = QVBoxLayout()
+        layout.setSizeConstraint(QLayout.SetMinimumSize)
+        layout.setContentsMargins(10, 5, 0, 5)
+        layout.setAlignment(Qt.AlignHCenter)
         layout.addStretch(1)
 
         return layout
@@ -167,23 +171,35 @@ class MainPanel(QWidget):
 
     def __onFilelistRetrieved(self, rawFileList):
         serializedFileList = [FileData(**raw) for raw in rawFileList]
-        self.__logger.debug(f"Remote files: {serializedFileList}")
-        self.__serviceHub.syncRemoteAndLocalFiles(serializedFileList)
+        self.__serviceHub.syncRemoteAndLocalFiles(serializedFileList) # TODO Confirmed hogy itt még nem fut a filesyncer ám! gg.
+
         self.ready.emit()
+
+    @pyqtSlot(FileTask)
+    def __onFileStatusEvent(self, task):
+        if task.taskType == FileTaskTypes.CREATED:
+            fileTrackerWidget = FileTrackerWidget(fileData=task.subject, iconAtlas=self.__fileTrackerIconAtlas)
+            self.__fileWidgets[task.subject.fullPath] = fileTrackerWidget
+            self.__filesLayout.insertWidget(self.__filesLayout.count() - 1, fileTrackerWidget)
+        else:
+            print(f"\n{task}\n")
 
 
 class FileTrackerWidget(QWidget):
 
+    __statusDisplayValues = ["Downloading from cloud", "Uploading to cloud", "Encrypting", "Decrypting", "Downloading from remote", "Uploading to remote", "Synchronized"]
+
     def __init__(self, *args, **kwargs):
         self.__fileTrackerIconAtlas = kwargs.pop("iconAtlas")
+        fileData = kwargs.pop("fileData")
         super().__init__(*args, **kwargs)
-        self.__fileLabel = QLabel("Lorem Ipsum si doloret")
-        self.__statusLabel = QLabel("FILE_STATUS_PLACEHOLDER")
+        self.__fileLabel = QLabel(fileData.fullPath)
+        self.__statusLabel = QLabel(self.__displayValueOfStatus(fileData.status))
         self.__statusIcon = QLabel()
-        self.__statusIcon.setPixmap(self.__fileTrackerIconAtlas.cloudUploadIcon)
+        self.__statusIcon.setPixmap(self.__fileTrackerIconAtlas.fromFileState(fileData.status))
 
         self.setLayout(self.__createLayout())
-        self.setStyleSheet("QWidget#fileTrackerContainerWidget{border:2px solid #777777;}")
+        self.setStyleSheet("QWidget#fileTrackerContainerWidget{border:2px solid #E36410;}")
 
     def __createLayout(self):
         layout = QHBoxLayout()
@@ -214,3 +230,13 @@ class FileTrackerWidget(QWidget):
         layout.addWidget(containerWidget)
 
         return layout
+
+    def setFullPath(self, fullPath):
+        self.__fileLabel.setText(fullPath)
+
+    def setStatus(self, status):
+        self.__statusLabel.setText(FileStatuses.displayValueOf(fileData.status))
+        self.__statusIcon.setPixmap(self.__fileTrackerIconAtlas.fromFileState(status))
+
+    def __displayValueOfStatus(self, status):
+        return self.__statusDisplayValues[status]

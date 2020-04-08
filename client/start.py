@@ -6,6 +6,7 @@ import argparse
 from os import unlink
 from os.path import expanduser
 
+import paramiko
 
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from PyQt5.QtCore import QCoreApplication
@@ -22,6 +23,7 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
 rootLogger = logging.getLogger()
+logging.getLogger("paramiko").setLevel(logging.WARNING)
 
 argumentToLogLevelMap = {
     "debug": logging.DEBUG,
