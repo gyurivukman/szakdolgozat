@@ -95,8 +95,8 @@ class SetAccountListHandler(AbstractTaskHandler):
 class GetFileListHandler(AbstractTaskHandler):
     # TEMPORARY
     __accounts = [
-        {"username": "cloudAccount1", "password": "ferius123"},
-        {"username": "cloudAccount2", "password": "ferius123"}
+        {"id": 1, "username": "cloudAccount1", "password": "ferius123"},
+        {"id": 2, "username": "cloudAccount2", "password": "ferius123"}
     ]
 
     def __init__(self, *args):
@@ -118,17 +118,19 @@ class GetFileListHandler(AbstractTaskHandler):
         for account in self.__cloudAccounts:
             accountFileList = account.getFileList()
             for filePart in accountFileList:
-                filename = self.__getRealFilename(filePart.filename)
-                filePart.fullPath = f"{filePart.path}{filename}"
+                realFilename = self.__getRealFilename(filePart.filename)
+                filePart.fullPath = f"{filePart.path}/{realFilename}" if len(filePart.path) > 0 else realFilename
                 if filePart.fullPath not in fileList:
-                    fileList[filePart.fullPath] = {"data": filePart, "availableCount": 1, "totalCount": self.__getFilePartCount(filePart.filename)}
-                    fileList[filePart.fullPath]["data"].filename = filename
-                    fileList[filePart.fullPath]["data"].filename = filename
+                    fileList[filePart.fullPath] = {"data": filePart, "availableCount": 1, "totalCount": self.__getFilePartCount(filePart.filename), "storingAccountIDs": [account.id]} # TODO Kiemelni cache osztályba!
+                    fileList[filePart.fullPath]["data"].filename = realFilename
                 else:
                     fileList[filePart.fullPath]["data"].size += filePart.size
                     fileList[filePart.fullPath]["availableCount"] += 1
+                    fileList[filePart.fullPath]["storingAccountIDs"].append(account.id)
         fullFiles = [remoteFile["data"].serialize() for key, remoteFile in fileList.items() if remoteFile["availableCount"] == remoteFile["totalCount"]]
-        self._logger.debug(f"Found the following full files: {fullFiles}")
+        partsMissing = [f"{remoteFile['data'].fullPath} (missing part count: {remoteFile['totalCount'] - remoteFile['availableCount']})" for key, remoteFile in fileList.items() if remoteFile['totalCount'] > remoteFile['availableCount']]
+        self._logger.debug(f"Found the following full files:{[{'file:': remoteFile['data'].serialize(), 'storingAccountIDs':remoteFile['storingAccountIDs']} for key, remoteFile in fileList.items() if remoteFile['availableCount'] == remoteFile['totalCount']] }")
+        self._logger.warning(f"The following files have missing parts: {partsMissing}")
 
         self.__sendResponse(fullFiles)
         self._task = None

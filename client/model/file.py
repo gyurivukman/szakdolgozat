@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 
 class FileStatuses(IntEnum):
@@ -15,11 +15,25 @@ class FileStatuses(IntEnum):
 @dataclass
 class FileData:
     filename: str
-    status: FileStatuses
     modified: int
     size: int
     path: str
     fullPath: str = None
+    status: FileStatuses = None
 
     def serialize(self):
         return {"filename": self.filename, "modified": self.modified, "size": self.size, "path": self.path}
+
+
+class FileTaskTypes(Enum):
+    MODIFIED = "modified"
+    CREATED = "created"
+    DELETED = "deleted"
+    MOVED = "moved"
+
+
+@dataclass
+class FileTask:
+    taskType: FileTaskTypes
+    subject: FileData
+    destinationPath: str = None

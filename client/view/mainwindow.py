@@ -16,6 +16,7 @@ from view.infopanels import ConnectionErrorPanel
 from view.loaders import LoaderWidget
 from view.firststart.wizard import FirstStartWizard
 from view.mainpanel import MainPanel
+from view.settings import SettingsDialog
 
 from . import resources
 
@@ -29,11 +30,12 @@ class MainWindow(QMainWindow):
         self.__loader = LoaderWidget(480, 720, "Connecting to server")
         self.__errorPanel = None
         self.__mainPanel = None
+        self.__settingsDialog = SettingsDialog()
+        self.__errorDialog = None
+
         self.__settings = QSettings()
         self.__serviceHub = ServiceHub()
         self.__logger = logging.getLogger(__name__).getChild("MainWindow")
-
-        self.__errorDialog = None
 
     def initGUI(self):
         self.setAttribute(Qt.WA_StyledBackground)
@@ -189,7 +191,7 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def __onSettingsMenuItemClicked(self):
-        print("SETTINGS TODO")
+        self.__settingsDialog.show()
 
     @pyqtSlot()
     def __onExitMenuItemClicked(self):

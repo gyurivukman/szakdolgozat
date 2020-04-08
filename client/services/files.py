@@ -17,20 +17,26 @@ logger = logging.getLogger(__name__)
 
 
 class FileSynchronizer(QObject):
-    fileEvent = pyqtSignal(object)
+    fileTaskChannel = pyqtSignal(object)
 
     def __init__(self, syncDir):
         super().__init__()
         self.__syncDir = syncDir
-        self.__fileStore = None
-        self.__mutedFiles = []
+        self.__toCheckLater = None
+        self.__mutedFiles = None
         self.__eventQueue = Queue()
 
         self._detector = FileSystemEventDetector(self.__eventQueue, syncDir)
         self._logger = logger.getChild("FileSynchronizer")
         self._shouldRun = True
 
-    def scanLocalFiles(self):
+    def syncFileList(self, remoteFiles):
+        self.__mutedFiles = []
+        self.__toCheckLater = {}
+
+        localFiles
+
+    def __scanLocalFiles(self):
         return {data.fullPath: data for data in self.__scantree()}
 
     def setSyncDir(self, syncDir):
@@ -68,18 +74,18 @@ class FileSynchronizer(QObject):
                 yield FileData(filename=filename, modified=stats.st_mtime, size=stats.st_size, path=path, fullPath=fullPath)
 
     def _processEvent(self, event):
-        self.fileEvent.emit(event)
+        self.fileTaskChannel.emit(event)
 
 
-class MyEventHandler(FileSystemEventHandler):
+class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
 
-    def __init__(self, event_queue):
+    def __init__(self, eventQueue):
         super().__init__()
-        self._event_queue = event_queue
+        self.__eventQueue = eventQueue
 
     def on_any_event(self, event):
-        print(event)
-        # self._event_queue.put({"source": "FileDetector", "event": event})
+        if not event.is_dir:
+            self.__eventQueue.put(event)
 
 
 class FileSystemEventDetector(QObject):
@@ -87,7 +93,7 @@ class FileSystemEventDetector(QObject):
     def __init__(self, eventQueue, syncDir):
         super().__init__()
         self._path = syncDir
-        self._eventHandler = MyEventHandler(eventQueue)
+        self._eventHandler = EnqueueAnyFileEventEventHandler(eventQueue)
         self._observer = Observer()
         self._logger = logger.getChild("FileSystemEventDetector")
 

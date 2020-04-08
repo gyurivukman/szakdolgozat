@@ -110,4 +110,3 @@ if __name__ == '__main__':
     mainWindow = MainWindow()
     mainWindow.initGUI()
     sys.exit(app.exec_())
-    print("ahaha")

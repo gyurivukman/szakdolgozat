@@ -152,7 +152,9 @@ class MainPanel(QWidget):
         self.__serviceHub.sendNetworkMessage(message, self.__onFilelistRetrieved)
 
     def __onFilelistRetrieved(self, rawFileList):
-        self.__logger.debug(f"Remote files:\n {rawFileList} \n")
+        self.__logger.debug(f"Remote files:")
+        for raw in rawFileList:
+            self.__logger.debug(raw)
         for i in range(30):
             fileWidget = FileTrackerWidget(iconAtlas=self.__fileTrackerIconAtlas)
             self.__filesLayout.insertWidget(i, fileWidget)
