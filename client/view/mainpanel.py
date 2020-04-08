@@ -150,13 +150,13 @@ class MainPanel(QWidget):
         scroll.setFixedHeight(680)
         scroll.setAttribute(Qt.WA_StyledBackground)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setWidgetResizable(False)
+        scroll.setWidgetResizable(True)
 
         return scroll
 
     def __createFilesLayout(self):
         layout = QVBoxLayout()
-        layout.setSizeConstraint(QLayout.SetMinimumSize)
+        layout.setSizeConstraint(QLayout.SetMinAndMaxSize)
         layout.setContentsMargins(10, 5, 0, 5)
         layout.setAlignment(Qt.AlignHCenter)
         layout.addStretch(1)
@@ -181,6 +181,9 @@ class MainPanel(QWidget):
             fileTrackerWidget = FileTrackerWidget(fileData=task.subject, iconAtlas=self.__fileTrackerIconAtlas)
             self.__fileWidgets[task.subject.fullPath] = fileTrackerWidget
             self.__filesLayout.insertWidget(self.__filesLayout.count() - 1, fileTrackerWidget)
+        elif task.taskType == FileTaskTypes.DELETED:
+            self.__fileWidgets[task.subject].setParent(None)
+            del self.__fileWidgets[task.subject]
         else:
             print(f"\n{task}\n")
 

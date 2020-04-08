@@ -108,9 +108,11 @@ class FileSynchronizer(QObject):
                 yield FileData(filename=filename, modified=stats.st_mtime, size=stats.st_size, path=path, fullPath=fullPath, status=FileStatuses.UPLOADING_FROM_LOCAL)
 
     def _processEvent(self, event):
-        if event.eventType == FileTaskTypes.DELETED:
-            print("DELETÁLÁS VAN ÖCSÉM")
-            # self.fileTaskChannel.emit(event)
+        eventType = FileTaskTypes(event.event_type)
+        if eventType == FileTaskTypes.DELETED:
+            fullPath = event.src_path.replace(f"{self.__syncDir}/", "")
+            task = FileTask(FileTaskTypes.DELETED, fullPath)
+            self.fileStatusChannel.emit(task)
 
 
 class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
@@ -121,8 +123,7 @@ class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
 
     def on_any_event(self, event):
         if not event.is_directory:
-            print(event)
-            # self.__eventQueue.put(event)
+            self.__eventQueue.put(event)
 
 
 class FileSystemEventDetector(QObject):

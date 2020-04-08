@@ -1,3 +1,5 @@
+from os import stat
+
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 
@@ -18,7 +20,7 @@ class FileData:
     modified: int
     size: int
     path: str
-    fullPath: str = None
+    fullPath: str = None  # TODO lehet hogy nem kell
     status: FileStatuses = None
 
     def serialize(self):
@@ -35,5 +37,5 @@ class FileTaskTypes(Enum):
 @dataclass
 class FileTask:
     taskType: FileTaskTypes
-    subject: FileData
+    subject: object
     destinationPath: str = None

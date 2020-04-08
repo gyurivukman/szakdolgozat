@@ -94,11 +94,6 @@ class ServiceHub(QObject):
         self.__isSshServiceRunning = True
         self.__logger.debug("SSH service started")
 
-    def startAllServices(self):
-        self.startNetworkService()
-        self.startFileSyncerService()
-        self.startSshService()
-
     def shutdownAllServices(self):
         self.__logger.debug("Stopping all services")
 
