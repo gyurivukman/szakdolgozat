@@ -39,13 +39,13 @@ class FileSynchronizer(QObject):
         mergedFileList = self.__mergeLocalFilesWithRemoteFiles(localFiles, remoteFiles)
 
         debug = '\n'.join([f'{key}: {value.status.name}' for key, value in mergedFileList.items()])
-        self.__logger.debug(f"\n\nMerged Filelist\n {debug} \n\n")
+        self.__logger.debug(f"Merged Filelist:\n {debug}")
 
         for _, fileData in mergedFileList.items():
             task = FileTask(FileTaskTypes.CREATED, fileData)
             self.fileStatusChannel.emit(task)
             if fileData.status != FileStatuses.SYNCED:
-                # TODO akkor még konkrét task is legyen belőle.
+                # TODO hogy akkor még konkrét task is legyen belőle.
                 pass
 
     def __mergeLocalFilesWithRemoteFiles(self, localFiles, remoteFiles):
@@ -108,8 +108,9 @@ class FileSynchronizer(QObject):
                 yield FileData(filename=filename, modified=stats.st_mtime, size=stats.st_size, path=path, fullPath=fullPath, status=FileStatuses.UPLOADING_FROM_LOCAL)
 
     def _processEvent(self, event):
-        if self.__shouldRun:
-            self.fileTaskChannel.emit(event)
+        if event.eventType == FileTaskTypes.DELETED:
+            print("DELETÁLÁS VAN ÖCSÉM")
+            # self.fileTaskChannel.emit(event)
 
 
 class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
@@ -119,8 +120,9 @@ class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
         self.__eventQueue = eventQueue
 
     def on_any_event(self, event):
-        if not event.is_dir:
-            self.__eventQueue.put(event)
+        if not event.is_directory:
+            print(event)
+            # self.__eventQueue.put(event)
 
 
 class FileSystemEventDetector(QObject):

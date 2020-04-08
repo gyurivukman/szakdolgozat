@@ -23,7 +23,6 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
 rootLogger = logging.getLogger()
-logging.getLogger("paramiko").setLevel(logging.WARNING)
 
 argumentToLogLevelMap = {
     "debug": logging.DEBUG,
@@ -34,8 +33,9 @@ argumentToLogLevelMap = {
 }
 
 parser = argparse.ArgumentParser(prog="CryptStorePi Client")
-parser.add_argument("--loglevel", dest="loglevel", type=str, action="store", default="debug", required=False, choices=["debug", "info", "warning", "error", "off"], help="Log level for the client")
-parser.add_argument("--purgesettings", dest="purge", action="store_true", required=False, help="Remove all the settings, resetting the client. USE THIS WITH CAUTION!")
+parser.add_argument("--logLevel", dest="loglevel", type=str, action="store", default="debug", required=False, choices=["debug", "info", "warning", "error", "off"], help="Log level for the client")
+parser.add_argument("--purgeSettings", dest="purge", action="store_true", required=False, help="Remove all the settings, resetting the client. USE THIS WITH CAUTION!")
+parser.add_argument("--thirdPartyLogging", dest="thirdPartyLogging" ,action="store_true", required=False, help="Turn third party component logging on")
 
 
 def setupOrganization():
@@ -98,6 +98,10 @@ if __name__ == '__main__':
     arguments = parser.parse_args()
     if arguments.purge:
         confirmPurge()
+
+    if not arguments.thirdPartyLogging:
+        logging.getLogger("paramiko").setLevel(60)
+        logging.getLogger("watchdog").setLevel(60)
 
     logging.basicConfig(
         format='%(asctime)s %(name)s    [%(levelname)s]    %(message)s',
