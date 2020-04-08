@@ -65,9 +65,13 @@ class ServiceHub(QObject):
         self.__networkThread = Thread(target=self.__networkService.run)
 
     def initFileSyncService(self):
+        if self.__fileSyncService:
+            self.__fileSyncService.fileTaskChannel.disconnect(self.__onNewFileTask)
+            self.__fileSyncService.fileStatusChannel.disconnect(self.__onFileStatusChanged)
         settings = QSettings()
         self.__fileSyncService = FileSynchronizer(settings.value("syncDir/path"))
         self.__fileSyncService.fileTaskChannel.connect(self.__onNewFileTask)
+        self.__fileSyncService.fileStatusChannel.connect(self.__onFileStatusChanged)
         self.__fileSyncThread = Thread(target=self.__fileSyncService.run)
 
     def initSshService(self):
@@ -181,6 +185,9 @@ class ServiceHub(QObject):
     def executeSSHCommand(self, command):
         return self.__sshService.executeCommand(command)
 
+    def syncRemoteAndLocalFiles(self, remoteFiles):
+        self.__fileSyncService.syncFileList(remoteFiles)
+
     def __onNetworkMessageArrived(self, message):
         if message.header.uuid in self.__messageArchive:
             self.__logger.debug(f"Response: {message.header} {message.data}")
@@ -198,3 +205,6 @@ class ServiceHub(QObject):
 
     def __onSSHConnectionEvent(self, event):
         self.sshStatusChannel.emit(event)
+
+    def __onFileStatusChanged(self, event):
+        self.filesChannel.emit(event)

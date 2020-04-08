@@ -8,7 +8,7 @@ from PyQt5.QtGui import QPixmap
 
 from services.hub import ServiceHub
 from model.message import MessageTypes, NetworkMessage
-from model.file import FileData
+from model.file import FileData, FileStatuses
 
 from . import resources
 
@@ -24,6 +24,20 @@ class FileTrackerIconAtlas():
         self.diskUploadIcon = QPixmap(":disk_upload.png").scaled(20, 20, Qt.IgnoreAspectRatio)
         self.diskDownloadIcon = QPixmap(":cloud_upload.png").scaled(20, 20, Qt.IgnoreAspectRatio)
         self.syncedIcon = QPixmap(":check.png").scaled(20, 20, Qt.IgnoreAspectRatio)
+
+        self.__stateMap = {
+            FileStatuses.SYNCED: self.syncedIcon,
+            FileStatuses.UPLOADING_FROM_LOCAL: self.diskUploadIcon,
+            FileStatuses.DOWNLOADING_TO_LOCAL: self.diskDownloadIcon,
+            FileStatuses.UPLOADING_TO_CLOUD: self.cloudUploadIcon,
+            FileStatuses.DOWNLOADING_FROM_CLOUD: self.cloudDownloadIcon
+        }
+
+    def fromFileState(self, state):
+        try:
+            return self.__stateMap[state]
+        except KeyError:
+            raise Exception(f"'{state}' is not a valid state!")
 
 
 class MainPanel(QWidget):
@@ -152,13 +166,9 @@ class MainPanel(QWidget):
         self.__serviceHub.sendNetworkMessage(message, self.__onFilelistRetrieved)
 
     def __onFilelistRetrieved(self, rawFileList):
-        self.__logger.debug(f"Remote files:")
-        for raw in rawFileList:
-            self.__logger.debug(raw)
-        for i in range(30):
-            fileWidget = FileTrackerWidget(iconAtlas=self.__fileTrackerIconAtlas)
-            self.__filesLayout.insertWidget(i, fileWidget)
-        # self.__serviceHub.mergeFilelists()
+        serializedFileList = [FileData(**raw) for raw in rawFileList]
+        self.__logger.debug(f"Remote files: {serializedFileList}")
+        self.__serviceHub.syncRemoteAndLocalFiles(serializedFileList)
         self.ready.emit()
 
 

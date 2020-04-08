@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class FileSynchronizer(QObject):
     fileTaskChannel = pyqtSignal(object)
+    fileStatusChannel = pyqtSignal(object)
 
     def __init__(self, syncDir):
         super().__init__()
@@ -34,10 +35,12 @@ class FileSynchronizer(QObject):
         self.__mutedFiles = []
         self.__toCheckLater = {}
 
-        localFiles
+        localFiles = self.__scanLocalFiles()
+
+        self._logger.debug(f"\n\nMerging local files\n{localFiles}\nwith remote files\n{remoteFiles}")
 
     def __scanLocalFiles(self):
-        return {data.fullPath: data for data in self.__scantree()}
+        return {data.fullPath: data for data in self.__scantree(self.__syncDir)}
 
     def setSyncDir(self, syncDir):
         self.__syncDir = syncDir
@@ -59,10 +62,10 @@ class FileSynchronizer(QObject):
         self._logger.debug("Stopping")
         self._detector.stop()
 
-    def __scantree(self):
-        for entry in scandir(self.__syncDir):
+    def __scantree(self, path):
+        for entry in scandir(path):
             if entry.is_dir(follow_symlinks=False):
-                yield from scantree(entry.path)
+                yield from self.__scantree(entry.path)
             else:
                 fullPath = entry.path
                 splitted = fullPath.split("/")
