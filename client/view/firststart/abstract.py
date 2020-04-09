@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from services.hub import ServiceHub
 
 
-class SetupableComponent():
+class SetupableComponent:
 
     def _setup(self):
         raise NotImplementedError('Derived class must implement method "_setup". It should create the components layouts and general look and return nothing.')

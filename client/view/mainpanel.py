@@ -8,7 +8,7 @@ from PyQt5.QtGui import QPixmap
 
 from services.hub import ServiceHub
 from model.message import MessageTypes, NetworkMessage
-from model.file import FileData, FileStatuses, FileTask, FileEventTypes
+from model.file import FileData, FileStatuses, FileStatusEvent, FileEventTypes
 
 from . import resources
 
@@ -16,7 +16,7 @@ from . import resources
 moduleLogger = logging.getLogger(__name__)
 
 
-class FileTrackerIconAtlas():
+class FileTrackerIconAtlas:
 
     def __init__(self):
         self.cloudUploadIcon = QPixmap(":cloud_upload.png").scaled(20, 20, Qt.IgnoreAspectRatio)
@@ -24,13 +24,18 @@ class FileTrackerIconAtlas():
         self.diskUploadIcon = QPixmap(":disk_upload.png").scaled(20, 20, Qt.IgnoreAspectRatio)
         self.diskDownloadIcon = QPixmap(":cloud_upload.png").scaled(20, 20, Qt.IgnoreAspectRatio)
         self.syncedIcon = QPixmap(":check.png").scaled(20, 20, Qt.IgnoreAspectRatio)
+        self.encryptingIcon = QPixmap(":encrypting.png").scaled(20, 20, Qt.IgnoreAspectRatio)
+        self.movingIcon = QPixmap(":move.png").scaled(20, 20, Qt.IgnoreAspectRatio)
 
         self.__stateMap = {
             FileStatuses.SYNCED: self.syncedIcon,
             FileStatuses.UPLOADING_FROM_LOCAL: self.diskUploadIcon,
             FileStatuses.DOWNLOADING_TO_LOCAL: self.diskDownloadIcon,
             FileStatuses.UPLOADING_TO_CLOUD: self.cloudUploadIcon,
-            FileStatuses.DOWNLOADING_FROM_CLOUD: self.cloudDownloadIcon
+            FileStatuses.DOWNLOADING_FROM_CLOUD: self.cloudDownloadIcon,
+            FileStatuses.ENCRYPTING: self.encryptingIcon,
+            FileStatuses.DECRYPTING: self.encryptingIcon,
+            FileStatuses.MOVING: self.movingIcon
         }
 
     def fromFileState(self, state):
@@ -175,22 +180,29 @@ class MainPanel(QWidget):
         # TODO újrakonfirmálni hogy fut-e a filesyncer first startnál és nem first startnál!
         self.ready.emit()
 
-    @pyqtSlot(FileTask)
+    @pyqtSlot(FileStatusEvent)
     def __onFileStatusEvent(self, event):
         if event.eventType == FileEventTypes.CREATED:
-            fileTrackerWidget = FileTrackerWidget(fullPath=event.source.fullPath, status=event.status, iconAtlas=self.__fileTrackerIconAtlas)
-            self.__fileWidgets[event.source.fullPath] = fileTrackerWidget
+            fileTrackerWidget = FileTrackerWidget(fullPath=event.sourcePath, status=event.status, iconAtlas=self.__fileTrackerIconAtlas)
+            self.__fileWidgets[event.sourcePath] = fileTrackerWidget
             self.__filesLayout.insertWidget(self.__filesLayout.count() - 1, fileTrackerWidget)
+        elif event.eventType == FileEventTypes.MODIFIED:
+            self.__fileWidgets[event.sourcePath].setStatus(event.status)
         elif event.eventType == FileEventTypes.DELETED:
-            self.__fileWidgets[event.source.fullPath].setParent(None)
-            del self.__fileWidgets[event.source.fullPath]
+            self.__fileWidgets[event.sourcePath].setParent(None)
+            del self.__fileWidgets[event.sourcePath]
+        elif event.eventType == FileEventTypes.MOVED:
+            self.__fileWidgets[event.destinationPath] = self.__fileWidgets[event.sourcePath]
+            self.__fileWidgets[event.destinationPath].setFullPath(event.destinationPath)
+            self.__fileWidgets[event.destinationPath].setStatus(event.status)
+            del self.__fileWidgets[event.sourcePath]
         else:
             print(f"\n{event}\n")
 
 
 class FileTrackerWidget(QWidget):
 
-    __statusDisplayValues = ["Downloading from cloud", "Uploading to cloud", "Encrypting", "Decrypting", "Downloading from remote", "Uploading to remote", "Synchronized"]
+    __statusDisplayValues = ["Downloading from cloud", "Uploading to cloud", "Encrypting", "Decrypting", "Downloading from remote", "Uploading to remote", "Synchronized", "Moving/renaming"]
 
     def __init__(self, *args, **kwargs):
         self.__fileTrackerIconAtlas = kwargs.pop("iconAtlas")
@@ -241,7 +253,7 @@ class FileTrackerWidget(QWidget):
         self.__fileLabel.setText(fullPath)
 
     def setStatus(self, status):
-        self.__statusLabel.setText(FileStatuses.displayValueOf(fileData.status))
+        self.__statusLabel.setText(self.__statusDisplayValues[status])
         self.__statusIcon.setPixmap(self.__fileTrackerIconAtlas.fromFileState(status))
 
     def __displayValueOfStatus(self, status):

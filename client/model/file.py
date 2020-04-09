@@ -1,4 +1,5 @@
 from os import stat
+from datetime import datetime
 
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
@@ -12,6 +13,7 @@ class FileStatuses(IntEnum):
     DOWNLOADING_TO_LOCAL = 4
     UPLOADING_FROM_LOCAL = 5
     SYNCED = 6
+    MOVING = 7
 
 
 @dataclass
@@ -42,15 +44,14 @@ class FileTask:
 
 
 @dataclass
-class FileStatusEventData:
-    filename: str
-    path: str
-    fullPath: str
+class FileStatusEvent:
+    eventType: FileEventTypes
+    sourcePath: str
+    status: FileStatuses = None
+    destinationPath: str = None
 
 
 @dataclass
-class FileStatusEvent:
-    eventType: FileEventTypes
-    status: FileStatuses
-    source: FileStatusEventData
-    destination: FileStatusEventData = None
+class CheckLaterFileEvent:
+    originalEvent: FileStatusEvent
+    timeOfLastAction: datetime

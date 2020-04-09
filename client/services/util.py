@@ -2,7 +2,7 @@ import time
 from datetime import timezone, timedelta
 
 
-class TimeConverter():
+class TimeConverter:
 
     def convertTimestampToLocalDateTime(self, stamp):
 

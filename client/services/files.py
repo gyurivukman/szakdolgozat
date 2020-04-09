@@ -1,5 +1,6 @@
-import time
 import logging
+import time
+from datetime import datetime
 
 
 from os import scandir
@@ -10,7 +11,10 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from model.file import FileTask, FileEventTypes, FileData, FileStatuses, FileStatusEvent, FileStatusEventData
+from model.file import (
+    FileTask, FileEventTypes, FileData,
+    FileStatuses, FileStatusEvent, CheckLaterFileEvent
+)
 
 
 logger = logging.getLogger(__name__)
@@ -42,9 +46,7 @@ class FileSynchronizer(QObject):
         self.__logger.debug(f"Merged Filelist:\n {debug}")
 
         for _, fileData in mergedFileList.items():
-
-            eventData = FileStatusEventData(fileData.filename, fileData.path, fileData.fullPath)
-            event = FileStatusEvent(eventType=FileEventTypes.CREATED, status=fileData.status, source=eventData, destination=None)
+            event = FileStatusEvent(eventType=FileEventTypes.CREATED, status=fileData.status, sourcePath=fileData.fullPath)
 
             self.fileStatusChannel.emit(event)
             if fileData.status != FileStatuses.SYNCED:
@@ -87,8 +89,18 @@ class FileSynchronizer(QObject):
                 event = self.__eventQueue.get_nowait()
                 self._processEvent(event)
                 self.__eventQueue.task_done()
-            except Empty as _:
-                time.sleep(0.5)
+            except Empty:
+                if len(self.__toCheckLater) > 0:
+                    toDelete = []
+                    for path, checkLaterEvent in self.__toCheckLater.items():
+                        if (datetime.now() - checkLaterEvent.timeOfLastAction).seconds > 1:
+                            # TODO Hogy task is legyen belőle.
+                            self.fileStatusChannel.emit(checkLaterEvent.originalEvent)
+                            toDelete.append(path)
+                    for path in toDelete:
+                        del self.__toCheckLater[path]
+                else:
+                    time.sleep(0.5)
         self.__logger.debug("Stopped")
 
     def stop(self):
@@ -111,11 +123,32 @@ class FileSynchronizer(QObject):
                 yield FileData(filename=filename, modified=stats.st_mtime, size=stats.st_size, path=path, fullPath=fullPath, status=FileStatuses.UPLOADING_FROM_LOCAL)
 
     def _processEvent(self, event):
+        print(f"Processing event {event}")
         eventType = FileEventTypes(event.event_type)
-        if eventType == FileEventTypes.DELETED:
-            fullPath = event.src_path.replace(f"{self.__syncDir}/", "")
-            task = FileTask(FileEventTypes.DELETED, fullPath)
-            # self.fileStatusChannel.emit(task)
+
+        sourcePath = event.src_path.replace(f"{self.__syncDir}/", "")
+
+        if sourcePath not in self.__mutedFiles:
+            destinationPath = getattr(event, "dest_path", None)
+            destinationPath = destinationPath.replace(f"{self.__syncDir}/", "") if destinationPath else None
+            if eventType == FileEventTypes.DELETED or eventType == FileEventTypes.MOVED:
+                # User could've changed his mind about a file being uploaded that was modified/created before.
+                try:
+                    del self.__toCheckLater[sourcePath]
+                except Keyerror:
+                    pass
+                event = FileStatusEvent(eventType=eventType, status=FileStatuses.MOVING, sourcePath=sourcePath, destinationPath=destinationPath)
+                self.fileStatusChannel.emit(event)
+                # TODO hogy akkor még konkrét task is legyen belőle.
+            elif eventType == FileEventTypes.CREATED or eventType == FileEventTypes.MODIFIED:
+                try:
+                    # A file is still being copied or moved over into the syncdir.
+                    self.__toCheckLater[sourcePath].timeOfLastAction = datetime.now()
+                except KeyError:
+                    # A file is being created/being modified, caught for the first time
+                    originalEvent = FileStatusEvent(eventType=eventType, status=FileStatuses.UPLOADING_FROM_LOCAL, sourcePath=sourcePath)
+                    checkLaterEvent = CheckLaterFileEvent(originalEvent, datetime.now())
+                    self.__toCheckLater[sourcePath] = checkLaterEvent
 
 
 class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):

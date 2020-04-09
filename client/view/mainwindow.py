@@ -21,6 +21,9 @@ from view.settings import SettingsDialog
 from . import resources
 
 
+moduleLogger = logging.getLogger(__name__)
+
+
 class MainWindow(QMainWindow):
     __FIRST_START_SIZE = QSize(1280, 720)
     __NORMAL_SIZE = QSize(480, 720)
@@ -35,7 +38,7 @@ class MainWindow(QMainWindow):
 
         self.__settings = QSettings()
         self.__serviceHub = ServiceHub()
-        self.__logger = logging.getLogger(__name__).getChild("MainWindow")
+        self.__logger = moduleLogger.getChild("MainWindow")
 
     def initGUI(self):
         self.setAttribute(Qt.WA_StyledBackground)
@@ -47,6 +50,7 @@ class MainWindow(QMainWindow):
             self.__setupForFirstStart()
             self.show()
         else:
+            self.__logger.debug("Setting up for normal start.")
             self.__setupForRegularView()
             self.show()
             self.__normalStartupSequence()
