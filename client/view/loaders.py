@@ -7,12 +7,11 @@ from PyQt5.QtGui import QFont
 
 from . import resources
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
-from model.iconsizes import IconSizes
 
 
 class LoaderWidget(QWidget):
 
-    def __init__(self, sizeX, sizeY, statusText="", iconSize=IconSizes.NORMAL):
+    def __init__(self, sizeX, sizeY, statusText="", iconSize=100):
         super().__init__()
         self.setFixedSize(sizeX, sizeY)
         self._layout = None
@@ -56,7 +55,7 @@ class LoaderWidget(QWidget):
 
 class SpinnerLoaderWidget(QWidget):
 
-    def __init__(self, sizeX, sizeY, iconSize=IconSizes.NORMAL):
+    def __init__(self, sizeX, sizeY, iconSize=100):
         super().__init__()
         self.setFixedSize(sizeX, sizeY)
         self._layout = None

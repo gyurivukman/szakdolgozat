@@ -71,7 +71,12 @@ class Server(object):
             for readableSocket in readable:
                 if readableSocket is self._server:
                     self._logger.info("Client connecting")
-                    self._acceptClient() if not self._client else self._rejectClient()
+                    if not self._client:
+                        self._logger.info("Accepting client")
+                        self._acceptClient()
+                    else:
+                        self._logger.info("Client already connected, rejecting new client..")
+                        self._rejectClient()
                 else:
                     self._readClientData(readableSocket)
         except ConnectionResetError as e:
@@ -120,7 +125,6 @@ class Server(object):
         self._logger.debug("Session data sent!")
 
     def _rejectClient(self):
-        self._logger.info("Rejecting client")
         client, _ = self._server.accept()
         client.close()
 

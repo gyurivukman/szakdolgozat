@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import QMainWindow, QAction, QMessageBox
 from PyQt5.QtCore import Qt, QSettings, QCoreApplication, QSize, pyqtSlot, QThread
 from PyQt5.QtGui import QIcon
 
-from model.events import ConnectionEvent, ConnectionEventTypes
+from model.networkevents import ConnectionEvent, ConnectionEventTypes
 from model.config import FirstStartConfig
 from model.message import MessageTypes, NetworkMessage
 from model.permission import InvalidWorkspacePermissionException

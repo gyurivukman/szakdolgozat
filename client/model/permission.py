@@ -2,13 +2,13 @@ from dataclasses import dataclass
 
 
 @dataclass
-class UnixPermission():
+class UnixPermission:
     hasRead: bool = False
     hasWrite: bool = False
     hasExecute: bool = False
 
 
-class UnixFilesystemPermissionsObject():
+class UnixFilesystemPermissionsObject:
     ownerPermissions = None
     groupPermissions = None
     otherPermissions = None
@@ -33,7 +33,7 @@ class UnixFilesystemPermissionsObject():
         return UnixPermission(hasRead, hasWrite, hasExecute)
 
 
-class UnixUserGroupMembershipsObject():
+class UnixUserGroupMembershipsObject:
     memberships = None
 
     def __init__(self, cliString):
@@ -45,7 +45,7 @@ class InvalidWorkspacePermissionException(Exception):
     pass
 
 
-class WorkspacePermissionValidator():
+class WorkspacePermissionValidator:
 
     def __init__(self, username, path, permissionCLIString, membershipCLIString):
         self.__username = username

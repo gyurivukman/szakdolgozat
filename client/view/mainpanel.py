@@ -8,7 +8,7 @@ from PyQt5.QtGui import QPixmap
 
 from services.hub import ServiceHub
 from model.message import MessageTypes, NetworkMessage
-from model.file import FileData, FileStatuses, FileTask, FileTaskTypes
+from model.file import FileData, FileStatuses, FileTask, FileEventTypes
 
 from . import resources
 
@@ -157,7 +157,7 @@ class MainPanel(QWidget):
     def __createFilesLayout(self):
         layout = QVBoxLayout()
         layout.setSizeConstraint(QLayout.SetMinAndMaxSize)
-        layout.setContentsMargins(10, 5, 0, 5)
+        layout.setContentsMargins(5, 5, 5, 5)
         layout.setAlignment(Qt.AlignHCenter)
         layout.addStretch(1)
 
@@ -171,21 +171,21 @@ class MainPanel(QWidget):
 
     def __onFilelistRetrieved(self, rawFileList):
         serializedFileList = [FileData(**raw) for raw in rawFileList]
-        self.__serviceHub.syncRemoteAndLocalFiles(serializedFileList) # TODO Confirmed hogy itt még nem fut a filesyncer ám! gg.
-
+        self.__serviceHub.syncRemoteAndLocalFiles(serializedFileList)
+        # TODO újrakonfirmálni hogy fut-e a filesyncer first startnál és nem first startnál!
         self.ready.emit()
 
     @pyqtSlot(FileTask)
-    def __onFileStatusEvent(self, task):
-        if task.taskType == FileTaskTypes.CREATED:
-            fileTrackerWidget = FileTrackerWidget(fileData=task.subject, iconAtlas=self.__fileTrackerIconAtlas)
-            self.__fileWidgets[task.subject.fullPath] = fileTrackerWidget
+    def __onFileStatusEvent(self, event):
+        if event.eventType == FileEventTypes.CREATED:
+            fileTrackerWidget = FileTrackerWidget(fullPath=event.source.fullPath, status=event.status, iconAtlas=self.__fileTrackerIconAtlas)
+            self.__fileWidgets[event.source.fullPath] = fileTrackerWidget
             self.__filesLayout.insertWidget(self.__filesLayout.count() - 1, fileTrackerWidget)
-        elif task.taskType == FileTaskTypes.DELETED:
-            self.__fileWidgets[task.subject].setParent(None)
-            del self.__fileWidgets[task.subject]
+        elif event.eventType == FileEventTypes.DELETED:
+            self.__fileWidgets[event.source.fullPath].setParent(None)
+            del self.__fileWidgets[event.source.fullPath]
         else:
-            print(f"\n{task}\n")
+            print(f"\n{event}\n")
 
 
 class FileTrackerWidget(QWidget):
@@ -194,12 +194,15 @@ class FileTrackerWidget(QWidget):
 
     def __init__(self, *args, **kwargs):
         self.__fileTrackerIconAtlas = kwargs.pop("iconAtlas")
-        fileData = kwargs.pop("fileData")
+        fullPath = kwargs.pop("fullPath")
+        status = kwargs.pop("status")
+
         super().__init__(*args, **kwargs)
-        self.__fileLabel = QLabel(fileData.fullPath)
-        self.__statusLabel = QLabel(self.__displayValueOfStatus(fileData.status))
+
+        self.__fileLabel = QLabel(fullPath)
+        self.__statusLabel = QLabel(self.__displayValueOfStatus(status))
         self.__statusIcon = QLabel()
-        self.__statusIcon.setPixmap(self.__fileTrackerIconAtlas.fromFileState(fileData.status))
+        self.__statusIcon.setPixmap(self.__fileTrackerIconAtlas.fromFileState(status))
 
         self.setLayout(self.__createLayout())
         self.setStyleSheet("QWidget#fileTrackerContainerWidget{border:2px solid #E36410;}")

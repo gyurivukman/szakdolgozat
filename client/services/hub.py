@@ -4,7 +4,7 @@ import time
 from threading import Thread
 from queue import Queue, Empty
 
-from model.events import ConnectionEvent, ConnectionEventTypes
+from model.networkevents import ConnectionEvent, ConnectionEventTypes
 from .network import NetworkClient, SshClient
 from .files import FileSynchronizer
 

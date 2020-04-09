@@ -2,13 +2,12 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButt
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, pyqtSignal
 
-from model.iconsizes import IconSizes
 from . import resources
 
 
 class WarningPanel(QWidget):
 
-    def __init__(self, text="", iconSize=IconSizes.NORMAL):
+    def __init__(self, text=""):
         super().__init__()
         self._textLabel = QLabel(text)
 
@@ -32,7 +31,7 @@ class WarningPanel(QWidget):
         layout.setAlignment(Qt.AlignHCenter)
 
         iconLabel = QLabel()
-        iconPixMap = QPixmap(":warning.png").scaled(IconSizes.NORMAL, IconSizes.NORMAL, Qt.IgnoreAspectRatio)
+        iconPixMap = QPixmap(":warning.png").scaled(100, 100, Qt.IgnoreAspectRatio)
         iconLabel.setPixmap(iconPixMap)
 
         layout.addWidget(iconLabel)

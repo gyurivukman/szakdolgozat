@@ -14,6 +14,6 @@ class ConnectionEventTypes(IntEnum):
 
 
 @dataclass
-class ConnectionEvent(object):
+class ConnectionEvent:
     eventType: IntEnum
     data: dict

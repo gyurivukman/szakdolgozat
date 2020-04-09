@@ -10,15 +10,15 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from model.file import FileTask, FileTaskTypes, FileData, FileStatuses
+from model.file import FileTask, FileEventTypes, FileData, FileStatuses, FileStatusEvent, FileStatusEventData
 
 
 logger = logging.getLogger(__name__)
 
 
 class FileSynchronizer(QObject):
-    fileTaskChannel = pyqtSignal(object)
-    fileStatusChannel = pyqtSignal(FileTask)
+    fileTaskChannel = pyqtSignal(FileTask)
+    fileStatusChannel = pyqtSignal(FileStatusEvent)
 
     def __init__(self, syncDir):
         super().__init__()
@@ -42,8 +42,11 @@ class FileSynchronizer(QObject):
         self.__logger.debug(f"Merged Filelist:\n {debug}")
 
         for _, fileData in mergedFileList.items():
-            task = FileTask(FileTaskTypes.CREATED, fileData)
-            self.fileStatusChannel.emit(task)
+
+            eventData = FileStatusEventData(fileData.filename, fileData.path, fileData.fullPath)
+            event = FileStatusEvent(eventType=FileEventTypes.CREATED, status=fileData.status, source=eventData, destination=None)
+
+            self.fileStatusChannel.emit(event)
             if fileData.status != FileStatuses.SYNCED:
                 # TODO hogy akkor még konkrét task is legyen belőle.
                 pass
@@ -108,11 +111,11 @@ class FileSynchronizer(QObject):
                 yield FileData(filename=filename, modified=stats.st_mtime, size=stats.st_size, path=path, fullPath=fullPath, status=FileStatuses.UPLOADING_FROM_LOCAL)
 
     def _processEvent(self, event):
-        eventType = FileTaskTypes(event.event_type)
-        if eventType == FileTaskTypes.DELETED:
+        eventType = FileEventTypes(event.event_type)
+        if eventType == FileEventTypes.DELETED:
             fullPath = event.src_path.replace(f"{self.__syncDir}/", "")
-            task = FileTask(FileTaskTypes.DELETED, fullPath)
-            self.fileStatusChannel.emit(task)
+            task = FileTask(FileEventTypes.DELETED, fullPath)
+            # self.fileStatusChannel.emit(task)
 
 
 class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):

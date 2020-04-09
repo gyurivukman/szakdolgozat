@@ -10,21 +10,6 @@ class AccountTypes(IntEnum):
     GoogleDrive = 1
 
 
-class TaskPriorities(IntEnum):
-    HIGH = 0
-    NORMAL = 1
-    LOW = 2
-
-
-@dataclass(order=True)
-class Task:
-    priority: int
-    taskType: int
-    data: dict = None
-    success: types.FunctionType = None
-    error: types.FunctionType = None
-
-
 @dataclass
 class AccountData:
     accountType: AccountTypes

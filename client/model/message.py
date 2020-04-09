@@ -10,7 +10,7 @@ class MessageTypes(IntEnum):
     SYNC_FILES = 4
 
 
-class NetworkMessageHeader():
+class NetworkMessageHeader:
 
     def __init__(self, raw):
         self.raw = raw
@@ -18,14 +18,14 @@ class NetworkMessageHeader():
         self.uuid = raw.get("uuid", None)
 
 
-class NetworkMessage():
+class NetworkMessage:
 
     def __init__(self, raw):
         self.raw = raw
         self.header = NetworkMessageHeader(raw['header'])
         self.data = raw.get('data', None)
 
-    class Builder():
+    class Builder:
         __messageType = None
         __uuid = None
         __data = {}

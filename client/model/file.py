@@ -20,14 +20,14 @@ class FileData:
     modified: int
     size: int
     path: str
-    fullPath: str = None  # TODO lehet hogy nem kell
+    fullPath: str
     status: FileStatuses = None
 
     def serialize(self):
         return {"filename": self.filename, "modified": self.modified, "size": self.size, "path": self.path}
 
 
-class FileTaskTypes(Enum):
+class FileEventTypes(Enum):
     MODIFIED = "modified"
     CREATED = "created"
     DELETED = "deleted"
@@ -36,6 +36,21 @@ class FileTaskTypes(Enum):
 
 @dataclass
 class FileTask:
-    taskType: FileTaskTypes
+    taskType: FileEventTypes
     subject: object
     destinationPath: str = None
+
+
+@dataclass
+class FileStatusEventData:
+    filename: str
+    path: str
+    fullPath: str
+
+
+@dataclass
+class FileStatusEvent:
+    eventType: FileEventTypes
+    status: FileStatuses
+    source: FileStatusEventData
+    destination: FileStatusEventData = None

@@ -14,8 +14,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QIntValidator, QPixmap
 
-from model.events import ConnectionEventTypes, ConnectionEvent
-from model.iconsizes import IconSizes
+from model.networkevents import ConnectionEventTypes, ConnectionEvent
 from model.config import ServerConfig, NetworkConfig, SshConfig
 from view import resources
 from view.firststart.abstract import FirstStartWizardMiddleWidget

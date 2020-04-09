@@ -14,7 +14,7 @@ from Crypto.Cipher import AES
 from msgpack import Packer, Unpacker
 from PyQt5.QtCore import QObject, QSettings, pyqtSignal
 
-from model.events import ConnectionEventTypes, ConnectionEvent
+from model.networkevents import ConnectionEventTypes, ConnectionEvent
 from model.message import NetworkMessage, MessageTypes
 from model.permission import WorkspacePermissionValidator
 
