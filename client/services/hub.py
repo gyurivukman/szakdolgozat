@@ -214,7 +214,9 @@ class ServiceHub(QObject):
         event = None
         if task.taskType == FileStatuses.UPLOADING_FROM_LOCAL:
             event = FileStatusEvent(FileEventTypes.STATUS_CHANGED, task.subject.fullPath, FileStatuses.UPLOADING_TO_CLOUD)
-            data = {"filename": task.subject.filename, "utcModified": task.subject.modified, "userTimezone": time.strftime("%z", time.localtime()), "path": task.subject.path, "size": task.subject.size}
+            localTime = time.localtime()
+            dstActive = True if localTime.tm_isdst == 1 else False
+            data = {"filename": task.subject.filename, "utcModified": task.subject.modified, "userTimezone": time.strftime("%z", localTime), "dstActive": dstActive, "path": task.subject.path, "size": task.subject.size}
             message = NetworkMessage.Builder(MessageTypes.UPLOAD_FILE).withData(data).withUUID(task.uuid).build()
             self.sendNetworkMessage(message)
         elif task.taskType == FileStatuses.DOWNLOADING_TO_LOCAL:

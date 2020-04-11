@@ -47,7 +47,7 @@ class DropboxAccountWrapper(CloudAPIWrapper):
     def __init__(self, *args):
         super().__init__(*args)
         self.__dbx = dropbox.Dropbox(self.accountData.data['apiToken'])
-        self.__UPLOAD_CHUNK_SIZE = 30000  # TODO magasabbra haló.
+        self.__UPLOAD_CHUNK_SIZE = 1000000
 
     def getFileList(self):
         files = []
@@ -72,8 +72,11 @@ class DropboxAccountWrapper(CloudAPIWrapper):
                 offset=offset,
             )
 
-            timeZoneOffset = task.data['userTimezone']
-            clientModified = datetime.utcfromtimestamp(task.data['utcModified']) + timedelta(hours=int(timeZoneOffset[0:2]), minutes=int(timeZoneOffset[2:]))
+            timeZoneOffset = timedelta(hours=int(task.data['userTimezone'][1:3]), minutes=int(task.data['userTimezone'][3:]))
+
+            # if task.data['dstActive']:
+            #     timeZoneOffset -= timedelta(hours=1)
+            clientModified = datetime.utcfromtimestamp(task.data['utcModified']) + timeZoneOffset
             remotePath = f"{task.data['path']}/{partName}"
 
             commit = dropbox.files.CommitInfo(path=f"{remotePath}", mode=dropbox.files.WriteMode.overwrite, client_modified=clientModified)
@@ -100,6 +103,7 @@ class DropboxAccountWrapper(CloudAPIWrapper):
         return moduleLogger.getChild("DropboxAccountWrapper")
 
     def __toFileData(self, entry):
+        print(entry.client_modified.tzinfo)
         return FileData(
             filename=entry.name,
             modified=int(entry.client_modified.timestamp()),
