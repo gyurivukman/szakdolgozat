@@ -189,13 +189,16 @@ class ServiceHub(QObject):
         self.__sshTaskQueu.put(task)
 
     def __onNetworkMessageArrived(self, message):
-        if message.header.uuid in self.__messageArchive:
+        if message.header.messageType == MessageTypes.FILE_STATUS_UPDATE:
+            statusChangeEvent = FileStatusEvent(FileEventTypes.STATUS_CHANGED, message.data["sourcePath"], message.data["status"])
+            self.filesChannel.emit(statusChangeEvent)
+        elif message.header.uuid in self.__messageArchive:
             self.__logger.debug(f"Response: {message.header} {message.data}")
             callBack = self.__messageArchive[message.header.uuid]
             callBack(message.data)
             del self.__messageArchive[message.header.uuid]
         else:
-            self.__logger.info(f"Random message: {message.header} {message.data}")
+            self.__logger.info(f"Unknown message: {message.header} {message.data}")
 
     def __onNewFileTask(self, task):
         self.__logger.debug(f"New filetask: {task}")
@@ -216,7 +219,7 @@ class ServiceHub(QObject):
             event = FileStatusEvent(FileEventTypes.STATUS_CHANGED, task.subject.fullPath, FileStatuses.UPLOADING_TO_CLOUD)
             localTime = time.localtime()
             dstActive = True if localTime.tm_isdst == 1 else False
-            data = {"filename": task.subject.filename, "utcModified": task.subject.modified, "userTimezone": time.strftime("%z", localTime), "dstActive": dstActive, "path": task.subject.path, "size": task.subject.size}
+            data = {"filename": task.subject.filename, "utcModified": task.subject.modified, "userTimezone": time.strftime("%z", localTime), "dstActive": dstActive, "path": task.subject.path, "size": task.subject.size, "fullPath": task.subject.fullPath}
             message = NetworkMessage.Builder(MessageTypes.UPLOAD_FILE).withData(data).withUUID(task.uuid).build()
             self.sendNetworkMessage(message)
         elif task.taskType == FileStatuses.DOWNLOADING_TO_LOCAL:

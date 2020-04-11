@@ -95,7 +95,6 @@ class DropboxAccountWrapper(CloudAPIWrapper):
                             cursor.offset,
                         )
                     cursor.offset += chunkSize
-                print("Uploaded chunk.")
 
     def _getLogger(self):
         return moduleLogger.getChild("DropboxAccountWrapper")

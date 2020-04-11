@@ -1,5 +1,6 @@
 import logging
 import re
+from os import unlink
 from queue import Queue
 
 import control.cli
@@ -7,7 +8,7 @@ from .abstract import Singleton
 from control.account import CloudAPIFactory
 
 from model.message import NetworkMessage, NetworkMessageHeader, MessageTypes
-from model.file import FileData
+from model.file import FileData, FileStatuses
 from model.account import AccountData
 
 
@@ -167,20 +168,31 @@ class UploadFileHandler(AbstractTaskHandler):
         accounts = self._databaseAccess.getAllAccounts()
 
         perAccountSize = self._task.data['size'] / len(accounts)
+        localFilePath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}"
 
-        if perAccountSize < 1.0 or len(accounts) == 1:
-            self.__uploadToFirstAccountOnly(accounts[0])
-        else:
-            self.__uploadToAllAccounts(accounts)
+        with open(localFilePath, "rb") as localFileHandle:
+            if perAccountSize < 1.0 or len(accounts) == 1:
+                self.__uploadToFirstAccountOnly(accounts[0], localFileHandle)
+            else:
+                self.__uploadToAllAccounts(accounts, localFileHandle)
 
+        self.__cleanUp(localFilePath)
+        self.__sendResponse()
         self._task = None
 
-    def __uploadToFirstAccountOnly(self, account):
-        cloudAccount = CloudAPIFactory.fromAccountData(account)
-        with open(f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}", "rb") as localFileHandle:
-            cloudFileName = f"{self._task.data['filename']}__1__1.enc"
-            cloudAccount.upload(localFileHandle, self._task.data['size'], cloudFileName, self._task)
-        print("TÜTÜTÜÜÜÜ TÜÜÜÜ TÜÜÜÜ TÜÜÜÜ rüttü tüüü")
+    def __cleanUp(self, localFilePath):
+        unlink(localFilePath)
 
-    def __uploadToAllAccounts(self, accounts):
+    def __sendResponse(self):
+        if not self._task.stale:
+            data = {"sourcePath": self._task.data["fullPath"], "status": FileStatuses.SYNCED}
+            response = NetworkMessage.Builder(MessageTypes.FILE_STATUS_UPDATE).withData(data).withRandomUUID().build()
+            self._messageDispatcher.dispatchResponse(response)
+
+    def __uploadToFirstAccountOnly(self, account, fileHandle):
+        cloudAccount = CloudAPIFactory.fromAccountData(account)
+        cloudFileName = f"{self._task.data['filename']}__1__1.enc"
+        cloudAccount.upload(fileHandle, self._task.data['size'], cloudFileName, self._task)
+
+    def __uploadToAllAccounts(self, accounts, fileHandle):
         pass

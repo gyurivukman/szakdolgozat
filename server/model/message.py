@@ -1,4 +1,5 @@
 from enum import IntEnum
+from uuid import uuid4
 
 
 class MessageTypes(IntEnum):
