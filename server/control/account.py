@@ -71,12 +71,10 @@ class DropboxAccountWrapper(CloudAPIWrapper):
                 session_id=upload_session_start_result.session_id,
                 offset=offset,
             )
+            rawOffset = task.data['userTimezone']
+            timeZoneOffset = timedelta(hours=int(rawOffset[1:3]), minutes=int(rawOffset[3:]))
 
-            timeZoneOffset = timedelta(hours=int(task.data['userTimezone'][1:3]), minutes=int(task.data['userTimezone'][3:]))
-
-            # if task.data['dstActive']:
-            #     timeZoneOffset -= timedelta(hours=1)
-            clientModified = datetime.utcfromtimestamp(task.data['utcModified']) + timeZoneOffset
+            clientModified = datetime.utcfromtimestamp(task.data['utcModified']) + timeZoneOffset if rawOffset[0] == "+" else datetime.utcfromtimestamp(task.data['utcModified']) - timeZoneOffset
             remotePath = f"{task.data['path']}/{partName}"
 
             commit = dropbox.files.CommitInfo(path=f"{remotePath}", mode=dropbox.files.WriteMode.overwrite, client_modified=clientModified)
