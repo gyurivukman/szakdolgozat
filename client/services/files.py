@@ -1,5 +1,6 @@
 import logging
 import time
+import os
 
 from uuid import uuid4
 from datetime import datetime
@@ -90,14 +91,19 @@ class FileSynchronizer(QObject):
         while self.__shouldRun:
             try:
                 event = self.__eventQueue.get_nowait()
-                self._processEvent(event)
+                self.__processEvent(event)
                 self.__eventQueue.task_done()
             except Empty:
                 if len(self.__toCheckLater) > 0:
                     toDelete = []
                     for path, checkLaterEvent in self.__toCheckLater.items():
                         if (datetime.now() - checkLaterEvent.timeOfLastAction).seconds > 1:
+                            task = self.__createTaskFromCheckLaterEvent(checkLaterEvent)
+                            print("\n\n")
+                            print(task)
+                            print("\n\n")
                             self.fileStatusChannel.emit(checkLaterEvent.originalEvent)
+                            self.fileTaskChannel.emit(task)
                             toDelete.append(path)
                     for path in toDelete:
                         del self.__toCheckLater[path]
@@ -124,7 +130,7 @@ class FileSynchronizer(QObject):
 
                 yield FileData(filename=filename, modified=int(stats.st_mtime), size=stats.st_size, path=path, fullPath=fullPath, status=FileStatuses.UPLOADING_FROM_LOCAL)
 
-    def _processEvent(self, event):
+    def __processEvent(self, event):
         eventType = FileEventTypes(event.event_type)
 
         sourcePath = event.src_path.replace(f"{self.__syncDir}/", "")
@@ -150,6 +156,21 @@ class FileSynchronizer(QObject):
                     originalEvent = FileStatusEvent(eventType=eventType, status=FileStatuses.UPLOADING_FROM_LOCAL, sourcePath=sourcePath)
                     checkLaterEvent = CheckLaterFileEvent(originalEvent, datetime.now())
                     self.__toCheckLater[sourcePath] = checkLaterEvent
+
+    def __createTaskFromCheckLaterEvent(self, checkLaterEvent):
+        stats = os.stat(f"{self.__syncDir}/{checkLaterEvent.originalEvent.sourcePath}")
+        splitted = checkLaterEvent.originalEvent.sourcePath.split("/")
+
+        filename = splitted[-1]
+        modified = int(stats.st_mtime)
+        size = stats.st_size
+        path = "/".join(splitted[:-1])
+        fullPath = checkLaterEvent.originalEvent.sourcePath
+
+        fileData = FileData(filename, modified, size, path, fullPath, checkLaterEvent.originalEvent.status)
+        task = FileTask(uuid4().hex, FileStatuses.UPLOADING_FROM_LOCAL, fileData)
+
+        return task
 
 
 class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
