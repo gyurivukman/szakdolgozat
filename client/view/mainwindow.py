@@ -64,6 +64,7 @@ class MainWindow(QMainWindow):
 
     def __normalStartupSequence(self):
         self.setCentralWidget(self.__loader)
+        self.__serviceHub.initNetworkService()
         self.__serviceHub.networkStatusChannel.connect(self.__onNetworkStatusChanged)
         self.__serviceHub.setNetworkInformation(self.__settings.value("server/address"), int(self.__settings.value("server/port")), self.__settings.value("server/encryptionKey"))
         self.__serviceHub.startNetworkService()
@@ -160,6 +161,9 @@ class MainWindow(QMainWindow):
             self.__loader.setStatusText("Synchronizing file list,\nplease wait!")
             self.__mainPanel = MainPanel()
             self.__mainPanel.ready.connect(self.__onMainPanelReady)
+            self.__serviceHub.initFileSyncService()
+            self.__serviceHub.initSshService()
+            self.__serviceHub.setSSHInformation(self.__settings.value("server/address"), self.__settings.value("ssh/username"), self.__settings.value("ssh/password"))
             self.__mainPanel.syncFileList()
         elif event.eventType == ConnectionEventTypes.NETWORK_CONNECTION_ERROR:
             self.__errorPanel = self.__createErrorPanel()
@@ -178,6 +182,7 @@ class MainWindow(QMainWindow):
             self.__serviceHub.startFileSyncerService()
             self.setCentralWidget(self.__mainPanel)
             self.repaint()
+            self.__serviceHub.startSshService()
         except InvalidWorkspacePermissionException as e:
             errorDialog = QMessageBox(self)
             errorDialog.setIcon(QMessageBox.Critical)
@@ -229,8 +234,5 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot()
     def __onMainPanelReady(self):
-        self.__loader.setStatusText("Starting SSH service")
-        self.__serviceHub.setSSHInformation(self.__settings.value("server/address"), self.__settings.value("ssh/username"), self.__settings.value("ssh/password"))
         self.__serviceHub.sshStatusChannel.connect(self.__onSSHStatusChanged)
-        self.__serviceHub.startSshService()
         self.__serviceHub.connectToSSH()

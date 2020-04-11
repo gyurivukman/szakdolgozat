@@ -2,6 +2,9 @@ from enum import IntEnum
 from dataclasses import dataclass
 
 
+GLOBAL_TASK_ARCHIVE = {}
+
+
 @dataclass
 class Task():
     taskType: int

@@ -14,6 +14,7 @@ from Crypto.Cipher import AES
 from msgpack import Packer, Unpacker
 from PyQt5.QtCore import QObject, QSettings, pyqtSignal
 
+from model.file import FileStatuses
 from model.networkevents import ConnectionEventTypes, ConnectionEvent
 from model.message import NetworkMessage, MessageTypes
 from model.permission import WorkspacePermissionValidator
@@ -162,34 +163,37 @@ class NetworkClient(QObject):
 
 class SshClient(QObject):
     connectionStatusChanged = pyqtSignal(ConnectionEvent)
-    fileStatusChanged = pyqtSignal(object) # TODO
+    fileStatusChanged = pyqtSignal(object)  # TODO
 
-    def __init__(self, fileSyncer):
+    def __init__(self, fileSyncer, taskQueu):
         super().__init__()
-        self._shouldRun = True
-        self._fileSyncer = fileSyncer
-        self._tasks = Queue()
-        self._logger = logger.getChild("SshClient")
-        self._isConnected = False
+        self.__UPLOAD_CHUNK_SIZE = 1024
 
-        self._hostname = None
-        self._port = 22
-        self._username = None
-        self._password = None
+        self.__shouldRun = True
+        self.__fileSyncer = fileSyncer
+        self.__tasks = taskQueu
+        self.__logger = logger.getChild("SshClient")
+        self.__isConnected = False
 
-        self._client = paramiko.client.SSHClient()
-        self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self._sftp = None
+        self.__hostname = None
+        self.__port = 22
+        self.__username = None
+        self.__password = None
+        self.__workSpacePath = None
 
-        self._currentTask = None
+        self.__client = paramiko.client.SSHClient()
+        self.__client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.__sftp = None
+
+        self.__currentTask = None
 
     def run(self):
-        while self._shouldRun:
-            if self._isConnected:
+        while self.__shouldRun:
+            if self.__isConnected:
                 try:
-                    if not self._currentTask:
-                        self._currentTask = self._tasks.get_nowait()
-                    self._handleCurrentTask()
+                    if not self.__currentTask:
+                        self.__currentTask = self.__tasks.get_nowait()
+                    self.__handleCurrentTask()
                 except Empty:
                     time.sleep(0.5)
             else:
@@ -197,51 +201,74 @@ class SshClient(QObject):
         self.disconnect()
 
     def connect(self):
-        self._logger.debug("Connecting to SSH")
-        self._client.connect(self._hostname, self._port, self._username, self._password)
-        self._sftp = self._client.open_sftp()
-        self._logger.debug("SSH Connected")
-        self._isConnected = True
+        self.__logger.debug("Connecting to SSH")
+        self.__client.connect(self.__hostname, self.__port, self.__username, self.__password)
+        self.__sftp = self.__client.open_sftp()
+        self.__logger.debug("SSH Connected")
+        self.__isConnected = True
         self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.SSH_CONNECTED, None))
 
     def stop(self):
-        self._logger.debug("Stopping")
-        self._shouldRun = False
+        self.__logger.debug("Stopping")
+        self.__shouldRun = False
 
     def disconnect(self):
-        self._client.close()
-        if self._sftp:
-            self._sftp.close()
-        self._isConnected = False
+        self.__client.close()
+        if self.__sftp:
+            self.__sftp.close()
+        self.__isConnected = False
+
+    def setFileSyncer(self, fileSyncer):
+        self.__fileSyncer = fileSyncer
 
     def setSSHInformation(self, hostname, username, password):
-        self._hostname = hostname
-        self._username = username
-        self._password = password
+        self.__hostname = hostname
+        self.__username = username
+        self.__password = password
 
-    def _handleCurrentTask(self):
-        print("Handling current task!")
+    def setWorkspace(self, path):
+        self.__workSpacePath = path
 
-    def cleanRemoteWorkspace(self, path):
-        if self._isConnected:
-            self.__cleanRemoteWorkspace(path)
+    def __handleCurrentTask(self):
+        if self.__currentTask.taskType == FileStatuses.UPLOADING_FROM_LOCAL:
+            self.__logger.debug(f"I should upload from local: {self.__currentTask}")
+            self.__handleUpload()
+        elif self.__currentTask.taskType == FileStatuses.DOWNLOADING_TO_LOCAL:
+            pass  # TODO
         else:
+            self.__logger.debug(f"Unknown task! {self.__currentTask}")
+        self.__logger.debug(f"Task done! ({self.__currentTask.taskType.name} {self.__currentTask.subject.fullPath})")
+        self.__currentTask = None
+
+    def __handleUpload(self):
+        with self.__sftp.open(self.__currentTask.uuid, "wb") as remoteFileHandle:
+            localFilePath = f"{QSettings().value('syncDir/path')}/{self.__currentTask.subject.fullPath}"
+            with open(localFilePath, "rb") as localFileHandle:
+                data = localFileHandle.read(self.__UPLOAD_CHUNK_SIZE)
+                while data and self.__shouldRun and not self.__currentTask.stale:
+                    remoteFileHandle.write(data)
+                    data = localFileHandle.read(self.__UPLOAD_CHUNK_SIZE)
+                    self.__logger.debug("chunk uploaded ")
+
+    def cleanRemoteWorkspace(self):
+        if self.__isConnected and self.__workSpacePath:
+            self.__cleanRemoteWorkspace(self.__workSpacePath)
+        elif not self.__isConnected:
             raise Exception("SSH client is not connected. call 'connect' first.")
+        else:
+            raise Exception("Workspace not set. call 'setWorkspace' first.")
 
     def __cleanRemoteWorkspace(self, path):
-        settings = QSettings()
-        username = settings.value("ssh/username")
-
-        stdin, stdout, stderr = self._client.exec_command(f"ls -ld {path}")
+        stdin, stdout, stderr = self.__client.exec_command(f"ls -ld {path}")
         permissionResult = [line for line in stdout][0]
 
-        stdin, stdout, stderr = self._client.exec_command(f"groups {username}")
+        stdin, stdout, stderr = self.__client.exec_command(f"groups {self.__username}")
         membershipResult = [line for line in stdout][0]
 
-        permissionValidator = WorkspacePermissionValidator(username, path, permissionResult, membershipResult)
+        permissionValidator = WorkspacePermissionValidator(self.__username, path, permissionResult, membershipResult)
         permissionValidator.validate()
 
         clientWorkspacePath = f"{path}/client/"
 
-        self._sftp.chdir(clientWorkspacePath)
-        self._client.exec_command(f"rm -rf {clientWorkspacePath}/*")
+        self.__sftp.chdir(clientWorkspacePath)
+        self.__client.exec_command(f"rm -rf {clientWorkspacePath}/*")

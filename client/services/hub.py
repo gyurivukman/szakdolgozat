@@ -5,6 +5,7 @@ from threading import Thread
 from queue import Queue, Empty
 
 from model.networkevents import ConnectionEvent, ConnectionEventTypes
+from model.file import FileStatuses
 from .network import NetworkClient, SshClient
 from .files import FileSynchronizer
 
@@ -47,10 +48,7 @@ class ServiceHub(QObject):
             self.__sshService = None
             self.__isSshServiceRunning = False
             self.__sshThread = None
-
-            self.initNetworkService()
-            self.initFileSyncService()
-            self.initSshService()
+            self.__sshTaskQueu = None
 
     def __shutDownThreadedService(self, service, serviceThread):
         service.stop()
@@ -75,9 +73,10 @@ class ServiceHub(QObject):
         self.__fileSyncThread = Thread(target=self.__fileSyncService.run)
 
     def initSshService(self):
-        self.__sshService = SshClient(self.__fileSyncService)
-        self.__sshService.connectionStatusChanged.connect(self.__onSSHConnectionEvent)
+        self.__sshTaskQueu = Queue()
+        self.__sshService = SshClient(self.__fileSyncService, self.__sshTaskQueu)
         self.__sshThread = Thread(target=self.__sshService.run)
+        self.__sshService.connectionStatusChanged.connect(self.__onSSHConnectionEvent)
 
     def startNetworkService(self):
         self.__networkThread.start()
@@ -175,13 +174,17 @@ class ServiceHub(QObject):
         return self.__isSshServiceRunning
 
     def cleanRemoteSSHWorkspace(self, path):
-        self.__sshService.cleanRemoteWorkspace(path)
+        self.__sshService.setWorkspace(path)
+        self.__sshService.cleanRemoteWorkspace()
 
     def executeSSHCommand(self, command):
         return self.__sshService.executeCommand(command)
 
     def syncRemoteAndLocalFiles(self, remoteFiles):
         self.__fileSyncService.syncFileList(remoteFiles)
+
+    def enqueuSSHTask(self, task):
+        self.__sshTaskQueu.put(task)
 
     def __onNetworkMessageArrived(self, message):
         if message.header.uuid in self.__messageArchive:
@@ -194,6 +197,10 @@ class ServiceHub(QObject):
 
     def __onNewFileTask(self, task):
         self.__logger.debug(f"New filetask: {task}")
+        if task.taskType == FileStatuses.UPLOADING_FROM_LOCAL:
+            self.enqueuSSHTask(task)
+        else:
+            pass  # TODO,remoteról kell letölteni ilyenkor
 
     def __onNetworkConnectionEvent(self, event):
         self.networkStatusChannel.emit(event)

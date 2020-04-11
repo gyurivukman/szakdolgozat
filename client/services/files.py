@@ -1,5 +1,7 @@
 import logging
 import time
+
+from uuid import uuid4
 from datetime import datetime
 
 
@@ -12,9 +14,10 @@ from watchdog.events import FileSystemEventHandler
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from model.file import (
-    FileTask, FileEventTypes, FileData,
-    FileStatuses, FileStatusEvent, CheckLaterFileEvent
+    FileEventTypes, FileData, FileStatuses,
+    FileStatusEvent, CheckLaterFileEvent
 )
+from model.task import FileTask
 
 
 logger = logging.getLogger(__name__)
@@ -46,15 +49,15 @@ class FileSynchronizer(QObject):
         self.__logger.debug(f"Merged Filelist:\n {debug}")
 
         for _, fileData in mergedFileList.items():
+            #Created, so the UI makes a new entry
             event = FileStatusEvent(eventType=FileEventTypes.CREATED, status=fileData.status, sourcePath=fileData.fullPath)
 
             self.fileStatusChannel.emit(event)
             if fileData.status != FileStatuses.SYNCED:
-                # TODO hogy akkor még konkrét task is legyen belőle.
-                pass
+                task = FileTask(uuid4().hex, fileData.status, fileData)
+                self.fileTaskChannel.emit(task)
 
     def __mergeLocalFilesWithRemoteFiles(self, localFiles, remoteFiles):
-
         mergedFiles = localFiles
         for remoteFile in remoteFiles:
             if remoteFile.fullPath not in mergedFiles:
@@ -94,7 +97,7 @@ class FileSynchronizer(QObject):
                     toDelete = []
                     for path, checkLaterEvent in self.__toCheckLater.items():
                         if (datetime.now() - checkLaterEvent.timeOfLastAction).seconds > 1:
-                            # TODO Hogy task is legyen belőle.
+                            print("New file copied, making create task!")
                             self.fileStatusChannel.emit(checkLaterEvent.originalEvent)
                             toDelete.append(path)
                     for path in toDelete:

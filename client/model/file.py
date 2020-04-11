@@ -35,13 +35,6 @@ class FileEventTypes(Enum):
 
 
 @dataclass
-class FileTask:
-    taskType: FileEventTypes
-    subject: object
-    destinationPath: str = None
-
-
-@dataclass
 class FileStatusEvent:
     eventType: FileEventTypes
     sourcePath: str
@@ -53,7 +46,3 @@ class FileStatusEvent:
 class CheckLaterFileEvent:
     originalEvent: FileStatusEvent
     timeOfLastAction: datetime
-
-
-class FileTaskArchive:
-    pass

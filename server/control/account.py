@@ -41,7 +41,7 @@ class DropboxAccountWrapper(CloudAPIWrapper):
     def getFileList(self):
         files = []
         result = self.__dbx.files_list_folder("", recursive=True)
-        files = [self.__toFileData(entry) for entry in result.entries if type(entry) == (dropbox.files.FileMetadata) and entry.name[-4:] == ".enc"]
+        files = [self.__toFileData(entry) for entry in result.entries if type(entry) == (dropbox.files.FileMetadata) and entry.name[-4:] == ".enc" and entry.size > 0]
 
         return files
 
