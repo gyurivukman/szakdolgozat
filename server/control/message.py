@@ -93,7 +93,6 @@ class SetAccountListHandler(AbstractTaskHandler):
 
 
 class GetFileListHandler(AbstractTaskHandler):
-    # TEMPORARY
 
     def __init__(self, *args):
         super().__init__(*args)

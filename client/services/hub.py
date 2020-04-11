@@ -5,7 +5,9 @@ from threading import Thread
 from queue import Queue, Empty
 
 from model.networkevents import ConnectionEvent, ConnectionEventTypes
-from model.file import FileStatuses
+from model.file import FileStatuses, FileStatusEvent, FileEventTypes
+from model.message import NetworkMessage, MessageTypes
+
 from .network import NetworkClient, SshClient
 from .files import FileSynchronizer
 
@@ -65,11 +67,10 @@ class ServiceHub(QObject):
     def initFileSyncService(self):
         if self.__fileSyncService:
             self.__fileSyncService.fileTaskChannel.disconnect(self.__onNewFileTask)
-            self.__fileSyncService.fileStatusChannel.disconnect(self.__onFileStatusChanged)
-        settings = QSettings()
-        self.__fileSyncService = FileSynchronizer(settings.value("syncDir/path"))
+            self.__fileSyncService.fileStatusChannel.disconnect(self.__onLocalFileStatusChanged)
+        self.__fileSyncService = FileSynchronizer(QSettings().value("syncDir/path"))
         self.__fileSyncService.fileTaskChannel.connect(self.__onNewFileTask)
-        self.__fileSyncService.fileStatusChannel.connect(self.__onFileStatusChanged)
+        self.__fileSyncService.fileStatusChannel.connect(self.__onLocalFileStatusChanged)
         self.__fileSyncThread = Thread(target=self.__fileSyncService.run)
 
     def initSshService(self):
@@ -77,6 +78,7 @@ class ServiceHub(QObject):
         self.__sshService = SshClient(self.__fileSyncService, self.__sshTaskQueu)
         self.__sshThread = Thread(target=self.__sshService.run)
         self.__sshService.connectionStatusChanged.connect(self.__onSSHConnectionEvent)
+        self.__sshService.taskCompleted.connect(self.__onSSHTaskCompleted)
 
     def startNetworkService(self):
         self.__networkThread.start()
@@ -208,5 +210,16 @@ class ServiceHub(QObject):
     def __onSSHConnectionEvent(self, event):
         self.sshStatusChannel.emit(event)
 
-    def __onFileStatusChanged(self, event):
+    def __onSSHTaskCompleted(self, task):
+        event = None
+        if task.taskType == FileStatuses.UPLOADING_FROM_LOCAL:
+            event = FileStatusEvent(FileEventTypes.STATUS_CHANGED, task.subject.fullPath, FileStatuses.UPLOADING_TO_CLOUD)
+            # message = NetworkMessage.Builder(MessageTypes.UPLOAD_FILE)
+        elif task.taskType == FileStatuses.DOWNLOADING_TO_LOCAL:
+            pass
+        else:
+            raise Exception(f"Unknown tasktype received from sshService: {task.taskType}")
+        self.filesChannel.emit(event)
+
+    def __onLocalFileStatusChanged(self, event):
         self.filesChannel.emit(event)

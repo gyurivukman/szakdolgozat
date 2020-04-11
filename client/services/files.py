@@ -97,7 +97,6 @@ class FileSynchronizer(QObject):
                     toDelete = []
                     for path, checkLaterEvent in self.__toCheckLater.items():
                         if (datetime.now() - checkLaterEvent.timeOfLastAction).seconds > 1:
-                            print("New file copied, making create task!")
                             self.fileStatusChannel.emit(checkLaterEvent.originalEvent)
                             toDelete.append(path)
                     for path in toDelete:
@@ -126,7 +125,6 @@ class FileSynchronizer(QObject):
                 yield FileData(filename=filename, modified=stats.st_mtime, size=stats.st_size, path=path, fullPath=fullPath, status=FileStatuses.UPLOADING_FROM_LOCAL)
 
     def _processEvent(self, event):
-        print(f"Processing event {event}")
         eventType = FileEventTypes(event.event_type)
 
         sourcePath = event.src_path.replace(f"{self.__syncDir}/", "")

@@ -15,6 +15,7 @@ from msgpack import Packer, Unpacker
 from PyQt5.QtCore import QObject, QSettings, pyqtSignal
 
 from model.file import FileStatuses
+from model.task import FileTask
 from model.networkevents import ConnectionEventTypes, ConnectionEvent
 from model.message import NetworkMessage, MessageTypes
 from model.permission import WorkspacePermissionValidator
@@ -163,7 +164,7 @@ class NetworkClient(QObject):
 
 class SshClient(QObject):
     connectionStatusChanged = pyqtSignal(ConnectionEvent)
-    fileStatusChanged = pyqtSignal(object)  # TODO
+    taskCompleted = pyqtSignal(FileTask)
 
     def __init__(self, fileSyncer, taskQueu):
         super().__init__()
@@ -180,6 +181,8 @@ class SshClient(QObject):
         self.__username = None
         self.__password = None
         self.__workSpacePath = None
+        self.__userID = None
+        self.__userGID = None
 
         self.__client = paramiko.client.SSHClient()
         self.__client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -194,6 +197,7 @@ class SshClient(QObject):
                     if not self.__currentTask:
                         self.__currentTask = self.__tasks.get_nowait()
                     self.__handleCurrentTask()
+                    self.__tasks.task_done()
                 except Empty:
                     time.sleep(0.5)
             else:
@@ -230,14 +234,15 @@ class SshClient(QObject):
         self.__workSpacePath = path
 
     def __handleCurrentTask(self):
+        self.__logger.debug(f"New task: ({self.__currentTask.taskType.name}, {self.__currentTask.subject.fullPath})")
         if self.__currentTask.taskType == FileStatuses.UPLOADING_FROM_LOCAL:
-            self.__logger.debug(f"I should upload from local: {self.__currentTask}")
             self.__handleUpload()
         elif self.__currentTask.taskType == FileStatuses.DOWNLOADING_TO_LOCAL:
             pass  # TODO
         else:
             self.__logger.debug(f"Unknown task! {self.__currentTask}")
         self.__logger.debug(f"Task done! ({self.__currentTask.taskType.name} {self.__currentTask.subject.fullPath})")
+        self.taskCompleted.emit(self.__currentTask)
         self.__currentTask = None
 
     def __handleUpload(self):
@@ -248,15 +253,15 @@ class SshClient(QObject):
                 while data and self.__shouldRun and not self.__currentTask.stale:
                     remoteFileHandle.write(data)
                     data = localFileHandle.read(self.__UPLOAD_CHUNK_SIZE)
-                    self.__logger.debug("chunk uploaded ")
+        self.__sftp.rename(f"{self.__sftp.getcwd()}/{self.__currentTask.uuid}", f"{self.__workSpacePath}/server/{self.__currentTask.uuid}")
 
     def cleanRemoteWorkspace(self):
         if self.__isConnected and self.__workSpacePath:
             self.__cleanRemoteWorkspace(self.__workSpacePath)
         elif not self.__isConnected:
-            raise Exception("SSH client is not connected. call 'connect' first.")
+            raise Exception("SSH client is not connected. Call 'connect' first.")
         else:
-            raise Exception("Workspace not set. call 'setWorkspace' first.")
+            raise Exception("Workspace not set. Call 'setWorkspace' first.")
 
     def __cleanRemoteWorkspace(self, path):
         stdin, stdout, stderr = self.__client.exec_command(f"ls -ld {path}")
@@ -268,7 +273,7 @@ class SshClient(QObject):
         permissionValidator = WorkspacePermissionValidator(self.__username, path, permissionResult, membershipResult)
         permissionValidator.validate()
 
-        clientWorkspacePath = f"{path}/client/"
+        clientWorkspacePath = f"{path}/client"
 
         self.__sftp.chdir(clientWorkspacePath)
         self.__client.exec_command(f"rm -rf {clientWorkspacePath}/*")

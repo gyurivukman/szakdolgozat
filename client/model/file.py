@@ -32,6 +32,7 @@ class FileEventTypes(Enum):
     CREATED = "created"
     DELETED = "deleted"
     MOVED = "moved"
+    STATUS_CHANGED = "status_changed"
 
 
 @dataclass

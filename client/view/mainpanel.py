@@ -184,6 +184,8 @@ class MainPanel(QWidget):
             fileTrackerWidget = FileTrackerWidget(fullPath=event.sourcePath, status=event.status, iconAtlas=self.__fileTrackerIconAtlas)
             self.__fileWidgets[event.sourcePath] = fileTrackerWidget
             self.__filesLayout.insertWidget(self.__filesLayout.count() - 1, fileTrackerWidget)
+        elif event.eventType == FileEventTypes.STATUS_CHANGED:
+            self.__fileWidgets[event.sourcePath].setStatus(event.status)
         elif event.eventType == FileEventTypes.MODIFIED:
             self.__fileWidgets[event.sourcePath].setStatus(event.status)
         elif event.eventType == FileEventTypes.DELETED:
@@ -195,7 +197,7 @@ class MainPanel(QWidget):
             self.__fileWidgets[event.destinationPath].setStatus(event.status)
             del self.__fileWidgets[event.sourcePath]
         else:
-            print(f"\n{event}\n")
+            self.__logger.debug(f"Unknown event in MainPanel: {event}")
 
 
 class FileTrackerWidget(QWidget):

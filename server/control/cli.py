@@ -1,6 +1,8 @@
+import stat
 from argparse import ArgumentTypeError, Action
 from os.path import isdir
-from os import access, R_OK, W_OK, mkdir
+
+from os import access, R_OK, W_OK, mkdir, chmod
 from shutil import rmtree
 
 CONSOLE_ARGUMENTS = None
@@ -48,6 +50,7 @@ class WorkspaceArgumentValidator(ArgumentValidator):
 
 
 class CreateWorkspaceAction(Action):
+    __WORKSPACE_PERMISSIONS = stat.S_IRWXU  | stat.S_IRWXG | stat.S_IRWXO
 
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         if nargs is not None:
@@ -61,16 +64,18 @@ class CreateWorkspaceAction(Action):
         self.__createClientWorkspace(path)
 
     def __createServerWorkspace(self, workspacePath):
-
+        path = f"{workspacePath}/server"
         try:
-            mkdir(f"{workspacePath}/server")
+            mkdir(path)
         except FileExistsError:
-            target = f"{workspacePath}/server"
-            rmtree(target)
-            mkdir(target)
+            rmtree(path)
+            mkdir(path)
+        chmod(path, self.__WORKSPACE_PERMISSIONS)
 
     def __createClientWorkspace(self, workspacePath):
+        path = f"{workspacePath}/client"
         try:
-            mkdir(f"{workspacePath}/client")
+            mkdir(path)
         except FileExistsError:
             pass
+        chmod(path, self.__WORKSPACE_PERMISSIONS)
