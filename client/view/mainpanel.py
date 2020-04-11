@@ -33,8 +33,6 @@ class FileTrackerIconAtlas:
             FileStatuses.DOWNLOADING_TO_LOCAL: self.diskDownloadIcon,
             FileStatuses.UPLOADING_TO_CLOUD: self.cloudUploadIcon,
             FileStatuses.DOWNLOADING_FROM_CLOUD: self.cloudDownloadIcon,
-            FileStatuses.ENCRYPTING: self.encryptingIcon,
-            FileStatuses.DECRYPTING: self.encryptingIcon,
             FileStatuses.MOVING: self.movingIcon
         }
 
@@ -201,8 +199,7 @@ class MainPanel(QWidget):
 
 
 class FileTrackerWidget(QWidget):
-
-    __statusDisplayValues = ["Downloading from cloud", "Uploading to cloud", "Encrypting", "Decrypting", "Downloading from remote", "Uploading to remote", "Synchronized", "Moving/renaming"]
+    __statusDisplayValues = ["Downloading from cloud", "Uploading to cloud", "Downloading from remote", "Uploading to remote", "Synchronized", "Moving/renaming"]
 
     def __init__(self, *args, **kwargs):
         self.__fileTrackerIconAtlas = kwargs.pop("iconAtlas")

@@ -8,12 +8,10 @@ from enum import Enum, IntEnum
 class FileStatuses(IntEnum):
     DOWNLOADING_FROM_CLOUD = 0
     UPLOADING_TO_CLOUD = 1
-    ENCRYPTING = 2
-    DECRYPTING = 3
-    DOWNLOADING_TO_LOCAL = 4
-    UPLOADING_FROM_LOCAL = 5
-    SYNCED = 6
-    MOVING = 7
+    DOWNLOADING_TO_LOCAL = 2
+    UPLOADING_FROM_LOCAL = 3
+    SYNCED = 4
+    MOVING = 5
 
 
 @dataclass

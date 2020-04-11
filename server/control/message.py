@@ -5,7 +5,7 @@ from queue import Queue
 
 from .abstract import Singleton
 
-from control.account import SFTPCloudAccount
+from control.account import CloudAPIFactory
 import control.cli
 
 from model.message import NetworkMessage, NetworkMessageHeader, MessageTypes
@@ -94,17 +94,10 @@ class SetAccountListHandler(AbstractTaskHandler):
 
 class GetFileListHandler(AbstractTaskHandler):
     # TEMPORARY
-    __accounts = [
-        {"id": 1, "username": "cloudAccount1", "password": "ferius123"},
-        {"id": 2, "username": "cloudAccount2", "password": "ferius123"}
-    ]
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.__cloudAccounts = [
-            SFTPCloudAccount(self.__accounts[0]),
-            SFTPCloudAccount(self.__accounts[1])
-        ]
+        self.__cloudAccounts = [CloudAPIFactory.fromAccountData(accData) for accData in self._databaseAccess.getAllAccounts()]
         self.__partPattern = "(__[0-9]+){2}\.enc"
         self.__totalCountPattern = "__[0-9]+"
 
@@ -121,12 +114,12 @@ class GetFileListHandler(AbstractTaskHandler):
                 realFilename = self.__getRealFilename(filePart.filename)
                 filePart.fullPath = f"{filePart.path}/{realFilename}" if len(filePart.path) > 0 else realFilename
                 if filePart.fullPath not in fileList:
-                    fileList[filePart.fullPath] = {"data": filePart, "availableCount": 1, "totalCount": self.__getFilePartCount(filePart.filename), "storingAccountIDs": [account.id]} # TODO Kiemelni cache osztályba!
+                    fileList[filePart.fullPath] = {"data": filePart, "availableCount": 1, "totalCount": self.__getFilePartCount(filePart.filename), "storingAccountIDs": [account.accountData.id]}
                     fileList[filePart.fullPath]["data"].filename = realFilename
                 else:
                     fileList[filePart.fullPath]["data"].size += filePart.size
                     fileList[filePart.fullPath]["availableCount"] += 1
-                    fileList[filePart.fullPath]["storingAccountIDs"].append(account.id)
+                    fileList[filePart.fullPath]["storingAccountIDs"].append(account.accountData.id)
         fullFiles = [remoteFile["data"].serialize() for key, remoteFile in fileList.items() if remoteFile["availableCount"] == remoteFile["totalCount"]]
         partsMissing = [f"{remoteFile['data'].fullPath} (missing part count: {remoteFile['totalCount'] - remoteFile['availableCount']})" for key, remoteFile in fileList.items() if remoteFile['totalCount'] > remoteFile['availableCount']]
         self._logger.debug(f"Found the following full files:{[{'file:': remoteFile['data'].serialize(), 'storingAccountIDs':remoteFile['storingAccountIDs']} for key, remoteFile in fileList.items() if remoteFile['availableCount'] == remoteFile['totalCount']] }")

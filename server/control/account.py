@@ -1,21 +1,68 @@
-import paramiko
 import re
 
+import paramiko
+import dropbox
+
+from Crypto.Cipher import AES
+
+from model.account import AccountTypes, AccountData
 from model.file import FileData
+from model.task import Task
 
 
-class SFTPCloudAccount():
+class CloudAPIWrapper:
 
     def __init__(self, accountData):
-        self.username = accountData['username']
-        self.password = accountData['password']
-        self.id = accountData['id']
+        self.accountData = accountData
+        self._task = None
 
-        self.__accountData = accountData
+    def upload(self, fileHandle, toUploadSize, remotePath, task):
+        raise NotImplementedError("Derived class must implement method 'upload'!")
+
+    def download(self, fileHandle, remotePath, task):
+        raise NotImplementedError("Derived class must implement method 'download'!")
+
+    def getFileList(self):
+        raise NotImplementedError("Derived class must implement method 'getFileList'!")
+
+    def delete(self):
+        raise NotImplementedError("Derived class must implement method 'delete'!")
+
+    def move(self, oldPath, newPath):
+        raise NotImplementedError("Derived class must implement method 'move'!")
+
+
+class DropboxAccountWrapper(CloudAPIWrapper):
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.__dbx = dropbox.Dropbox(self.accountData.data['apiToken'])
+
+    def getFileList(self):
+        files = []
+        result = self.__dbx.files_list_folder("", recursive=True)
+        files = [self.__toFileData(entry) for entry in result.entries if type(entry) == (dropbox.files.FileMetadata) and entry.name[-4:] == ".enc"]
+
+        return files
+
+    def __toFileData(self, entry):
+        return FileData(
+            filename=entry.name,
+            modified=int(entry.client_modified.timestamp()),
+            size=entry.size,
+            path=entry.path_display.replace(f"/{entry.name}", "").lstrip("/"),
+            fullPath=entry.path_display.lstrip("/")
+        )
+
+
+class SFTPCloudAccount(CloudAPIWrapper):  # TODO Stretchgoal!
+
+    def __init__(self, *args):
+        super().__init__(*args)
 
         self.__client = paramiko.SSHClient()
         self.__client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.__client.connect("localhost", 22, self.username, self.password)
+        self.__client.connect("localhost", 22, self.accountData['username'], self.password['password'])
 
         self.__sftp = self.__client.open_sftp()
 
@@ -39,3 +86,14 @@ class SFTPCloudAccount():
     def __del__(self):
         self.__sftp.close()
         self.__client.close()
+
+
+class CloudAPIFactory:
+    __typeToClassMap = {
+        AccountTypes.Dropbox: DropboxAccountWrapper,
+        AccountTypes.GoogleDrive: None  # TODO
+    }
+
+    @staticmethod
+    def fromAccountData(accountData):
+        return CloudAPIFactory.__typeToClassMap[accountData.accountType](accountData)
