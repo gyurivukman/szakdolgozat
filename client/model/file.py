@@ -55,3 +55,7 @@ class FileStatusEvent:
 class CheckLaterFileEvent:
     originalEvent: FileStatusEvent
     timeOfLastAction: datetime
+
+
+class FileTaskArchive:
+    pass
