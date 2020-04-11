@@ -1,12 +1,10 @@
 import logging
 import re
-
 from queue import Queue
 
-from .abstract import Singleton
-
-from control.account import CloudAPIFactory
 import control.cli
+from .abstract import Singleton
+from control.account import CloudAPIFactory
 
 from model.message import NetworkMessage, NetworkMessageHeader, MessageTypes
 from model.file import FileData
@@ -18,7 +16,8 @@ moduleLogger = logging.getLogger(__name__)
 
 class MessageDispatcher(metaclass=Singleton):
 
-    __INSTANT_TASK_TYPES = [MessageTypes.GET_ACCOUNT_LIST, MessageTypes.SET_ACCOUNT_LIST, MessageTypes.SYNC_FILES, MessageTypes.GET_WORKSPACE]
+    __INSTANT_TASK_TYPES = [MessageTypes.GET_ACCOUNT_LIST, MessageTypes.SET_ACCOUNT_LIST, MessageTypes.SYNC_FILES, MessageTypes.GET_WORKSPACE, MessageTypes.MOVE_FILE, MessageTypes.DELETE_FILE]
+    __SLOW_TASK_TYPES = [MessageTypes.UPLOAD_FILE, MessageTypes.DOWNLOAD_FILE]
 
     def __init__(self):
         self.incoming_instant_task_queue = Queue()
@@ -28,9 +27,12 @@ class MessageDispatcher(metaclass=Singleton):
         self._logger = moduleLogger.getChild("MessageDispatcher")
 
     def dispatchIncomingMessage(self, message):
-        if message.header.messageType in self.__INSTANT_TASK_TYPES:
+        messageType = message.header.messageType
+
+        if messageType in self.__INSTANT_TASK_TYPES:
             self.incoming_instant_task_queue.put(message)
-        # TODO elif message.header.messageType in self.__SLOW_TASK_TYPES:
+        elif messageType in self.__SLOW_TASK_TYPES:
+            self.incoming_task_queue.put(message)
         else:
             self._logger.warning(f"Unknown message: {message}")
 
@@ -154,3 +156,31 @@ class GetWorkspaceHandler(AbstractTaskHandler):
         response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(data).build()
         self._messageDispatcher.dispatchResponse(response)
         self._task = None
+
+
+class UploadFileHandler(AbstractTaskHandler):
+
+    def _getLogger(self):
+        return moduleLogger.getChild("UploadFileHandler")
+
+    def handle(self):
+        accounts = self._databaseAccess.getAllAccounts()
+
+        perAccountSize = self._task.data['size'] / len(accounts)
+
+        if perAccountSize < 1.0 or len(accounts) == 1:
+            self.__uploadToFirstAccountOnly(accounts[0])
+        else:
+            self.__uploadToAllAccounts(accounts)
+
+        self._task = None
+
+    def __uploadToFirstAccountOnly(self, account):
+        cloudAccount = CloudAPIFactory.fromAccountData(account)
+        with open(f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}", "rb") as localFileHandle:
+            cloudFileName = f"{self._task.data['filename']}__1__1.enc"
+            cloudAccount.upload(localFileHandle, self._task.data['size'], cloudFileName, self._task)
+        print("TÜTÜTÜÜÜÜ TÜÜÜÜ TÜÜÜÜ TÜÜÜÜ rüttü tüüü")
+
+    def __uploadToAllAccounts(self, accounts):
+        pass

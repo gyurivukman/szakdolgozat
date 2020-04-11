@@ -122,7 +122,7 @@ class FileSynchronizer(QObject):
                 filename = splitted[-1]
                 stats = entry.stat()
 
-                yield FileData(filename=filename, modified=stats.st_mtime, size=stats.st_size, path=path, fullPath=fullPath, status=FileStatuses.UPLOADING_FROM_LOCAL)
+                yield FileData(filename=filename, modified=int(stats.st_mtime), size=stats.st_size, path=path, fullPath=fullPath, status=FileStatuses.UPLOADING_FROM_LOCAL)
 
     def _processEvent(self, event):
         eventType = FileEventTypes(event.event_type)

@@ -4,9 +4,18 @@ from enum import IntEnum
 class MessageTypes(IntEnum):
     RESPONSE = 0
     GET_WORKSPACE = 1
+
     GET_ACCOUNT_LIST = 2
     SET_ACCOUNT_LIST = 3
+
     SYNC_FILES = 4
+
+    UPLOAD_FILE = 5
+    DOWNLOAD_FILE = 6
+    MOVE_FILE = 7
+    DELETE_FILE = 8
+
+    FILE_STATUS_UPDATE = 9
 
 
 class NetworkMessageHeader():

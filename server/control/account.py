@@ -1,4 +1,6 @@
 import re
+import logging
+from datetime import datetime, timedelta
 
 import paramiko
 import dropbox
@@ -9,14 +11,19 @@ from model.account import AccountTypes, AccountData
 from model.file import FileData
 from model.task import Task
 
+from control.util import chunkSizeGenerator
+
+moduleLogger = logging.getLogger(__name__)
+
 
 class CloudAPIWrapper:
 
     def __init__(self, accountData):
         self.accountData = accountData
         self._task = None
+        self._logger = self._getLogger()
 
-    def upload(self, fileHandle, toUploadSize, remotePath, task):
+    def upload(self, fileHandle, toUploadSize, partName, task):
         raise NotImplementedError("Derived class must implement method 'upload'!")
 
     def download(self, fileHandle, remotePath, task):
@@ -31,12 +38,16 @@ class CloudAPIWrapper:
     def move(self, oldPath, newPath):
         raise NotImplementedError("Derived class must implement method 'move'!")
 
+    def _getLogger(self):
+        raise NotImplementedError("Derived class must implement method '_getLogger'!")
+
 
 class DropboxAccountWrapper(CloudAPIWrapper):
 
     def __init__(self, *args):
         super().__init__(*args)
         self.__dbx = dropbox.Dropbox(self.accountData.data['apiToken'])
+        self.__UPLOAD_CHUNK_SIZE = 30000  # TODO magasabbra haló.
 
     def getFileList(self):
         files = []
@@ -44,6 +55,49 @@ class DropboxAccountWrapper(CloudAPIWrapper):
         files = [self.__toFileData(entry) for entry in result.entries if type(entry) == (dropbox.files.FileMetadata) and entry.name[-4:] == ".enc" and entry.size > 0]
 
         return files
+
+    def upload(self, fileHandle, toUploadSize, partName, task):
+        self._logger.debug(f"Uploading filePart: {partName}")
+
+        cipher = AES.new(self.accountData.cryptoKey.encode(), AES.MODE_CFB)
+
+        if not task.stale:
+            upload_session_start_result = self.__dbx.files_upload_session_start(
+                cipher.iv
+            )
+
+            offset = len(cipher.iv)
+            cursor = dropbox.files.UploadSessionCursor(
+                session_id=upload_session_start_result.session_id,
+                offset=offset,
+            )
+
+            timeZoneOffset = task.data['userTimezone']
+            clientModified = datetime.utcfromtimestamp(task.data['utcModified']) + timedelta(hours=int(timeZoneOffset[0:2]), minutes=int(timeZoneOffset[2:]))
+            remotePath = f"{task.data['path']}/{partName}"
+
+            commit = dropbox.files.CommitInfo(path=f"{remotePath}", mode=dropbox.files.WriteMode.overwrite, client_modified=clientModified)
+
+            for chunkSize, remaining in chunkSizeGenerator(toUploadSize, self.__UPLOAD_CHUNK_SIZE):
+                if not task.stale:
+                    data = cipher.encrypt(fileHandle.read(chunkSize))
+                    if remaining == 0:
+                        print(
+                            self.__dbx.files_upload_session_finish(
+                                data, cursor, commit
+                            )
+                        )
+                    else:
+                        self.__dbx.files_upload_session_append(
+                            data,
+                            cursor.session_id,
+                            cursor.offset,
+                        )
+                    cursor.offset += chunkSize
+                print("Uploaded chunk.")
+
+    def _getLogger(self):
+        return moduleLogger.getChild("DropboxAccountWrapper")
 
     def __toFileData(self, entry):
         return FileData(
@@ -62,7 +116,7 @@ class SFTPCloudAccount(CloudAPIWrapper):  # TODO Stretchgoal!
 
         self.__client = paramiko.SSHClient()
         self.__client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.__client.connect("localhost", 22, self.accountData['username'], self.password['password'])
+        self.__client.connect("localhost", 22, self.accountData.data['username'], self.accountData.data['password'])
 
         self.__sftp = self.__client.open_sftp()
 

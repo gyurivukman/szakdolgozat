@@ -50,7 +50,7 @@ class WorkspaceArgumentValidator(ArgumentValidator):
 
 
 class CreateWorkspaceAction(Action):
-    __WORKSPACE_PERMISSIONS = stat.S_IRWXU  | stat.S_IRWXG | stat.S_IRWXO
+    __WORKSPACE_PERMISSIONS = stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO
 
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         if nargs is not None:

@@ -24,7 +24,7 @@ class DatabaseAccess(metaclass=Singleton):
             self._logger.debug("Database found, skipping creation.")
 
         dbPath = f"{dbDir}/accounts.db"
-        self.__conn = sqlite3.connect(dbPath)
+        self.__conn = sqlite3.connect(dbPath, check_same_thread=False)
         self.__cursor = self.__conn.cursor()
 
         self.__cursor.execute("CREATE TABLE IF NOT EXISTS accounts (id int, identifier text, accountType int, cryptoKey text, data text);")
@@ -76,5 +76,6 @@ class DatabaseAccess(metaclass=Singleton):
         self.__conn.commit()
 
     def close(self):
+        self.__isConnected = False
         self._logger.debug("Closing database connection.")
         self.__conn.close()
