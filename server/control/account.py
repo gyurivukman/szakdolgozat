@@ -104,7 +104,7 @@ class DropboxAccountWrapper(CloudAPIWrapper):
         return FileData(
             filename=entry.name,
             modified=int(entry.client_modified.timestamp()),
-            size=entry.size,
+            size=entry.size - 16,
             path=entry.path_display.replace(f"/{entry.name}", "").lstrip("/"),
             fullPath=entry.path_display.lstrip("/")
         )
