@@ -171,7 +171,10 @@ class UploadFileHandler(AbstractTaskHandler):
 
     def __sendResponse(self):
         if not self._task.stale:
-            data = {"fullPath": self._task.data["fullPath"], "status": FileStatuses.SYNCED}
+            data = {"fullPath": self._task.data["fullPath"], "filename": self._task.data["filename"], "modified": self._task.data["utcModified"], "size": self._task.data["size"], "path": self._task.data["path"], "status": FileStatuses.SYNCED}
+            print("\n\n")
+            print(f"Upload response: {data}")
+            print("\n\n")
             response = NetworkMessage.Builder(MessageTypes.FILE_STATUS_UPDATE).withData(data).withRandomUUID().build()
             self._messageDispatcher.dispatchResponse(response)
 

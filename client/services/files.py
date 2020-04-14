@@ -97,6 +97,7 @@ class FileSynchronizer(QObject):
         absoluteTargetPath = f"{self.__syncDir}/{task.subject.fullPath}"
 
         self.__detector.muteFile(absoluteTargetPath)
+        time.sleep(0.2)
         os.rename(absoluteSourcePath, absoluteTargetPath)
         os.utime(absoluteTargetPath, (task.subject.modified, task.subject.modified))
 
