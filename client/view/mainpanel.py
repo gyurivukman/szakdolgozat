@@ -22,7 +22,7 @@ class FileTrackerIconAtlas:
         self.cloudUploadIcon = QPixmap(":cloud_upload.png").scaled(20, 20, Qt.IgnoreAspectRatio)
         self.cloudDownloadIcon = QPixmap(":cloud_download.png").scaled(20, 20, Qt.IgnoreAspectRatio)
         self.diskUploadIcon = QPixmap(":disk_upload.png").scaled(20, 20, Qt.IgnoreAspectRatio)
-        self.diskDownloadIcon = QPixmap(":cloud_upload.png").scaled(20, 20, Qt.IgnoreAspectRatio)
+        self.diskDownloadIcon = QPixmap(":disk_download.png").scaled(20, 20, Qt.IgnoreAspectRatio)
         self.syncedIcon = QPixmap(":check.png").scaled(20, 20, Qt.IgnoreAspectRatio)
         self.encryptingIcon = QPixmap(":encrypting.png").scaled(20, 20, Qt.IgnoreAspectRatio)
         self.movingIcon = QPixmap(":move.png").scaled(20, 20, Qt.IgnoreAspectRatio)
@@ -180,6 +180,7 @@ class MainPanel(QWidget):
 
     @pyqtSlot(FileStatusEvent)
     def __onFileStatusEvent(self, event):
+        self.__logger.debug(f"Received event: {event}")
         if event.eventType == FileEventTypes.CREATED:
             fileTrackerWidget = FileTrackerWidget(fullPath=event.sourcePath, status=event.status, iconAtlas=self.__fileTrackerIconAtlas)
             self.__fileWidgets[event.sourcePath] = fileTrackerWidget

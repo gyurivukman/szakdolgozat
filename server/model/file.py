@@ -32,6 +32,8 @@ class FileData:
 class FilePart:
     partName: str
     storingAccountID: int
+    size: int
+    extraInfo: object = None
 
 
 @dataclass
@@ -58,19 +60,19 @@ class CloudFilesCache(metaclass=Singleton):
         try:
             self.__filesCache[realFileFullPath].data.size += filePart.size - 16
             self.__filesCache[realFileFullPath].availablePartCount += 1
-            self.__filesCache[realFileFullPath].parts.append(FilePart(filePart.filename, accountID))
+            self.__filesCache[realFileFullPath].parts.append(FilePart(filePart.filename, filePart.size, accountID))
         except KeyError:
             partName = filePart.filename
             filePart.filename = realFilename
             filePart.fullPath = realFileFullPath
-            self.__filesCache[realFileFullPath] = CachedFileData(filePart, 1, self.__getFilePartCount(partName), [FilePart(partName, accountID)])
+            self.__filesCache[realFileFullPath] = CachedFileData(filePart, 1, self.__getFilePartCount(partName), [FilePart(partName, accountID, filePart.size)])
             self.__filesCache[realFileFullPath].data.size -= 16
 
     def removeFile(self, path):
-        del self.filesCache[path]
+        del self.__filesCache[path]
 
     def getFile(self, path):
-        return self.filesCache.get(path)
+        return self.__filesCache.get(path)
 
     def __getRealFilename(self, filePartName):
         match = re.search(self.__partPattern, filePartName)
@@ -84,7 +86,8 @@ class CloudFilesCache(metaclass=Singleton):
         return int(match[1].split("__")[1])
 
     def getFullFiles(self):
-        return [cachedFile.data.serialize() for key, cachedFile in self.__filesCache.items() if cachedFile.availablePartCount == cachedFile.totalPartCount]
+        fullFiles = [cachedFile.data.serialize() for key, cachedFile in self.__filesCache.items() if cachedFile.availablePartCount == cachedFile.totalPartCount]
+        return fullFiles
 
     def getIncompleteFiles(self):
         return [f"{cachedFile.data.fullPath} (missing part count: {cachedFile.totalPartCount - cachedFile.availablePartCount})" for key, cachedFile in self.__filesCache.items() if cachedFile.totalPartCount > cachedFile.availablePartCount]

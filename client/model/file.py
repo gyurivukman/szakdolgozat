@@ -24,7 +24,7 @@ class FileData:
     status: FileStatuses = None
 
     def serialize(self):
-        return {"filename": self.filename, "modified": self.modified, "size": self.size, "path": self.path}
+        return {"filename": self.filename, "modified": self.modified, "size": self.size, "path": self.path, "fullPath": self.fullPath}
 
 
 class FileEventTypes(Enum):

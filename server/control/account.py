@@ -1,9 +1,11 @@
 import re
 import logging
+import json
 from datetime import datetime, timedelta
 
 import paramiko
 import dropbox
+import requests
 
 from Crypto.Cipher import AES
 
@@ -11,7 +13,7 @@ from model.account import AccountTypes, AccountData
 from model.file import FileData
 from model.task import Task
 
-from control.util import chunkSizeGenerator
+from control.util import chunkSizeGenerator, httpRangeHeaderIntervalGenerator
 
 moduleLogger = logging.getLogger(__name__)
 
@@ -26,7 +28,7 @@ class CloudAPIWrapper:
     def upload(self, fileHandle, toUploadSize, partName, task):
         raise NotImplementedError("Derived class must implement method 'upload'!")
 
-    def download(self, fileHandle, remotePath, task):
+    def download(self, fileHandle, cachedFileInfo, partInfo, task):
         raise NotImplementedError("Derived class must implement method 'download'!")
 
     def getFileList(self):
@@ -47,7 +49,25 @@ class DropboxAccountWrapper(CloudAPIWrapper):
     def __init__(self, *args):
         super().__init__(*args)
         self.__dbx = dropbox.Dropbox(self.accountData.data['apiToken'])
+        self.__DOWNLOAD_URL = "https://content.dropboxapi.com/2/files/download"
         self.__UPLOAD_CHUNK_SIZE = 1048576
+        self.__DOWNLOAD_CHUNK_SIZE = 1048576
+
+    def __toFileData(self, entry):
+        print(entry.client_modified.tzinfo)
+        return FileData(
+            filename=entry.name,
+            modified=int(entry.client_modified.timestamp()),
+            size=entry.size,
+            path=entry.path_display.replace(f"/{entry.name}", "").lstrip("/"),
+            fullPath=entry.path_display.lstrip("/")
+        )
+
+    def __sendDownloadCompleteResponse(self):
+        data = self._task.subject
+
+    def _getLogger(self):
+        return moduleLogger.getChild("DropboxAccountWrapper")
 
     def getFileList(self):
         files = []
@@ -96,18 +116,21 @@ class DropboxAccountWrapper(CloudAPIWrapper):
                         )
                     cursor.offset += chunkSize
 
-    def _getLogger(self):
-        return moduleLogger.getChild("DropboxAccountWrapper")
+    def download(self, fileHandle, cachedFileInfo, partInfo, task):
+        token = self.accountData.data["apiToken"]
+        remotePath = f"{cachedFileInfo.data.fullPath.replace(cachedFileInfo.data.filename, '')}{partInfo.partName}"
 
-    def __toFileData(self, entry):
-        print(entry.client_modified.tzinfo)
-        return FileData(
-            filename=entry.name,
-            modified=int(entry.client_modified.timestamp()),
-            size=entry.size - 16,
-            path=entry.path_display.replace(f"/{entry.name}", "").lstrip("/"),
-            fullPath=entry.path_display.lstrip("/")
-        )
+        headers = {"Authorization": f"Bearer {token}", "Dropbox-API-Arg": json.dumps({"path": f"/{remotePath}"}), "Range": "bytes=0-15"}
+        res = requests.get(self.__DOWNLOAD_URL, headers=headers)
+        cipher = AES.new(self.accountData.cryptoKey.encode(), AES.MODE_CFB, iv=res.content)
+
+        for interval in httpRangeHeaderIntervalGenerator(partInfo.size, self.__DOWNLOAD_CHUNK_SIZE):
+            if not task.stale:
+                headers["Range"] = f"bytes={interval[0]}-{interval[1]}"
+
+                res = requests.get(self.__DOWNLOAD_URL, headers=headers)
+                decrypted = cipher.decrypt(res.content)
+                fileHandle.write(decrypted)
 
 
 class SFTPCloudAccount(CloudAPIWrapper):  # TODO Stretchgoal!

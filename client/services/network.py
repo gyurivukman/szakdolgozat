@@ -4,6 +4,8 @@ import time
 import logging
 import random
 import string
+import os
+import asyncio
 
 from datetime import datetime
 from uuid import uuid4
@@ -59,7 +61,7 @@ class NetworkClient(QObject):
                     self.connectionStatusChanged.emit(ConnectionEvent(ConnectionEventTypes.NETWORK_DISCONNECTED, {"message": str(e)}))
                     self._handleErroneousSocket([self._socket])
             else:
-                time.sleep(1)
+                time.sleep(0.02)
         if self._isConnected:
             self.disconnect()
 
@@ -141,7 +143,7 @@ class NetworkClient(QObject):
                     self._logger.debug(f"Message sent. ({msg_obj.header.messageType.name})")
                 self._outgoing_queue.task_done()
             except Empty:
-                time.sleep(0.5)
+                time.sleep(0.02)
 
     def disconnect(self):
         self._logger.debug("Disconnecting")
@@ -169,6 +171,7 @@ class SshClient(QObject):
     def __init__(self, fileSyncer, taskQueu):
         super().__init__()
         self.__UPLOAD_CHUNK_SIZE = 1024
+        self.__DOWNLOAD_CHUNK_SIZE = 1024
 
         self.__shouldRun = True
         self.__fileSyncer = fileSyncer
@@ -199,9 +202,9 @@ class SshClient(QObject):
                     self.__handleCurrentTask()
                     self.__tasks.task_done()
                 except Empty:
-                    time.sleep(0.5)
+                    time.sleep(0.02)
             else:
-                time.sleep(0.5)
+                time.sleep(0.02)
         self.disconnect()
 
     def connect(self):
@@ -233,12 +236,20 @@ class SshClient(QObject):
     def setWorkspace(self, path):
         self.__workSpacePath = path
 
+    def cleanRemoteWorkspace(self):
+        if self.__isConnected and self.__workSpacePath:
+            self.__cleanRemoteWorkspace(self.__workSpacePath)
+        elif not self.__isConnected:
+            raise Exception("SSH client is not connected. Call 'connect' first.")
+        else:
+            raise Exception("Workspace not set. Call 'setWorkspace' first.")
+
     def __handleCurrentTask(self):
         self.__logger.debug(f"New task: ({self.__currentTask.taskType.name}, {self.__currentTask.subject.fullPath})")
         if self.__currentTask.taskType == FileStatuses.UPLOADING_FROM_LOCAL:
             self.__handleUpload()
         elif self.__currentTask.taskType == FileStatuses.DOWNLOADING_TO_LOCAL:
-            pass  # TODO
+            self.__handleDownload()
         else:
             self.__logger.debug(f"Unknown task! {self.__currentTask}")
         self.__logger.debug(f"Task done! ({self.__currentTask.taskType.name} {self.__currentTask.subject.fullPath})")
@@ -255,13 +266,17 @@ class SshClient(QObject):
                     data = localFileHandle.read(self.__UPLOAD_CHUNK_SIZE)
         self.__sftp.rename(f"{self.__sftp.getcwd()}/{self.__currentTask.uuid}", f"{self.__workSpacePath}/server/{self.__currentTask.uuid}")
 
-    def cleanRemoteWorkspace(self):
-        if self.__isConnected and self.__workSpacePath:
-            self.__cleanRemoteWorkspace(self.__workSpacePath)
-        elif not self.__isConnected:
-            raise Exception("SSH client is not connected. Call 'connect' first.")
-        else:
-            raise Exception("Workspace not set. Call 'setWorkspace' first.")
+    def __handleDownload(self):
+        syncDir = QSettings().value('syncDir/path')
+
+        absoluteTargetPath = f"{syncDir}/.{self.__currentTask.uuid}"
+
+        with self.__sftp.open(self.__currentTask.uuid, "rb") as remoteFileHandle:
+            with open(absoluteTargetPath, "wb") as localFileHandle:
+                data = remoteFileHandle.read(self.__DOWNLOAD_CHUNK_SIZE)
+                while data and self.__shouldRun and not self.__currentTask.stale:
+                    localFileHandle.write(data)
+                    data = remoteFileHandle.read(self.__DOWNLOAD_CHUNK_SIZE)
 
     def __cleanRemoteWorkspace(self, path):
         stdin, stdout, stderr = self.__client.exec_command(f"ls -ld {path}")

@@ -80,7 +80,8 @@ class LongTaskWorker(Worker):
 
     def _createHandlerMap(self):
         return {
-            MessageTypes.UPLOAD_FILE: UploadFileHandler(self._databaseAccess)
+            MessageTypes.UPLOAD_FILE: UploadFileHandler(self._databaseAccess),
+            MessageTypes.DOWNLOAD_FILE: DownloadFileHandler(self._databaseAccess)
         }
 
     def _work(self):

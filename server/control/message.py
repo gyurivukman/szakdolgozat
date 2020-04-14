@@ -1,6 +1,6 @@
 import logging
 import re
-from os import unlink
+import os
 from queue import Queue
 
 import control.cli
@@ -48,6 +48,7 @@ class AbstractTaskHandler():
         self._logger = self._getLogger()
         self._databaseAccess = databaseAccess
         self._messageDispatcher = MessageDispatcher()
+        self._filesCache = CloudFilesCache()
 
     def _getLogger(self):
         raise NotImplementedError("Derived class should implement method '_getLogger'!")
@@ -102,7 +103,7 @@ class GetFileListHandler(AbstractTaskHandler):
         self.__cloudAccounts = [CloudAPIFactory.fromAccountData(accData) for accData in self._databaseAccess.getAllAccounts()]
         self.__partPattern = "(__[0-9]+){2}\.enc"
         self.__totalCountPattern = "__[0-9]+"
-        self.__filesCache = CloudFilesCache()
+        self._filesCache = CloudFilesCache()
 
     def _getLogger(self):
         return moduleLogger.getChild("GetFileListHandler")
@@ -110,12 +111,12 @@ class GetFileListHandler(AbstractTaskHandler):
     def handle(self):
         self._logger.debug("Retrieving file list")
 
-        fileList = {}
+        self._filesCache.clearData()
         for account in self.__cloudAccounts:
             self.__processAccountFiles(account.getFileList(), account.accountData.id)
 
-        fullFiles = self.__filesCache.getFullFiles()
-        incompleteFiles = self.__filesCache.getIncompleteFiles()
+        fullFiles = self._filesCache.getFullFiles()
+        incompleteFiles = self._filesCache.getIncompleteFiles()
         self._logger.debug(f"Found the following full files: {fullFiles}")
         self._logger.warning(f"The following files have missing parts: {incompleteFiles}")
 
@@ -124,7 +125,7 @@ class GetFileListHandler(AbstractTaskHandler):
 
     def __processAccountFiles(self, files, accountID):
         for filePart in files:
-            self.__filesCache.insertFilePart(filePart, accountID)
+            self._filesCache.insertFilePart(filePart, accountID)
 
     def __sendResponse(self, fullFiles):
         response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(fullFiles).build()
@@ -166,11 +167,11 @@ class UploadFileHandler(AbstractTaskHandler):
         self._task = None
 
     def __cleanUp(self, localFilePath):
-        unlink(localFilePath)
+        os.unlink(localFilePath)
 
     def __sendResponse(self):
         if not self._task.stale:
-            data = {"sourcePath": self._task.data["fullPath"], "status": FileStatuses.SYNCED}
+            data = {"fullPath": self._task.data["fullPath"], "status": FileStatuses.SYNCED}
             response = NetworkMessage.Builder(MessageTypes.FILE_STATUS_UPDATE).withData(data).withRandomUUID().build()
             self._messageDispatcher.dispatchResponse(response)
 
@@ -181,3 +182,44 @@ class UploadFileHandler(AbstractTaskHandler):
 
     def __uploadToAllAccounts(self, accounts, fileHandle):
         pass
+
+
+class DownloadFileHandler(AbstractTaskHandler):
+
+    def _getLogger(self):
+        return moduleLogger.getChild("DownloadFileHandler")
+
+    def handle(self):
+        localFilePath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}"
+        cachedFileInfo = self._filesCache.getFile(self._task.data["fullPath"])
+        parts = cachedFileInfo.parts
+        parts.sort(key=lambda part: part.partName)
+        storingAccounts = {account.id: account for account in self._databaseAccess.getAllAccounts() if account.id in [part.storingAccountID for part in parts]}
+
+        self._logger.debug(f"Downloading file '{cachedFileInfo.data.fullPath}' from accounts: {storingAccounts}")
+        self._logger.debug(f"Sorted parts: {parts}")
+
+        with open(localFilePath, "wb") as outputFileHandle:
+            for part in parts:
+                cloudAccount = CloudAPIFactory.fromAccountData(storingAccounts[part.storingAccountID])
+                cloudAccount.download(outputFileHandle, cachedFileInfo, part, self._task)
+        self._logger.debug("Download finished, moving file to client workspace...")
+        self.__finalizeDownload()
+        self.__sendResponse()
+        self._task = None
+
+    def __finalizeDownload(self):
+        if not self._task.stale:
+            localPath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}"
+            targetPath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/client/{self._task.uuid}"
+            os.rename(localPath, targetPath)
+
+    def __sendResponse(self):
+        if not self._task.stale:
+            data = self._task.data
+            data["status"] = FileStatuses.DOWNLOADING_TO_LOCAL
+
+            response = NetworkMessage.Builder(MessageTypes.FILE_STATUS_UPDATE).withData(data).withUUID(self._task.uuid).build()
+            self._messageDispatcher.dispatchResponse(response)
+        else:
+            print("Download file handler doing cleanup....")

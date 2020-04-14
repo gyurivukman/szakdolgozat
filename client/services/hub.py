@@ -5,7 +5,8 @@ from threading import Thread
 from queue import Queue, Empty
 
 from model.networkevents import ConnectionEvent, ConnectionEventTypes
-from model.file import FileStatuses, FileStatusEvent, FileEventTypes
+from model.file import FileStatuses, FileStatusEvent, FileEventTypes, FileData
+from model.task import FileTask
 from model.message import NetworkMessage, MessageTypes
 
 from .network import NetworkClient, SshClient
@@ -98,17 +99,16 @@ class ServiceHub(QObject):
     def shutdownAllServices(self):
         self.__logger.debug("Stopping all services")
 
-        self.__networkService.stop()
-        self.__fileSyncService.stop()
-        self.__sshService.stop()
-
         if self.__fileSyncThread is not None and self.__fileSyncThread.is_alive():
+            self.__fileSyncService.stop()
             self.__fileSyncThread.join()
             self.__isFileSyncServiceRunning = False
         if self.__networkThread is not None and self.__networkThread.is_alive():
+            self.__networkService.stop()
             self.__networkThread.join()
             self.__isNetworkServiceRunning = False
         if self.__sshThread is not None and self.__sshThread.is_alive():
+            self.__sshService.stop()
             self.__sshThread.join()
             self.__isSshServiceRunning = False
 
@@ -190,8 +190,12 @@ class ServiceHub(QObject):
 
     def __onNetworkMessageArrived(self, message):
         if message.header.messageType == MessageTypes.FILE_STATUS_UPDATE:
-            statusChangeEvent = FileStatusEvent(FileEventTypes.STATUS_CHANGED, message.data["sourcePath"], message.data["status"])
+            message.data = FileData(**message.data)
+            statusChangeEvent = FileStatusEvent(FileEventTypes.STATUS_CHANGED, message.data.fullPath, message.data.status)
             self.filesChannel.emit(statusChangeEvent)
+            if message.data.status == FileStatuses.DOWNLOADING_TO_LOCAL:
+                task = FileTask(message.header.uuid, FileStatuses.DOWNLOADING_TO_LOCAL, message.data)
+                self.enqueuSSHTask(task)
         elif message.header.uuid in self.__messageArchive:
             self.__logger.debug(f"Response: {message.header} {message.data}")
             callBack = self.__messageArchive[message.header.uuid]
@@ -205,7 +209,10 @@ class ServiceHub(QObject):
         if task.taskType == FileStatuses.UPLOADING_FROM_LOCAL:
             self.enqueuSSHTask(task)
         else:
-            pass  # TODO,remoteról kell letölteni ilyenkor
+            data = task.subject.serialize()
+            message = NetworkMessage.Builder(MessageTypes.DOWNLOAD_FILE).withData(data).withUUID(task.uuid).build()
+
+            self.sendNetworkMessage(message)
 
     def __onNetworkConnectionEvent(self, event):
         self.networkStatusChannel.emit(event)
@@ -214,7 +221,6 @@ class ServiceHub(QObject):
         self.sshStatusChannel.emit(event)
 
     def __onSSHTaskCompleted(self, task):
-        event = None
         if task.taskType == FileStatuses.UPLOADING_FROM_LOCAL:
             event = FileStatusEvent(FileEventTypes.STATUS_CHANGED, task.subject.fullPath, FileStatuses.UPLOADING_TO_CLOUD)
             localTime = time.localtime()
@@ -222,11 +228,11 @@ class ServiceHub(QObject):
             data = {"filename": task.subject.filename, "utcModified": task.subject.modified, "userTimezone": time.strftime("%z", localTime), "dstActive": dstActive, "path": task.subject.path, "size": task.subject.size, "fullPath": task.subject.fullPath}
             message = NetworkMessage.Builder(MessageTypes.UPLOAD_FILE).withData(data).withUUID(task.uuid).build()
             self.sendNetworkMessage(message)
+            self.filesChannel.emit(event)
         elif task.taskType == FileStatuses.DOWNLOADING_TO_LOCAL:
-            pass
+            self.__fileSyncService.finalizeDownload(task)
         else:
             raise Exception(f"Unknown tasktype received from sshService: {task.taskType}")
-        self.filesChannel.emit(event)
 
     def __onLocalFileStatusChanged(self, event):
         self.filesChannel.emit(event)
