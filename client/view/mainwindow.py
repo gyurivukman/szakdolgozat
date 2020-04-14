@@ -63,8 +63,8 @@ class MainWindow(QMainWindow):
         self.__serviceHub.shutdownAllServices()
 
     def __normalStartupSequence(self):
-        self.setCentralWidget(self.__loader)
         self.__serviceHub.initNetworkService()
+        self.setCentralWidget(self.__loader)
         self.__serviceHub.networkStatusChannel.connect(self.__onNetworkStatusChanged)
         self.__serviceHub.setNetworkInformation(self.__settings.value("server/address"), int(self.__settings.value("server/port")), self.__settings.value("server/encryptionKey"))
         self.__serviceHub.startNetworkService()
@@ -108,6 +108,9 @@ class MainWindow(QMainWindow):
         self.__mainPanel.syncFileList()
 
     def __setupForFirstStart(self):
+        self.__serviceHub.initNetworkService()
+        self.__serviceHub.initSshService()
+
         screenSize = QCoreApplication.instance().desktop().screenGeometry()
         self.setFixedSize(self.__FIRST_START_SIZE)
         self.__moveToCenter(screenSize)
