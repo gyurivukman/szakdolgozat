@@ -50,7 +50,7 @@ class FileSynchronizer(QObject):
         self.__logger.debug(f"Merged Filelist:\n {debug}")
 
         for _, fileData in mergedFileList.items():
-            #Created, so the UI makes a new entry
+            # Created, so the UI makes a new entry
             event = FileStatusEvent(eventType=FileEventTypes.CREATED, status=fileData.status, sourcePath=fileData.fullPath)
 
             self.fileStatusChannel.emit(event)
@@ -138,7 +138,7 @@ class FileSynchronizer(QObject):
         if sourcePath not in self.__mutedFiles:
             destinationPath = getattr(event, "dest_path", None)
             destinationPath = destinationPath.replace(f"{self.__syncDir}/", "") if destinationPath else None
-            if eventType == FileEventTypes.DELETED or eventType == FileEventTypes.MOVED:
+            if eventType == FileEventTypes.DELETED:
                 # User could've changed his mind about a file being uploaded that was modified/created before.
                 try:
                     del self.__toCheckLater[sourcePath]

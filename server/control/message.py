@@ -8,7 +8,7 @@ from .abstract import Singleton
 from control.account import CloudAPIFactory
 
 from model.message import NetworkMessage, NetworkMessageHeader, MessageTypes
-from model.file import FileData, FileStatuses
+from model.file import FileData, FileStatuses, CloudFilesCache
 from model.account import AccountData
 
 
@@ -102,6 +102,7 @@ class GetFileListHandler(AbstractTaskHandler):
         self.__cloudAccounts = [CloudAPIFactory.fromAccountData(accData) for accData in self._databaseAccess.getAllAccounts()]
         self.__partPattern = "(__[0-9]+){2}\.enc"
         self.__totalCountPattern = "__[0-9]+"
+        self.__filesCache = CloudFilesCache()
 
     def _getLogger(self):
         return moduleLogger.getChild("GetFileListHandler")
@@ -111,35 +112,19 @@ class GetFileListHandler(AbstractTaskHandler):
 
         fileList = {}
         for account in self.__cloudAccounts:
-            accountFileList = account.getFileList()
-            for filePart in accountFileList:
-                realFilename = self.__getRealFilename(filePart.filename)
-                filePart.fullPath = f"{filePart.path}/{realFilename}" if len(filePart.path) > 0 else realFilename
-                if filePart.fullPath not in fileList:
-                    fileList[filePart.fullPath] = {"data": filePart, "availableCount": 1, "totalCount": self.__getFilePartCount(filePart.filename), "storingAccountIDs": [account.accountData.id]}
-                    fileList[filePart.fullPath]["data"].filename = realFilename
-                else:
-                    fileList[filePart.fullPath]["data"].size += filePart.size
-                    fileList[filePart.fullPath]["availableCount"] += 1
-                    fileList[filePart.fullPath]["storingAccountIDs"].append(account.accountData.id)
-        fullFiles = [remoteFile["data"].serialize() for key, remoteFile in fileList.items() if remoteFile["availableCount"] == remoteFile["totalCount"]]
-        partsMissing = [f"{remoteFile['data'].fullPath} (missing part count: {remoteFile['totalCount'] - remoteFile['availableCount']})" for key, remoteFile in fileList.items() if remoteFile['totalCount'] > remoteFile['availableCount']]
-        self._logger.debug(f"Found the following full files:{[{'file:': remoteFile['data'].serialize(), 'storingAccountIDs':remoteFile['storingAccountIDs']} for key, remoteFile in fileList.items() if remoteFile['availableCount'] == remoteFile['totalCount']] }")
-        self._logger.warning(f"The following files have missing parts: {partsMissing}")
+            self.__processAccountFiles(account.getFileList(), account.accountData.id)
+
+        fullFiles = self.__filesCache.getFullFiles()
+        incompleteFiles = self.__filesCache.getIncompleteFiles()
+        self._logger.debug(f"Found the following full files: {fullFiles}")
+        self._logger.warning(f"The following files have missing parts: {incompleteFiles}")
 
         self.__sendResponse(fullFiles)
         self._task = None
 
-    def __getRealFilename(self, filePartName):
-        match = re.search(self.__partPattern, filePartName)
-        matchStartIndex = match.span()[0]
-
-        return filePartName[:matchStartIndex]
-
-    def __getFilePartCount(self, filePartName):
-        match = re.findall(self.__totalCountPattern, filePartName)
-
-        return int(match[1].split("__")[1])
+    def __processAccountFiles(self, files, accountID):
+        for filePart in files:
+            self.__filesCache.insertFilePart(filePart, accountID)
 
     def __sendResponse(self, fullFiles):
         response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(fullFiles).build()

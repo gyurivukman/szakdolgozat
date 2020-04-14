@@ -47,7 +47,7 @@ class DropboxAccountWrapper(CloudAPIWrapper):
     def __init__(self, *args):
         super().__init__(*args)
         self.__dbx = dropbox.Dropbox(self.accountData.data['apiToken'])
-        self.__UPLOAD_CHUNK_SIZE = 1000000
+        self.__UPLOAD_CHUNK_SIZE = 1048576
 
     def getFileList(self):
         files = []

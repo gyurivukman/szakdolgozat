@@ -16,9 +16,9 @@ from Crypto.Cipher import AES
 class InterruptibleGoogleDriveUploadFileHandle(BufferedReader):
 
     def __init__(self, handle):
-        self.__cipher = AES.new(b"Sogron1990052000", AES.MODE_CFB)
+        self.__cipher = AES.new(b"Sixteen Byte Key", AES.MODE_CFB)
         super().__init__(handle)
-        self.seek(0, 2)
+        self.seek(0, os.SEEK_END)
         self.__progressSize = self.tell()
         self.seek(0, 0)
 
@@ -36,7 +36,7 @@ class InterruptibleGoogleDriveDownloadFileHandle(BufferedWriter):
 
     def write(self, data):
         if self.tell() == 0:
-            self.__cipher = AES.new(b"Sogron1990052000", AES.MODE_CFB, iv=data[0:16])
+            self.__cipher = AES.new(b"Sixteen Byte Key", AES.MODE_CFB, iv=data[0:16])
             super().write(self.__cipher.decrypt(data[16:]))
         else:
             super().write(self.__cipher.decrypt(data))
