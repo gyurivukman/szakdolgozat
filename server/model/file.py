@@ -1,7 +1,7 @@
 import re
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import Dict
 from enum import IntEnum
 
 from control.abstract import Singleton
@@ -42,7 +42,7 @@ class CachedFileData:
     data: FileData
     availablePartCount: int
     totalPartCount: int
-    parts: List[FilePart]
+    parts: Dict[str, FilePart] = field(default_factory=dict)
 
 
 class CloudFilesCache(metaclass=Singleton):
@@ -55,18 +55,18 @@ class CloudFilesCache(metaclass=Singleton):
     def clearData(self):
         self.__filesCache = {}
 
-    def insertFilePart(self, filePart, accountID):
-        realFilename = self.__getRealFilename(filePart.filename)
-        realFileFullPath = f"{filePart.path}/{realFilename}" if len(filePart.path) > 0 else realFilename
+    def insertFilePart(self, fileData, accountID):
+        realFilename = self.__getRealFilename(fileData.filename)
+        realFileFullPath = f"{fileData.path}/{realFilename}" if len(fileData.path) > 0 else realFilename
         try:
-            self.__filesCache[realFileFullPath].data.size += filePart.size - 16
+            self.__filesCache[realFileFullPath].data.size += fileData.size - 16
             self.__filesCache[realFileFullPath].availablePartCount += 1
-            self.__filesCache[realFileFullPath].parts.append(FilePart(filePart.filename, filePart.size, accountID, filePart.extraInfo))
+            self.__filesCache[realFileFullPath].parts[fileData.filename] = FilePart(fileData.filename, fileData.size, accountID, fileData.extraInfo)
         except KeyError:
-            partName = filePart.filename
-            filePart.filename = realFilename
-            filePart.fullPath = realFileFullPath
-            self.__filesCache[realFileFullPath] = CachedFileData(filePart, 1, self.__getFilePartCount(partName), [FilePart(partName, accountID, filePart.size, filePart.extraInfo)])
+            partName = fileData.filename
+            fileData.filename = realFilename
+            fileData.fullPath = realFileFullPath
+            self.__filesCache[realFileFullPath] = CachedFileData(fileData, 1, self.__getFilePartCount(partName), {partName: FilePart(partName, accountID, fileData.size, fileData.extraInfo)})
             self.__filesCache[realFileFullPath].data.size -= 16
 
     def removeFile(self, path):
@@ -75,11 +75,11 @@ class CloudFilesCache(metaclass=Singleton):
     def getFile(self, path):
         return self.__filesCache.get(path)
 
-    def __getRealFilename(self, filePartName):
-        match = re.search(self.__partPattern, filePartName)
+    def __getRealFilename(self, fileName):
+        match = re.search(self.__partPattern, fileName)
         matchStartIndex = match.span()[0]
 
-        return filePartName[:matchStartIndex]
+        return fileName[:matchStartIndex]
 
     def __getFilePartCount(self, filePartName):
         match = re.findall(self.__totalCountPattern, filePartName)

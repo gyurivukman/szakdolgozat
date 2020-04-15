@@ -190,7 +190,6 @@ class ServiceHub(QObject):
 
     def __onNetworkMessageArrived(self, message):
         if message.header.messageType == MessageTypes.FILE_STATUS_UPDATE:
-            print(f"VALAMI GYÜTT {message.data}")
             message.data = FileData(**message.data)
             statusChangeEvent = FileStatusEvent(FileEventTypes.STATUS_CHANGED, message.data.fullPath, message.data.status)
             self.filesChannel.emit(statusChangeEvent)

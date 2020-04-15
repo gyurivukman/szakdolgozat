@@ -1,11 +1,13 @@
 import logging
 import re
 import os
+from math import ceil
 from queue import Queue
 
 import control.cli
 from .abstract import Singleton
 from control.account import CloudAPIFactory
+from control.util import chunkSizeGenerator
 
 from model.message import NetworkMessage, NetworkMessageHeader, MessageTypes
 from model.file import FileData, FileStatuses, CloudFilesCache
@@ -153,14 +155,14 @@ class UploadFileHandler(AbstractTaskHandler):
     def handle(self):
         accounts = self._databaseAccess.getAllAccounts()
 
-        perAccountSize = self._task.data['size'] / len(accounts)
+        perAccountSize = ceil(self._task.data['size'] / len(accounts))
         localFilePath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}"
 
         with open(localFilePath, "rb") as localFileHandle:
             if perAccountSize < 1.0 or len(accounts) == 1:
                 self.__uploadToFirstAccountOnly(accounts[0], localFileHandle)
             else:
-                self.__uploadToAllAccounts(accounts, localFileHandle)
+                self.__uploadToAllAccounts(accounts, perAccountSize, localFileHandle)
 
         self.__cleanUp(localFilePath)
         self.__sendResponse()
@@ -179,12 +181,19 @@ class UploadFileHandler(AbstractTaskHandler):
             self._messageDispatcher.dispatchResponse(response)
 
     def __uploadToFirstAccountOnly(self, account, fileHandle):
-        cloudAccount = CloudAPIFactory.fromAccountData(account)
-        cloudFileName = f"{self._task.data['filename']}__1__1.enc"
-        cloudAccount.upload(fileHandle, self._task.data['size'], cloudFileName, self._task)
+        if not self._task.stale:
+            cloudAccount = CloudAPIFactory.fromAccountData(account)
+            cloudFileName = f"{self._task.data['filename']}__1__1.enc"
+            cloudAccount.upload(fileHandle, self._task.data['size'], cloudFileName, self._task)
 
-    def __uploadToAllAccounts(self, accounts, fileHandle):
-        pass
+    def __uploadToAllAccounts(self, accounts, perAccountSize, fileHandle):
+        totalCount = len(accounts)
+
+        for account, partIndex, toUploadChunkInfo in zip(accounts, range(totalCount), chunkSizeGenerator(self._task.data["size"], perAccountSize)):
+            if not self._task.stale:
+                cloudAccount = CloudAPIFactory.fromAccountData(account)
+                cloudFileName = f"{self._task.data['filename']}__{partIndex + 1}__{totalCount}.enc"
+                cloudAccount.upload(fileHandle, toUploadChunkInfo[0], cloudFileName, self._task)
 
 
 class DownloadFileHandler(AbstractTaskHandler):
