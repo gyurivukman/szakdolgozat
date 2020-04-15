@@ -34,6 +34,8 @@ if __name__ == "__main__":
     )
 
     rootLogger.info("Starting server")
+    googleLogger = logging.getLogger("googleapiclient")
+    googleLogger.setLevel(60)  # TODO temporary
     server = Server(control.cli.CONSOLE_ARGUMENTS.port, control.cli.CONSOLE_ARGUMENTS.key)
     try:
         server.start()

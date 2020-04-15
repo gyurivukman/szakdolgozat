@@ -199,7 +199,7 @@ class DownloadFileHandler(AbstractTaskHandler):
         parts.sort(key=lambda part: part.partName)
         storingAccounts = {account.id: account for account in self._databaseAccess.getAllAccounts() if account.id in [part.storingAccountID for part in parts]}
 
-        self._logger.debug(f"Downloading file '{cachedFileInfo.data.fullPath}' from accounts: {storingAccounts}")
+        self._logger.debug(f"Downloading file '{cachedFileInfo.data.fullPath}' from accounts: {[acc.identifier for key, acc in storingAccounts.items()]}")
         self._logger.debug(f"Sorted parts: {parts}")
 
         with open(localFilePath, "wb") as outputFileHandle:

@@ -23,6 +23,7 @@ class FileData:
     size: int
     path: str
     fullPath: str
+    extraInfo: object = None
 
     def serialize(self):
         return {"filename": self.filename, "modified": self.modified, "size": self.size, "path": self.path, "fullPath": self.fullPath}
@@ -60,12 +61,12 @@ class CloudFilesCache(metaclass=Singleton):
         try:
             self.__filesCache[realFileFullPath].data.size += filePart.size - 16
             self.__filesCache[realFileFullPath].availablePartCount += 1
-            self.__filesCache[realFileFullPath].parts.append(FilePart(filePart.filename, filePart.size, accountID))
+            self.__filesCache[realFileFullPath].parts.append(FilePart(filePart.filename, filePart.size, accountID, filePart.extraInfo))
         except KeyError:
             partName = filePart.filename
             filePart.filename = realFilename
             filePart.fullPath = realFileFullPath
-            self.__filesCache[realFileFullPath] = CachedFileData(filePart, 1, self.__getFilePartCount(partName), [FilePart(partName, accountID, filePart.size)])
+            self.__filesCache[realFileFullPath] = CachedFileData(filePart, 1, self.__getFilePartCount(partName), [FilePart(partName, accountID, filePart.size, filePart.extraInfo)])
             self.__filesCache[realFileFullPath].data.size -= 16
 
     def removeFile(self, path):

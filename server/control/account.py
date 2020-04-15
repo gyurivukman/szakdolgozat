@@ -1,11 +1,22 @@
 import re
 import logging
 import json
-from datetime import datetime, timedelta
+import time
+
+from uuid import uuid4
+from os import unlink
+
+from io import BufferedReader, BufferedWriter
+from datetime import datetime, timedelta, timezone
 
 import paramiko
 import dropbox
 import requests
+import googleapiclient
+
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
+from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 
 from Crypto.Cipher import AES
 
@@ -54,7 +65,6 @@ class DropboxAccountWrapper(CloudAPIWrapper):
         self.__DOWNLOAD_CHUNK_SIZE = 1048576
 
     def __toFileData(self, entry):
-        print(entry.client_modified.tzinfo)
         return FileData(
             filename=entry.name,
             modified=int(entry.client_modified.timestamp()),
@@ -133,6 +143,125 @@ class DropboxAccountWrapper(CloudAPIWrapper):
                 fileHandle.write(decrypted)
 
 
+class TaskInterruptedException(Exception):
+    pass
+
+
+class InterruptibleGoogleDriveUploadFileHandle(BufferedReader):
+
+    def __init__(self, handle):
+        super().__init__(handle)
+
+
+class InterruptibleGoogleDriveDownloadFileHandle(BufferedWriter):
+
+    def __init__(self, handle, aesKey):
+        self.__cipher = None
+        self.__aesKey = aesKey
+        super().__init__(handle)
+
+    def write(self, data):
+        if not self.__cipher:
+            self.__cipher = AES.new(self.__aesKey.encode(), AES.MODE_CFB, iv=data[0:16])
+            super().write(self.__cipher.decrypt(data[16:]))
+        else:
+            super().write(self.__cipher.decrypt(data))
+
+
+class GoogleDriveAccountWrapper(CloudAPIWrapper):
+
+    def __init__(self, *args):
+        super().__init__(*args)
+
+        self.__UPLOAD_CHUNK_SIZE = 1048576
+        self.__DOWNLOAD_CHUNK_SIZE = 1048576
+
+        parsedCreds = json.loads(json.dumps(self.accountData.data))
+
+        credentials = service_account.Credentials.from_service_account_info(parsedCreds, scopes=["https://www.googleapis.com/auth/drive"])
+        self.__service = build('drive', 'v3', credentials=credentials)
+
+    def getFileList(self):
+        files = []
+        hasMore = True
+        results = self.__service.files().list(
+            q="'root' in parents and name contains '.enc'",
+            fields="nextPageToken, files(id, name, modifiedTime, size)"
+        ).execute()
+
+        while hasMore:
+            currentBatch = [self.__toFileData(entry) for entry in results.get("files", [])]
+            files.extend(currentBatch)
+            nextPageToken = results.get("nextPageToken", None)
+            hasMore = nextPageToken is not None
+            if hasMore:
+                print(f"GECI VAN MÉG. {nextPageToken}")
+                results = self.__service.files().list(
+                    q="'root' in parents and name contains '.enc'",
+                    fields="nextPageToken, files(id, name, modifiedTime, size)",
+                    pageToken=nextPageToken
+                ).execute()
+
+        return files
+
+    def _getLogger(self):
+        return moduleLogger.getChild("GoogleDriveAccountWrapper")
+
+    def __toFileData(self, entry):
+        fileName = entry["name"].split("/")[-1]
+        path = entry["name"].replace(fileName, "")
+        fullPath = entry["name"]
+
+        unawareModifiedTime = time.strptime(entry["modifiedTime"], "%Y-%m-%dT%H:%M:%S.000Z")
+        modifiedTime = datetime(*unawareModifiedTime[:6], tzinfo=timezone.utc)
+
+        return FileData(
+            filename=fileName,
+            modified=int(modifiedTime.timestamp()),
+            size=int(entry["size"]),
+            path=path,
+            fullPath=fullPath,
+            extraInfo={"id": entry["id"]}
+        )
+
+    def download(self, fileHandle, cachedFileInfo, partInfo, task):
+        self._logger.debug(f"Downloading: {partInfo}")
+
+        handle = InterruptibleGoogleDriveDownloadFileHandle(fileHandle, self.accountData.cryptoKey)
+        request = self.__service.files().get_media(fileId=partInfo.extraInfo["id"])
+        downloader = MediaIoBaseDownload(handle, request, chunksize=self.__DOWNLOAD_CHUNK_SIZE)
+
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+
+    def upload(self, fileHandle, toUploadSize, partName, task):
+        timeModified = datetime.utcfromtimestamp(task.data['utcModified'])
+        uploadName = task.data["fullPath"].replace(task.data["filename"], partName)
+
+        metadata = {"name": f"{uploadName}", "parents": ["root"], "mimeType": "application/octet-stream", "modifiedTime": timeModified.strftime("%Y-%m-%dT%H:%M:%SZ")}
+
+        tmpFileName = uuid4().hex
+        cipher = AES.new(self.accountData.cryptoKey.encode(), AES.MODE_CFB)
+
+        with open(tmpFileName, "wb") as outputFile:
+            outputFile.write(cipher.iv)
+            for chunk, remainder in chunkSizeGenerator(toUploadSize, self.__UPLOAD_CHUNK_SIZE):
+                data = fileHandle.read(chunk)
+                encrypted = cipher.encrypt(data)
+                outputFile.write(encrypted)
+
+        with open(tmpFileName, "rb") as rawHandle:
+            interruptibleHandle = InterruptibleGoogleDriveUploadFileHandle(rawHandle)
+            try:
+                media = MediaIoBaseUpload(interruptibleHandle, mimetype="application/octet-stream", resumable=True, chunksize=self.__UPLOAD_CHUNK_SIZE)
+                res = self.__service.files().create(body=metadata, media_body=media, fields="id, name, modifiedTime, size").execute()
+                self._logger.debug(res)
+            except TaskInterruptedException as e:
+                self._logger.info("Google drive upload interrupted, aborting and cleaning up..")
+        unlink(tmpFileName)
+
+
 class SFTPCloudAccount(CloudAPIWrapper):  # TODO Stretchgoal!
 
     def __init__(self, *args):
@@ -169,7 +298,7 @@ class SFTPCloudAccount(CloudAPIWrapper):  # TODO Stretchgoal!
 class CloudAPIFactory:
     __typeToClassMap = {
         AccountTypes.Dropbox: DropboxAccountWrapper,
-        AccountTypes.GoogleDrive: None  # TODO
+        AccountTypes.GoogleDrive: GoogleDriveAccountWrapper
     }
 
     @staticmethod
