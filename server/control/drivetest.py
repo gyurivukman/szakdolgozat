@@ -23,7 +23,7 @@ class InterruptibleGoogleDriveUploadFileHandle(BufferedReader):
         self.seek(0, 0)
 
     def read(self, chunkSize):
-        print(f"Reading {(self.tell()/self.__progressSize) * 100}%")
+        # print(f"Reading {(self.tell()/self.__progressSize) * 100}%")
         data = super().read(chunkSize)
         return self.__cipher.encrypt(data)
 

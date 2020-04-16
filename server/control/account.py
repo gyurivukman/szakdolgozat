@@ -201,7 +201,6 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
             nextPageToken = results.get("nextPageToken", None)
             hasMore = nextPageToken is not None
             if hasMore:
-                print(f"GECI VAN MÉG. {nextPageToken}")
                 results = self.__service.files().list(
                     q="'root' in parents and name contains '.enc'",
                     fields="nextPageToken, files(id, name, modifiedTime, size)",
