@@ -152,6 +152,9 @@ class InterruptibleGoogleDriveUploadFileHandle(BufferedReader):
     def __init__(self, handle):
         super().__init__(handle)
 
+    def close(self):
+        pass
+
 
 class InterruptibleGoogleDriveDownloadFileHandle(BufferedWriter):
 
@@ -166,6 +169,9 @@ class InterruptibleGoogleDriveDownloadFileHandle(BufferedWriter):
             super().write(self.__cipher.decrypt(data[16:]))
         else:
             super().write(self.__cipher.decrypt(data))
+
+    def close(self):
+        pass
 
 
 class GoogleDriveAccountWrapper(CloudAPIWrapper):

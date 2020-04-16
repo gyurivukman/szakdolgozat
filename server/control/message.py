@@ -204,8 +204,7 @@ class DownloadFileHandler(AbstractTaskHandler):
     def handle(self):
         localFilePath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}"
         cachedFileInfo = self._filesCache.getFile(self._task.data["fullPath"])
-        parts = cachedFileInfo.parts
-        parts.sort(key=lambda part: part.partName)
+        parts = [part for key, part in cachedFileInfo.parts.items()]
         storingAccounts = {account.id: account for account in self._databaseAccess.getAllAccounts() if account.id in [part.storingAccountID for part in parts]}
 
         self._logger.debug(f"Downloading file '{cachedFileInfo.data.fullPath}' from accounts: {[acc.identifier for key, acc in storingAccounts.items()]}")
@@ -214,6 +213,7 @@ class DownloadFileHandler(AbstractTaskHandler):
         with open(localFilePath, "wb") as outputFileHandle:
             for part in parts:
                 cloudAccount = CloudAPIFactory.fromAccountData(storingAccounts[part.storingAccountID])
+                self._logger.debug(f"Downloading part {part.partName} from {cloudAccount.accountData.identifier}")
                 cloudAccount.download(outputFileHandle, cachedFileInfo, part, self._task)
         self._logger.debug("Download finished, moving file to client workspace...")
         self.__finalizeDownload()

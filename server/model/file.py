@@ -61,7 +61,7 @@ class CloudFilesCache(metaclass=Singleton):
         try:
             self.__filesCache[realFileFullPath].data.size += fileData.size - 16
             self.__filesCache[realFileFullPath].availablePartCount += 1
-            self.__filesCache[realFileFullPath].parts[fileData.filename] = FilePart(fileData.filename, fileData.size, accountID, fileData.extraInfo)
+            self.__filesCache[realFileFullPath].parts[fileData.filename] = FilePart(fileData.filename, accountID, fileData.size, fileData.extraInfo)
         except KeyError:
             partName = fileData.filename
             fileData.filename = realFilename
