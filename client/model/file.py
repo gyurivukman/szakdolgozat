@@ -12,6 +12,7 @@ class FileStatuses(IntEnum):
     UPLOADING_FROM_LOCAL = 3
     SYNCED = 4
     MOVING = 5
+    DELETED = 6
 
 
 @dataclass

@@ -160,15 +160,17 @@ class FileSynchronizer(QObject):
         sourcePath = event.src_path.replace(f"{self.__syncDir}/", "")
         destinationPath = getattr(event, "dest_path", None)
         destinationPath = destinationPath.replace(f"{self.__syncDir}/", "") if destinationPath else None
+
         if eventType == FileEventTypes.DELETED:
             # User could've changed his mind about a file being uploaded that was modified/created before.
             try:
                 del self.__toCheckLater[sourcePath]
-            except Keyerror:
+            except KeyError:
                 pass
-            event = FileStatusEvent(eventType=eventType, status=FileStatuses.MOVING, sourcePath=sourcePath, destinationPath=destinationPath)
+            event = FileStatusEvent(eventType=eventType, status=None, sourcePath=sourcePath, destinationPath=None)
+            task = FileTask(uuid4().hex, FileStatuses.DELETED, subject=sourcePath)
             self.fileStatusChannel.emit(event)
-            # TODO hogy akkor még konkrét task is legyen belőle.
+            self.fileTaskChannel.emit(task)
         elif eventType == FileEventTypes.CREATED or eventType == FileEventTypes.MODIFIED:
             try:
                 # A file is still being copied or moved over into the syncdir.

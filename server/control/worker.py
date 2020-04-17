@@ -108,7 +108,8 @@ class InstantWorker(Worker):
             MessageTypes.GET_ACCOUNT_LIST: GetAccountsListHandler(self._databaseAccess),
             MessageTypes.SET_ACCOUNT_LIST: SetAccountListHandler(self._databaseAccess),
             MessageTypes.SYNC_FILES: GetFileListHandler(self._databaseAccess),
-            MessageTypes.GET_WORKSPACE: GetWorkspaceHandler(self._databaseAccess)
+            MessageTypes.GET_WORKSPACE: GetWorkspaceHandler(self._databaseAccess),
+            MessageTypes.DELETE_FILE: DeleteFileHandler(self._databaseAccess)
         }
 
     def _work(self):

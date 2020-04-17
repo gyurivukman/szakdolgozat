@@ -207,11 +207,16 @@ class ServiceHub(QObject):
     def __onNewFileTask(self, task):
         self.__logger.debug(f"New filetask: {task}")
         if task.taskType == FileStatuses.UPLOADING_FROM_LOCAL:
+            #  TODO cancel ongoing tasks.
             self.enqueuSSHTask(task)
-        else:
+        elif task.taskType == FileStatuses.DOWNLOADING_FROM_CLOUD:
             data = task.subject.serialize()
             message = NetworkMessage.Builder(MessageTypes.DOWNLOAD_FILE).withData(data).withUUID(task.uuid).build()
-
+            self.sendNetworkMessage(message)
+        elif task.taskType == FileStatuses.DELETED:
+            #  TODO cancel ongoing tasks.
+            data = {"fullPath": task.subject}
+            message = NetworkMessage.Builder(MessageTypes.DELETE_FILE).withData(data).withUUID(task.uuid).build()
             self.sendNetworkMessage(message)
 
     def __onNetworkConnectionEvent(self, event):

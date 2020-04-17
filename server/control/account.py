@@ -45,7 +45,7 @@ class CloudAPIWrapper:
     def getFileList(self):
         raise NotImplementedError("Derived class must implement method 'getFileList'!")
 
-    def delete(self):
+    def deleteFile(self, path, extraInfo=None):
         raise NotImplementedError("Derived class must implement method 'delete'!")
 
     def move(self, oldPath, newPath):
@@ -141,6 +141,9 @@ class DropboxAccountWrapper(CloudAPIWrapper):
                 res = requests.get(self.__DOWNLOAD_URL, headers=headers)
                 decrypted = cipher.decrypt(res.content)
                 fileHandle.write(decrypted)
+
+    def deleteFile(self, path, extraInfo=None):
+        self.__dbx.files_delete(f"/{path}")
 
 
 class TaskInterruptedException(Exception):
@@ -265,6 +268,9 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
             except TaskInterruptedException as e:
                 self._logger.info("Google drive upload interrupted, aborting and cleaning up..")
         unlink(tmpFileName)
+
+    def deleteFile(self, path, extraInfo=None):
+        self.__service.files().delete(fileId=extraInfo["id"]).execute()
 
 
 class SFTPCloudAccount(CloudAPIWrapper):  # TODO Stretchgoal!

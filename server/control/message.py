@@ -232,3 +232,19 @@ class DownloadFileHandler(AbstractTaskHandler):
             self._messageDispatcher.dispatchResponse(response)
         else:
             print("Download file handler doing cleanup....")
+
+
+class DeleteFileHandler(AbstractTaskHandler):
+
+    def handle(self):
+        dbAccounts = {acc.id: acc for acc in self._databaseAccess.getAllAccounts()}
+        cachedFileInfo = self._filesCache.getFile(self._task.data["fullPath"])
+        if cachedFileInfo:
+            for partName, part in cachedFileInfo.parts.items():
+                self._logger.debug(f"Removing part: {partName} from accountID: {part.storingAccountID}")
+                cloudAccount = CloudAPIFactory.fromAccountData(dbAccounts[part.storingAccountID])
+                path = cachedFileInfo.data.fullPath.replace(cachedFileInfo.data.filename, partName)
+                cloudAccount.deleteFile(path, part.extraInfo)
+
+    def _getLogger(self):
+        return moduleLogger.getChild("DeleteFileHandler")
