@@ -98,7 +98,16 @@ class FileSynchronizer(QObject):
 
         self.__detector.muteFile(absoluteTargetPath)
         time.sleep(0.2)
-        os.rename(absoluteSourcePath, absoluteTargetPath)
+        try:
+            os.rename(absoluteSourcePath, absoluteTargetPath)
+        except FileNotFoundError:
+            splitted = task.subject.fullPath.split("/")[:-1]
+            targetDirPath = f"{self.__syncDir}"
+            for dirName in splitted:
+                targetDirPath = f"{targetDirPath}/{dirName}"
+                os.mkdir(targetDirPath)
+            os.rename(absoluteSourcePath, absoluteTargetPath)
+
         os.utime(absoluteTargetPath, (task.subject.modified, task.subject.modified))
 
         event = FileStatusEvent(eventType=FileEventTypes.STATUS_CHANGED, sourcePath=task.subject.fullPath, status=FileStatuses.SYNCED)

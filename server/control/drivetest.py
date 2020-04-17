@@ -1,3 +1,4 @@
+# TODO nem kell, csak mentés.
 import os
 import datetime
 import sys

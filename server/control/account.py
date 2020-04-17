@@ -105,7 +105,7 @@ class DropboxAccountWrapper(CloudAPIWrapper):
             timeZoneOffset = timedelta(hours=int(rawOffset[1:3]), minutes=int(rawOffset[3:]))
 
             clientModified = datetime.utcfromtimestamp(task.data['utcModified']) + timeZoneOffset if rawOffset[0] == "+" else datetime.utcfromtimestamp(task.data['utcModified']) - timeZoneOffset
-            remotePath = f"{task.data['path']}/{partName}"
+            remotePath = f"/{task.data['path']}/{partName}" if len(task.data['path']) > 0 else f"/{partName}"
 
             commit = dropbox.files.CommitInfo(path=f"{remotePath}", mode=dropbox.files.WriteMode.overwrite, client_modified=clientModified)
 
@@ -214,7 +214,7 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
 
     def __toFileData(self, entry):
         fileName = entry["name"].split("/")[-1]
-        path = entry["name"].replace(fileName, "")
+        path = entry["name"].replace(fileName, "").rstrip("/")
         fullPath = entry["name"]
 
         unawareModifiedTime = time.strptime(entry["modifiedTime"], "%Y-%m-%dT%H:%M:%S.000Z")
