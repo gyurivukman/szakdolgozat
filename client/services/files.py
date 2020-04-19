@@ -9,7 +9,9 @@ from datetime import datetime
 
 from os import scandir
 from threading import Thread
-from queue import Empty, Queue
+from queue import Empty
+from multiprocessing import Process
+from multiprocessing import Queue
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -25,6 +27,13 @@ from model.task import FileTask
 logger = logging.getLogger(__name__)
 
 
+def startDetector(eventQueue, syncDir):
+    logger.getChild("FileSynchronizer").info("Event detector process spawned!")
+    eventHandler = EnqueueAnyFileEventEventHandler(eventQueue, syncDir)
+    detector = FileSystemEventDetector(eventHandler, syncDir)
+    detector.start()
+
+
 class FileSynchronizer(QObject):
     fileTaskChannel = pyqtSignal(FileTask)
     fileStatusChannel = pyqtSignal(FileStatusEvent)
@@ -35,7 +44,7 @@ class FileSynchronizer(QObject):
         self.__toCheckLater = None
         self.__eventQueue = Queue()
 
-        self.__detector = FileSystemEventDetector(self.__eventQueue, syncDir)
+        self.__detectorProcess = Process(target=startDetector, args=(self.__eventQueue, self.__syncDir))
         self.__logger = logger.getChild("FileSynchronizer")
         self.__shouldRun = True
 
@@ -62,13 +71,12 @@ class FileSynchronizer(QObject):
         self.__syncDir = syncDir
 
     def run(self):
-        self.__detector.start()
+        self.__detectorProcess.start()
         self.__logger.debug("Started detector object.")
         while self.__shouldRun:
             try:
                 event = self.__eventQueue.get_nowait()
                 self.__processEvent(event)
-                self.__eventQueue.task_done()
             except Empty:
                 if len(self.__toCheckLater) > 0:
                     toDelete = []
@@ -81,13 +89,15 @@ class FileSynchronizer(QObject):
                     for path in toDelete:
                         del self.__toCheckLater[path]
                 else:
-                    time.sleep(0.02)
+                    time.sleep(1)
         self.__logger.debug("Stopped")
 
     def stop(self):
         self.__shouldRun = False
         self.__logger.debug("Stopping")
-        self.__detector.stop()
+        self.__detectorProcess.terminate()
+        self.__detectorProcess.join()
+        self.__logger.debug("Child process stopped")
 
     def finalizeDownload(self, task):
         self.__logger.debug("FileSyncer finalizing task.")
@@ -105,7 +115,10 @@ class FileSynchronizer(QObject):
             targetDirPath = f"{self.__syncDir}"
             for dirName in directories:
                 targetDirPath = f"{targetDirPath}/{dirName}"
-                os.mkdir(targetDirPath)
+                try:
+                    os.mkdir(targetDirPath)
+                except FileExistsError:
+                    pass
             shutil.move(absoluteSourcePath, absoluteNonTriggeringPath)
             shutil.move(absoluteNonTriggeringPath, absoluteTargetPath)
 
@@ -201,9 +214,7 @@ class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
         self.__syncDirStartIndex = len(syncDir)
 
     def on_any_event(self, event):
-        print(f"\nEvent: {event}")
         if self.__canReportEvent(event):
-            print(f"\nReporting event: {event}")
             self.__eventQueue.put(event)
 
     def __canReportEvent(self, event):
@@ -215,22 +226,24 @@ class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
 
 class FileSystemEventDetector(QObject):
 
-    def __init__(self, eventQueue, syncDir):
+    def __init__(self, eventHandler, pathToWatch):
         super().__init__()
-        self._path = syncDir
-        self._eventHandler = EnqueueAnyFileEventEventHandler(eventQueue, syncDir)
-        self._observer = Observer()
-        self._logger = logger.getChild("FileSystemEventDetector")
+        self.__eventHandler = eventHandler
+        self.__path = pathToWatch
+        self.__observer = Observer()
+        self.__logger = logger.getChild("FileSystemEventDetector")
 
     def start(self):
-        self._logger.debug("Starting file detector")
-        self._observer.schedule(self._eventHandler, self._path, recursive=True)
-        self._observer.start()
+        self.__logger.info("Starting file detector")
+        self.__observer.schedule(self.__eventHandler, self.__path, recursive=True)
+        self.__observer.start()
+        while True:
+            time.sleep(0.05)
 
-    def stop(self):
-        self._logger.debug("Stopping observer")
-        if self._observer.is_alive():
-            self._observer.stop()
-            self._observer.join()
-            self._logger.debug("Stopped observer")
-        self._logger.debug("Stopped detector.")
+    # def stop(self):
+    #     self.__logger.debug("Stopping observer")
+    #     if self.__observer.is_alive():
+    #         self.__observer.stop()
+    #         self.__observer.join()
+    #         self.__logger.debug("Stopped observer")
+    #     self.__logger.debug("Stopped detector.")

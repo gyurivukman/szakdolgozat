@@ -159,7 +159,8 @@ class UploadFileHandler(AbstractTaskHandler):
         localFilePath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}"
 
         with open(localFilePath, "rb") as localFileHandle:
-            if perAccountSize < 1.0 or len(accounts) == 1:
+            if perAccountSize <= 1.0 or len(accounts) == 1:
+                self._logger.info(f"Uploading to single account only: {self._task.data['fullPath']}")
                 self.__uploadToFirstAccountOnly(accounts[0], localFileHandle)
             else:
                 self.__uploadToAllAccounts(accounts, perAccountSize, localFileHandle)
