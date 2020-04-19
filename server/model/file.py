@@ -52,7 +52,7 @@ class CloudFilesCache(metaclass=Singleton):
     def clearData(self):
         self.__filesCache = {}
 
-    def insertFilePart(self, filePart, accountID):
+    def insertFilePart(self, filePart):
         realFilename = self.__getRealFilename(filePart.filename)
         realFileFullPath = f"{filePart.path}/{realFilename}" if len(filePart.path) > 0 else realFilename
         try:
@@ -61,10 +61,9 @@ class CloudFilesCache(metaclass=Singleton):
             self.__filesCache[realFileFullPath].parts[filePart.filename] = filePart
         except KeyError:
             partName = filePart.filename
-            filePart.filename = realFilename
-            filePart.fullPath = realFileFullPath
+            fileData = self.__filePartToFileData(filePart, realFilename, realFileFullPath)
             self.__filesCache[realFileFullPath] = CachedFileData(
-                self.__filePartToFileData(filePart), 1, self.__getFilePartCount(partName), {partName: filePart}
+                fileData, 1, self.__getFilePartCount(partName), {partName: filePart}
             )
             self.__filesCache[realFileFullPath].data.size -= 16
 
@@ -92,12 +91,11 @@ class CloudFilesCache(metaclass=Singleton):
 
         return int(match[1].split("__")[1])
 
-    def __filePartToFileData(self, filePart):
-        fileData = FileData(
-            filePart.filename,
+    def __filePartToFileData(self, filePart, realFilename, realFileFullPath):
+        return FileData(
+            realFilename,
             filePart.modified,
             filePart.size,
             filePart.path,
-            filePart.fullPath
+            realFileFullPath
         )
-        return fileData

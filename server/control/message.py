@@ -115,7 +115,7 @@ class GetFileListHandler(AbstractTaskHandler):
 
         self._filesCache.clearData()
         for account in self.__cloudAccounts:
-            self.__processAccountFiles(account.getFileList(), account.accountData.id)
+            self.__processAccountFiles(account.getFileList())
 
         fullFiles = self._filesCache.getFullFiles()
         incompleteFilesMessage = "\n".join([f"{cachedFile.data.fullPath} (missing part count: {cachedFile.totalPartCount - cachedFile.availablePartCount})" for cachedFile in self._filesCache.getIncompleteFiles()])
@@ -125,9 +125,9 @@ class GetFileListHandler(AbstractTaskHandler):
         self.__sendResponse(fullFiles)
         self._task = None
 
-    def __processAccountFiles(self, files, accountID):
-        for filePart in files:
-            self._filesCache.insertFilePart(filePart, accountID)
+    def __processAccountFiles(self, fileParts):
+        for filePart in fileParts:
+            self._filesCache.insertFilePart(filePart)
 
     def __sendResponse(self, fullFiles):
         response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(fullFiles).build()
@@ -181,7 +181,8 @@ class UploadFileHandler(AbstractTaskHandler):
         if not self._task.stale:
             cloudAccount = CloudAPIFactory.fromAccountData(account)
             cloudFileName = f"{self._task.data['filename']}__1__1.enc"
-            cloudAccount.upload(fileHandle, self._task.data['size'], cloudFileName, self._task)
+            result = cloudAccount.upload(fileHandle, self._task.data['size'], cloudFileName, self._task)
+            self.__updateFilesCache(result)
 
     def __uploadToAllAccounts(self, accounts, perAccountSize, fileHandle):
         totalCount = len(accounts)
@@ -190,7 +191,26 @@ class UploadFileHandler(AbstractTaskHandler):
             if not self._task.stale:
                 cloudAccount = CloudAPIFactory.fromAccountData(account)
                 cloudFileName = f"{self._task.data['filename']}__{partIndex + 1}__{totalCount}.enc"
-                cloudAccount.upload(fileHandle, toUploadChunkInfo[0], cloudFileName, self._task)
+                result = cloudAccount.upload(fileHandle, toUploadChunkInfo[0], cloudFileName, self._task)
+                self._logger.debug(f"Updating cache with result: {result}")
+                self.__updateFilesCache(result)
+
+    def __updateFilesCache(self, resultingFilePart):
+        cachedFile = self._filesCache.getFile(resultingFilePart.fullPath)
+        if cachedFile:
+            self._logger.debug(f"Updating already existing file in file cache: '{cachedFile.data.fullPath}' with part {resultingFilePart.filename}")
+            self.__updateAlreadyExistingEntry(cachedFile, resultingFilePart)
+        else:
+            self._logger.debug(f"Updating file cache with a new file: {resultingFilePart.fullPath}")
+            self._filesCache.insertFilePart(resultingFilePart)
+            self._logger.debug(f"Inserted new file to cache after upload {self._filesCache.getFile('pizza.jpeg')}")
+
+    def __updateAlreadyExistingEntry(self, cachedFile, resultingFilePart):
+        if cachedFile.parts[resultingFilePart.filename].storingAccountID == resultingFilePart.storingAccountID:
+            self._logger.debug("Upload result is stored by the same account as the file in the cache, updating values.")
+            cachedFile.parts[resultingFilePart.filename] = resultingFilePart
+        else:
+            self._logger.debug("Different account stores the newly uploaded file than it is in the cache! Must do cleanup!")
 
 
 class DownloadFileHandler(AbstractTaskHandler):
@@ -244,6 +264,7 @@ class DeleteFileHandler(AbstractTaskHandler):
                 self._logger.debug(f"Removing part: {partName} from accountID: {part.storingAccountID}")
                 cloudAccount = CloudAPIFactory.fromAccountData(dbAccounts[part.storingAccountID])
                 cloudAccount.deleteFile(part)
+            self._filesCache.removeFile(self._task.data["fullPath"])
 
     def _getLogger(self):
         return moduleLogger.getChild("DeleteFileHandler")

@@ -2,10 +2,8 @@ import re
 import logging
 import json
 import time
-
 from uuid import uuid4
 from os import unlink
-
 from io import BufferedReader, BufferedWriter
 from datetime import datetime, timedelta, timezone
 
@@ -13,17 +11,15 @@ import paramiko
 import dropbox
 import requests
 import googleapiclient
-
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
-
 from Crypto.Cipher import AES
 
+import control.cli
 from model.account import AccountTypes, AccountData
 from model.file import FileData, FilePart
 from model.task import Task
-
 from control.util import chunkSizeGenerator, httpRangeHeaderIntervalGenerator
 
 moduleLogger = logging.getLogger(__name__)
@@ -45,7 +41,7 @@ class CloudAPIWrapper:
     def getFileList(self):
         raise NotImplementedError("Derived class must implement method 'getFileList'!")
 
-    def deleteFile(self, partInfo):
+    def deleteFile(self, partInfo, filesCache):
         raise NotImplementedError("Derived class must implement method 'delete'!")
 
     def move(self, oldPath, newPath):
@@ -93,16 +89,14 @@ class DropboxAccountWrapper(CloudAPIWrapper):
             remotePath = f"/{task.data['path']}/{partName}" if len(task.data['path']) > 0 else f"/{partName}"
 
             commit = dropbox.files.CommitInfo(path=f"{remotePath}", mode=dropbox.files.WriteMode.overwrite, client_modified=clientModified)
+            uploadResult = None
 
             for chunkSize, remaining in chunkSizeGenerator(toUploadSize, self.__UPLOAD_CHUNK_SIZE):
                 if not task.stale:
                     data = cipher.encrypt(fileHandle.read(chunkSize))
                     if remaining == 0:
-                        self._logger.debug(
-                            self.__dbx.files_upload_session_finish(
-                                data, cursor, commit
-                            )
-                        )
+                        result = self.__dbx.files_upload_session_finish(data, cursor, commit)
+                        uploadResult = self.__toFilePart(result)
                     else:
                         self.__dbx.files_upload_session_append(
                             data,
@@ -110,6 +104,7 @@ class DropboxAccountWrapper(CloudAPIWrapper):
                             cursor.offset,
                         )
                     cursor.offset += chunkSize
+            return uploadResult
 
     def download(self, fileHandle, partInfo, task):
         token = self.accountData.data["apiToken"]
@@ -229,25 +224,27 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
 
         metadata = {"name": f"{uploadName}", "parents": ["root"], "mimeType": "application/octet-stream", "modifiedTime": timeModified.strftime("%Y-%m-%dT%H:%M:%SZ")}
 
-        tmpFileName = uuid4().hex
+        tmpFile = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{uuid4().hex}"
         cipher = AES.new(self.accountData.cryptoKey.encode(), AES.MODE_CFB)
 
-        with open(tmpFileName, "wb") as outputFile:
+        with open(tmpFile, "wb") as outputFile:
             outputFile.write(cipher.iv)
             for chunk, remainder in chunkSizeGenerator(toUploadSize, self.__UPLOAD_CHUNK_SIZE):
                 data = fileHandle.read(chunk)
                 encrypted = cipher.encrypt(data)
                 outputFile.write(encrypted)
 
-        with open(tmpFileName, "rb") as rawHandle:
+        with open(tmpFile, "rb") as rawHandle:
             interruptibleHandle = InterruptibleGoogleDriveUploadFileHandle(rawHandle)
             try:
                 media = MediaIoBaseUpload(interruptibleHandle, mimetype="application/octet-stream", resumable=True, chunksize=self.__UPLOAD_CHUNK_SIZE)
                 res = self.__service.files().create(body=metadata, media_body=media, fields="id, name, modifiedTime, size").execute()
-                self._logger.debug(res)
+                self._logger.debug(f"Finishing google drive upload {res}")
+                unlink(tmpFile)
+                return self.__toFilePart(res)
             except TaskInterruptedException as e:
                 self._logger.info("Google drive upload interrupted, aborting and cleaning up..")
-        unlink(tmpFileName)
+                unlink(tmpFile)
 
     def deleteFile(self, partInfo):
         self.__service.files().delete(fileId=partInfo.extraInfo["id"]).execute()
