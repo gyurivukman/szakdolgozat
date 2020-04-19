@@ -109,6 +109,7 @@ class FileSynchronizer(QObject):
         try:
             os.utime(absoluteSourcePath, (task.subject.modified, task.subject.modified))
             shutil.move(absoluteSourcePath, absoluteNonTriggeringPath)
+            time.sleep(0.5)
             shutil.move(absoluteNonTriggeringPath, absoluteTargetPath)
         except FileNotFoundError:
             directories = task.subject.fullPath.split("/")[:-1]
@@ -120,6 +121,7 @@ class FileSynchronizer(QObject):
                 except FileExistsError:
                     pass
             shutil.move(absoluteSourcePath, absoluteNonTriggeringPath)
+            time.sleep(0.5)
             shutil.move(absoluteNonTriggeringPath, absoluteTargetPath)
 
         event = FileStatusEvent(eventType=FileEventTypes.STATUS_CHANGED, sourcePath=task.subject.fullPath, status=FileStatuses.SYNCED)
@@ -238,7 +240,7 @@ class FileSystemEventDetector(QObject):
         self.__observer.schedule(self.__eventHandler, self.__path, recursive=True)
         self.__observer.start()
         while True:
-            time.sleep(0.05)
+            time.sleep(0.02)
 
     # def stop(self):
     #     self.__logger.debug("Stopping observer")
