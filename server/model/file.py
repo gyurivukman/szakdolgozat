@@ -65,7 +65,6 @@ class CloudFilesCache(metaclass=Singleton):
             self.__filesCache[realFileFullPath] = CachedFileData(
                 fileData, 1, self.__getFilePartCount(partName), {partName: filePart}
             )
-            self.__filesCache[realFileFullPath].data.size -= 16
 
     def removeFile(self, path):
         del self.__filesCache[path]
@@ -95,7 +94,7 @@ class CloudFilesCache(metaclass=Singleton):
         return FileData(
             realFilename,
             filePart.modified,
-            filePart.size,
+            filePart.size - 16,
             filePart.path,
             realFileFullPath
         )

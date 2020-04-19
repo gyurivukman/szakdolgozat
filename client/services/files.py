@@ -1,6 +1,7 @@
 import logging
 import time
 import os
+import shutil
 
 from uuid import uuid4
 from datetime import datetime
@@ -54,8 +55,6 @@ class FileSynchronizer(QObject):
             self.fileStatusChannel.emit(event)
             if fileData.status != FileStatuses.SYNCED:
                 uuid = uuid4().hex
-                if fileData.status == FileStatuses.DOWNLOADING_FROM_CLOUD:
-                    self.__detector.muteFile(f"{self.__syncDir}/.{uuid}")
                 task = FileTask(uuid, fileData.status, fileData)
                 self.fileTaskChannel.emit(task)
 
@@ -94,28 +93,25 @@ class FileSynchronizer(QObject):
         self.__logger.debug("FileSyncer finalizing task.")
 
         absoluteSourcePath = f"{self.__syncDir}/.{task.uuid}"
+        absoluteNonTriggeringPath = f"{self.__syncDir}/{task.subject.path}/.{task.uuid}" if len(task.subject.path) > 0 else absoluteSourcePath
         absoluteTargetPath = f"{self.__syncDir}/{task.subject.fullPath}"
 
-        self.__detector.muteFile(absoluteTargetPath)
-        time.sleep(0.2)
         try:
-            os.rename(absoluteSourcePath, absoluteTargetPath)
+            os.utime(absoluteSourcePath, (task.subject.modified, task.subject.modified))
+            shutil.move(absoluteSourcePath, absoluteNonTriggeringPath)
+            shutil.move(absoluteNonTriggeringPath, absoluteTargetPath)
         except FileNotFoundError:
-            splitted = task.subject.fullPath.split("/")[:-1]
+            directories = task.subject.fullPath.split("/")[:-1]
             targetDirPath = f"{self.__syncDir}"
-            for dirName in splitted:
+            for dirName in directories:
                 targetDirPath = f"{targetDirPath}/{dirName}"
                 os.mkdir(targetDirPath)
-            os.rename(absoluteSourcePath, absoluteTargetPath)
-
-        os.utime(absoluteTargetPath, (task.subject.modified, task.subject.modified))
+            shutil.move(absoluteSourcePath, absoluteNonTriggeringPath)
+            shutil.move(absoluteNonTriggeringPath, absoluteTargetPath)
 
         event = FileStatusEvent(eventType=FileEventTypes.STATUS_CHANGED, sourcePath=task.subject.fullPath, status=FileStatuses.SYNCED)
         self.__logger.debug(f"Emitting event {event}")
         self.fileStatusChannel.emit(event)
-
-        self.__detector.unMuteFile(absoluteSourcePath)
-        self.__detector.unMuteFile(absoluteTargetPath)
 
     def __mergeLocalFilesWithRemoteFiles(self, localFiles, remoteFiles):
         mergedFiles = localFiles
@@ -199,21 +195,22 @@ class FileSynchronizer(QObject):
 
 class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
 
-    def __init__(self, eventQueue):
+    def __init__(self, eventQueue, syncDir):
         super().__init__()
         self.__eventQueue = eventQueue
-        self.__mutedFiles = set()
+        self.__syncDirStartIndex = len(syncDir)
 
     def on_any_event(self, event):
-        if not event.is_directory:
-            if event.src_path not in self.__mutedFiles:
-                self.__eventQueue.put(event)
+        print(f"\nEvent: {event}")
+        if self.__canReportEvent(event):
+            print(f"\nReporting event: {event}")
+            self.__eventQueue.put(event)
 
-    def muteFile(self, path):
-        self.__mutedFiles.add(path)
+    def __canReportEvent(self, event):
+        return not event.is_directory and not self.__isHiddenFileEvent(event.src_path)
 
-    def unMuteFile(self, path):
-        self.__mutedFiles.remove(path)
+    def __isHiddenFileEvent(self, srcPath):
+        return srcPath.split("/")[-1][0] == "."
 
 
 class FileSystemEventDetector(QObject):
@@ -221,7 +218,7 @@ class FileSystemEventDetector(QObject):
     def __init__(self, eventQueue, syncDir):
         super().__init__()
         self._path = syncDir
-        self._eventHandler = EnqueueAnyFileEventEventHandler(eventQueue)
+        self._eventHandler = EnqueueAnyFileEventEventHandler(eventQueue, syncDir)
         self._observer = Observer()
         self._logger = logger.getChild("FileSystemEventDetector")
 
@@ -237,9 +234,3 @@ class FileSystemEventDetector(QObject):
             self._observer.join()
             self._logger.debug("Stopped observer")
         self._logger.debug("Stopped detector.")
-
-    def muteFile(self, path):
-        self._eventHandler.muteFile(path)
-
-    def unMuteFile(self, path):
-        self._eventHandler.unMuteFile(path)

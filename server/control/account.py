@@ -260,7 +260,7 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
         unawareModifiedTime = time.strptime(entry["modifiedTime"], "%Y-%m-%dT%H:%M:%S.000Z")
         modifiedTime = datetime(*unawareModifiedTime[:6], tzinfo=timezone.utc)
 
-        return FilePart(
+        filePart = FilePart(
             filename=filename,
             modified=int(modifiedTime.timestamp()),
             size=int(entry["size"]),
@@ -269,6 +269,7 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
             storingAccountID=self.accountData.id,
             extraInfo={"id": entry["id"]}
         )
+        return filePart
 
 
 class CloudAPIFactory:
