@@ -21,7 +21,7 @@ from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 from Crypto.Cipher import AES
 
 from model.account import AccountTypes, AccountData
-from model.file import FileData
+from model.file import FileData, FilePart
 from model.task import Task
 
 from control.util import chunkSizeGenerator, httpRangeHeaderIntervalGenerator
@@ -39,13 +39,13 @@ class CloudAPIWrapper:
     def upload(self, fileHandle, toUploadSize, partName, task):
         raise NotImplementedError("Derived class must implement method 'upload'!")
 
-    def download(self, fileHandle, cachedFileInfo, partInfo, task):
+    def download(self, fileHandle, partInfo, task):
         raise NotImplementedError("Derived class must implement method 'download'!")
 
     def getFileList(self):
         raise NotImplementedError("Derived class must implement method 'getFileList'!")
 
-    def deleteFile(self, path, extraInfo=None):
+    def deleteFile(self, partInfo):
         raise NotImplementedError("Derived class must implement method 'delete'!")
 
     def move(self, oldPath, newPath):
@@ -64,25 +64,10 @@ class DropboxAccountWrapper(CloudAPIWrapper):
         self.__UPLOAD_CHUNK_SIZE = 1048576
         self.__DOWNLOAD_CHUNK_SIZE = 1048576
 
-    def __toFileData(self, entry):
-        return FileData(
-            filename=entry.name,
-            modified=int(entry.client_modified.timestamp()),
-            size=entry.size,
-            path=entry.path_display.replace(f"/{entry.name}", "").lstrip("/"),
-            fullPath=entry.path_display.lstrip("/")
-        )
-
-    def __sendDownloadCompleteResponse(self):
-        data = self._task.subject
-
-    def _getLogger(self):
-        return moduleLogger.getChild("DropboxAccountWrapper")
-
     def getFileList(self):
         files = []
         result = self.__dbx.files_list_folder("", recursive=True)
-        files = [self.__toFileData(entry) for entry in result.entries if type(entry) == (dropbox.files.FileMetadata) and entry.name[-4:] == ".enc" and entry.size > 0]
+        files = [self.__toFilePart(entry) for entry in result.entries if type(entry) == (dropbox.files.FileMetadata) and entry.name[-4:] == ".enc" and entry.size > 0]
 
         return files
 
@@ -113,7 +98,7 @@ class DropboxAccountWrapper(CloudAPIWrapper):
                 if not task.stale:
                     data = cipher.encrypt(fileHandle.read(chunkSize))
                     if remaining == 0:
-                        print(
+                        self._logger.debug(
                             self.__dbx.files_upload_session_finish(
                                 data, cursor, commit
                             )
@@ -126,11 +111,10 @@ class DropboxAccountWrapper(CloudAPIWrapper):
                         )
                     cursor.offset += chunkSize
 
-    def download(self, fileHandle, cachedFileInfo, partInfo, task):
+    def download(self, fileHandle, partInfo, task):
         token = self.accountData.data["apiToken"]
-        remotePath = f"{cachedFileInfo.data.fullPath.replace(cachedFileInfo.data.filename, '')}{partInfo.partName}"
 
-        headers = {"Authorization": f"Bearer {token}", "Dropbox-API-Arg": json.dumps({"path": f"/{remotePath}"}), "Range": "bytes=0-15"}
+        headers = {"Authorization": f"Bearer {token}", "Dropbox-API-Arg": json.dumps({"path": f"/{partInfo.fullPath}"}), "Range": "bytes=0-15"}
         res = requests.get(self.__DOWNLOAD_URL, headers=headers)
         cipher = AES.new(self.accountData.cryptoKey.encode(), AES.MODE_CFB, iv=res.content)
 
@@ -142,8 +126,24 @@ class DropboxAccountWrapper(CloudAPIWrapper):
                 decrypted = cipher.decrypt(res.content)
                 fileHandle.write(decrypted)
 
-    def deleteFile(self, path, extraInfo=None):
-        self.__dbx.files_delete(f"/{path}")
+    def deleteFile(self, partInfo):
+        self.__dbx.files_delete(f"/{partInfo.fullPath}")
+
+    def __toFilePart(self, entry):
+        return FilePart(
+            filename=entry.name,
+            modified=int(entry.client_modified.timestamp()),
+            size=entry.size,
+            path=entry.path_display.replace(f"/{entry.name}", "").lstrip("/"),
+            fullPath=entry.path_display.lstrip("/"),
+            storingAccountID=self.accountData.id
+        )
+
+    def __sendDownloadCompleteResponse(self):
+        data = self._task.subject
+
+    def _getLogger(self):
+        return moduleLogger.getChild("DropboxAccountWrapper")
 
 
 class TaskInterruptedException(Exception):
@@ -199,7 +199,7 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
         ).execute()
 
         while hasMore:
-            currentBatch = [self.__toFileData(entry) for entry in results.get("files", [])]
+            currentBatch = [self.__toFilePart(entry) for entry in results.get("files", [])]
             files.extend(currentBatch)
             nextPageToken = results.get("nextPageToken", None)
             hasMore = nextPageToken is not None
@@ -212,27 +212,7 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
 
         return files
 
-    def _getLogger(self):
-        return moduleLogger.getChild("GoogleDriveAccountWrapper")
-
-    def __toFileData(self, entry):
-        fileName = entry["name"].split("/")[-1]
-        path = entry["name"].replace(fileName, "").rstrip("/")
-        fullPath = entry["name"]
-
-        unawareModifiedTime = time.strptime(entry["modifiedTime"], "%Y-%m-%dT%H:%M:%S.000Z")
-        modifiedTime = datetime(*unawareModifiedTime[:6], tzinfo=timezone.utc)
-
-        return FileData(
-            filename=fileName,
-            modified=int(modifiedTime.timestamp()),
-            size=int(entry["size"]),
-            path=path,
-            fullPath=fullPath,
-            extraInfo={"id": entry["id"]}
-        )
-
-    def download(self, fileHandle, cachedFileInfo, partInfo, task):
+    def download(self, fileHandle, partInfo, task):
         self._logger.debug(f"Downloading: {partInfo}")
 
         handle = InterruptibleGoogleDriveDownloadFileHandle(fileHandle, self.accountData.cryptoKey)
@@ -269,10 +249,45 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
                 self._logger.info("Google drive upload interrupted, aborting and cleaning up..")
         unlink(tmpFileName)
 
-    def deleteFile(self, path, extraInfo=None):
-        self.__service.files().delete(fileId=extraInfo["id"]).execute()
+    def deleteFile(self, partInfo):
+        self.__service.files().delete(fileId=partInfo.extraInfo["id"]).execute()
+
+    def _getLogger(self):
+        return moduleLogger.getChild("GoogleDriveAccountWrapper")
+
+    def __toFilePart(self, entry):
+        filename = entry["name"].split("/")[-1]
+        path = entry["name"].replace(filename, "").rstrip("/")
+        fullPath = entry["name"]
+
+        unawareModifiedTime = time.strptime(entry["modifiedTime"], "%Y-%m-%dT%H:%M:%S.000Z")
+        modifiedTime = datetime(*unawareModifiedTime[:6], tzinfo=timezone.utc)
+
+        return FilePart(
+            filename=filename,
+            modified=int(modifiedTime.timestamp()),
+            size=int(entry["size"]),
+            path=path,
+            fullPath=fullPath,
+            storingAccountID=self.accountData.id,
+            extraInfo={"id": entry["id"]}
+        )
 
 
+class CloudAPIFactory:
+    __typeToClassMap = {
+        AccountTypes.Dropbox: DropboxAccountWrapper,
+        AccountTypes.GoogleDrive: GoogleDriveAccountWrapper
+    }
+
+    @staticmethod
+    def fromAccountData(accountData):
+        return CloudAPIFactory.__typeToClassMap[accountData.accountType](accountData)
+
+
+# *******************
+# SFTP is unused currently.
+# *******************
 class SFTPCloudAccount(CloudAPIWrapper):  # TODO Stretchgoal!
 
     def __init__(self, *args):
@@ -304,14 +319,3 @@ class SFTPCloudAccount(CloudAPIWrapper):  # TODO Stretchgoal!
     def __del__(self):
         self.__sftp.close()
         self.__client.close()
-
-
-class CloudAPIFactory:
-    __typeToClassMap = {
-        AccountTypes.Dropbox: DropboxAccountWrapper,
-        AccountTypes.GoogleDrive: GoogleDriveAccountWrapper
-    }
-
-    @staticmethod
-    def fromAccountData(accountData):
-        return CloudAPIFactory.__typeToClassMap[accountData.accountType](accountData)

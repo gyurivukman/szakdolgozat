@@ -118,9 +118,9 @@ class GetFileListHandler(AbstractTaskHandler):
             self.__processAccountFiles(account.getFileList(), account.accountData.id)
 
         fullFiles = self._filesCache.getFullFiles()
-        incompleteFiles = self._filesCache.getIncompleteFiles()
+        incompleteFilesMessage = "\n".join([f"{cachedFile.data.fullPath} (missing part count: {cachedFile.totalPartCount - cachedFile.availablePartCount})" for cachedFile in self._filesCache.getIncompleteFiles()])
         self._logger.debug(f"Found the following full files: {fullFiles}")
-        self._logger.warning(f"The following files have missing parts: {incompleteFiles}")
+        self._logger.warning(f"The following files have missing parts:\n{incompleteFilesMessage}")
 
         self.__sendResponse(fullFiles)
         self._task = None
@@ -210,8 +210,8 @@ class DownloadFileHandler(AbstractTaskHandler):
         with open(localFilePath, "wb") as outputFileHandle:
             for part in parts:
                 cloudAccount = CloudAPIFactory.fromAccountData(storingAccounts[part.storingAccountID])
-                self._logger.debug(f"Downloading part {part.partName} from {cloudAccount.accountData.identifier}")
-                cloudAccount.download(outputFileHandle, cachedFileInfo, part, self._task)
+                self._logger.debug(f"Downloading part {part.filename} from {cloudAccount.accountData.identifier}")
+                cloudAccount.download(outputFileHandle, part, self._task)
         self._logger.debug("Download finished, moving file to client workspace...")
         self.__finalizeDownload()
         self.__sendResponse()
@@ -243,8 +243,7 @@ class DeleteFileHandler(AbstractTaskHandler):
             for partName, part in cachedFileInfo.parts.items():
                 self._logger.debug(f"Removing part: {partName} from accountID: {part.storingAccountID}")
                 cloudAccount = CloudAPIFactory.fromAccountData(dbAccounts[part.storingAccountID])
-                path = cachedFileInfo.data.fullPath.replace(cachedFileInfo.data.filename, partName)
-                cloudAccount.deleteFile(path, part.extraInfo)
+                cloudAccount.deleteFile(part)
 
     def _getLogger(self):
         return moduleLogger.getChild("DeleteFileHandler")
