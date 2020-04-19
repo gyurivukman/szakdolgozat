@@ -165,8 +165,10 @@ class InterruptibleGoogleDriveDownloadFileHandle(BufferedWriter):
         if not self.__cipher:
             self.__cipher = AES.new(self.__aesKey.encode(), AES.MODE_CFB, iv=data[0:16])
             super().write(self.__cipher.decrypt(data[16:]))
+            super().flush()
         else:
             super().write(self.__cipher.decrypt(data))
+            super().flush()
 
     def close(self):
         pass
