@@ -41,7 +41,7 @@ class CloudAPIWrapper:
     def getFileList(self):
         raise NotImplementedError("Derived class must implement method 'getFileList'!")
 
-    def deleteFile(self, partInfo, filesCache):
+    def deleteFile(self, partInfo):
         raise NotImplementedError("Derived class must implement method 'delete'!")
 
     def move(self, oldPath, newPath):
@@ -272,6 +272,14 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
             extraInfo={"id": entry["id"]}
         )
         return filePart
+
+    def __createTemporaryEncryptedUploadFile(self):
+        with open(tmpFile, "wb") as outputFile:
+            outputFile.write(cipher.iv)
+            for chunk, remainder in chunkSizeGenerator(toUploadSize, self.__UPLOAD_CHUNK_SIZE):
+                data = fileHandle.read(chunk)
+                encrypted = cipher.encrypt(data)
+                outputFile.write(encrypted)
 
 
 class CloudAPIFactory:

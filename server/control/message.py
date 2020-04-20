@@ -155,15 +155,16 @@ class UploadFileHandler(AbstractTaskHandler):
     def handle(self):
         accounts = self._databaseAccess.getAllAccounts()
 
-        perAccountSize = ceil(self._task.data['size'] / len(accounts))
+        perAccountSize = ceil(self._task.data["size"] / len(accounts))
         localFilePath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}"
+        cachedFile = self._filesCache.getFile(self._task.data["fullPath"])
 
         with open(localFilePath, "rb") as localFileHandle:
             if perAccountSize <= 1.0 or len(accounts) == 1:
                 self._logger.info(f"Uploading to single account only: {self._task.data['fullPath']}")
-                self.__uploadToFirstAccountOnly(accounts[0], localFileHandle)
+                self.__uploadToFirstAccountOnly(accounts[0], localFileHandle, cachedFile)
             else:
-                self.__uploadToAllAccounts(accounts, perAccountSize, localFileHandle)
+                self.__uploadToAllAccounts(accounts, perAccountSize, localFileHandle, cachedFile)
 
         self.__cleanUp(localFilePath)
         self.__sendResponse()
@@ -178,16 +179,29 @@ class UploadFileHandler(AbstractTaskHandler):
             response = NetworkMessage.Builder(MessageTypes.FILE_STATUS_UPDATE).withData(data).withRandomUUID().build()
             self._messageDispatcher.dispatchResponse(response)
 
-    def __uploadToFirstAccountOnly(self, account, fileHandle):
+    def __cleanFromRemote(self, cachedFile):
+        storedParts = {partInfo.storingAccountID: partInfo for partName, partInfo in cachedFile.parts.items()}
+        cloudAccounts = [CloudAPIFactory.fromAccountData(account) for account in self._databaseAccess.getAllAccounts() if account.id in storedParts]
+        for account in cloudAccounts:
+            account.deleteFile(storedParts[account.accountData.id])
+
+    def __uploadToFirstAccountOnly(self, account, fileHandle, cachedFile):
         if not self._task.stale:
+            if cachedFile:
+                self.__cleanFromRemote(cachedFile)
+                self._filesCache.removeFile(cachedFile.data.fullPath)
             cloudAccount = CloudAPIFactory.fromAccountData(account)
             cloudFileName = f"{self._task.data['filename']}__1__1.enc"
             result = cloudAccount.upload(fileHandle, self._task.data['size'], cloudFileName, self._task)
             self.__updateFilesCache(result)
 
-    def __uploadToAllAccounts(self, accounts, perAccountSize, fileHandle):
-        totalCount = len(accounts)
+    def __uploadToAllAccounts(self, accounts, perAccountSize, fileHandle, cachedFile):
+        if not self._task.stale:
+            if cachedFile:
+                self.__cleanFromRemote(cachedFile)
+                self._filesCache.removeFile(cachedFile.data.fullPath)
 
+        totalCount = len(accounts)
         for account, partIndex, toUploadChunkInfo in zip(accounts, range(totalCount), chunkSizeGenerator(self._task.data["size"], perAccountSize)):
             if not self._task.stale:
                 cloudAccount = CloudAPIFactory.fromAccountData(account)
