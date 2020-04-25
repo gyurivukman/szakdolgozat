@@ -193,6 +193,9 @@ class MainPanel(QWidget):
             self.__fileWidgets[event.sourcePath].setParent(None)
             del self.__fileWidgets[event.sourcePath]
         elif event.eventType == FileEventTypes.MOVED:
+            if event.destinationPath in self.__fileWidgets:
+                self.__fileWidgets[event.destinationPath].setParent(None)
+                del self.__fileWidgets[event.destinationPath]
             self.__fileWidgets[event.destinationPath] = self.__fileWidgets[event.sourcePath]
             self.__fileWidgets[event.destinationPath].setFullPath(event.destinationPath)
             self.__fileWidgets[event.destinationPath].setStatus(event.status)
