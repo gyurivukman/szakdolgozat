@@ -43,6 +43,7 @@ class FileSynchronizer(QObject):
         self.__syncDir = syncDir
         self.__toCheckLater = None
         self.__eventQueue = Queue()
+        self.__localFilesCache = []
 
         self.__detectorProcess = Process(target=startDetector, args=(self.__eventQueue, self.__syncDir))
         self.__logger = logger.getChild("FileSynchronizer")
@@ -52,6 +53,7 @@ class FileSynchronizer(QObject):
         self.__toCheckLater = {}
 
         localFiles = self.__scanLocalFiles()
+        self.__localFilesCache = [*localFiles]
         mergedFileList = self.__mergeLocalFilesWithRemoteFiles(localFiles, remoteFiles)
 
         debug = '\n'.join([f'{key}: {value.status.name}' for key, value in mergedFileList.items()])
@@ -89,7 +91,9 @@ class FileSynchronizer(QObject):
                     for path in toDelete:
                         del self.__toCheckLater[path]
                 else:
+                    print(f"Nothing to do. Local files :{self.__localFilesCache}")
                     time.sleep(1)
+
         self.__logger.debug("Stopped")
 
     def stop(self):
@@ -178,32 +182,51 @@ class FileSynchronizer(QObject):
                 del self.__toCheckLater[sourcePath]
             except KeyError:
                 pass
+            self.__localFilesCache.remove(sourcePath)
             event = FileStatusEvent(eventType=eventType, status=None, sourcePath=sourcePath, destinationPath=None)
             task = FileTask(uuid4().hex, FileStatuses.DELETED, subject=sourcePath)
             self.fileStatusChannel.emit(event)
             self.fileTaskChannel.emit(task)
-        elif eventType == FileEventTypes.CREATED or eventType == FileEventTypes.MODIFIED:
-            try:
-                # A file is still being copied or moved over into the syncdir.
-                self.__toCheckLater[sourcePath].timeOfLastAction = datetime.now()
-            except KeyError:
-                # A file is being created/being modified, caught for the first time
-                originalEvent = FileStatusEvent(eventType=eventType, status=FileStatuses.UPLOADING_FROM_LOCAL, sourcePath=sourcePath)
-                checkLaterEvent = CheckLaterFileEvent(originalEvent, datetime.now())
-                self.__toCheckLater[sourcePath] = checkLaterEvent
+        elif eventType == FileEventTypes.CREATED:
+            if sourcePath not in self.__localFilesCache:
+                self.__checkFileLater(sourcePath, eventType)
+            else:
+                event = FileStatusEvent(eventType=FileEventTypes.STATUS_CHANGED, sourcePath=sourcePath, status=FileStatuses.UPLOADING_FROM_LOCAL)
+                fileData = self.__createFileDataFromPath(sourcePath)
+                fileData.status = FileStatuses.UPLOADING_FROM_LOCAL
+                task = FileTask(uuid4().hex, FileStatuses.UPLOADING_FROM_LOCAL, subject=fileData)
 
-    def __createTaskFromCheckLaterEvent(self, checkLaterEvent):
-        stats = os.stat(f"{self.__syncDir}/{checkLaterEvent.originalEvent.sourcePath}")
-        splitted = checkLaterEvent.originalEvent.sourcePath.split("/")
+                self.fileStatusChannel.emit(event)
+                self.fileTaskChannel.emit(task)
+        elif eventType == FileEventTypes.MODIFIED:
+            self.__checkFileLater(sourcePath, eventType)
+
+    def __checkFileLater(self, sourcePath, eventType):
+        try:
+            # A file is still being copied or moved over into the syncdir.
+            self.__toCheckLater[sourcePath].timeOfLastAction = datetime.now()
+        except KeyError:
+            # A file is being created/being modified, caught for the first time
+            originalEvent = FileStatusEvent(eventType=eventType, status=FileStatuses.UPLOADING_FROM_LOCAL, sourcePath=sourcePath)
+            checkLaterEvent = CheckLaterFileEvent(originalEvent, datetime.now())
+            self.__toCheckLater[sourcePath] = checkLaterEvent
+
+    def __createFileDataFromPath(self, sourcePath):
+        stats = os.stat(f"{self.__syncDir}/{sourcePath}")
+        splitted = sourcePath.split("/")
 
         filename = splitted[-1]
         modified = int(stats.st_mtime)
         size = stats.st_size
         path = "/".join(splitted[:-1])
-        fullPath = checkLaterEvent.originalEvent.sourcePath
+        fullPath = sourcePath
 
-        fileData = FileData(filename, modified, size, path, fullPath, checkLaterEvent.originalEvent.status)
-        task = FileTask(uuid4().hex, FileStatuses.UPLOADING_FROM_LOCAL, fileData)
+        return FileData(filename, modified, size, path, fullPath)
+
+    def __createTaskFromCheckLaterEvent(self, checkLaterEvent):
+        fileData = self.__createFileDataFromPath(checkLaterEvent.originalEvent.sourcePath)
+        fileData.status = checkLaterEvent.originalEvent.status
+        task = FileTask(uuid=uuid4().hex, taskType=FileStatuses.UPLOADING_FROM_LOCAL, subject=fileData)
 
         return task
 
