@@ -305,12 +305,11 @@ class MoveFileHandler(AbstractTaskHandler):
         # if sourcePath is synced, simple move and respond with moved, else delete sourcePath and respond with reupload.
         if self.__isSourceSynced(cachedSourceFile, targetFileData):
             self.__moveFile(cachedSourceFile, targetFileData)
-            responseData = {"moveSuccessful": True}
+            responseData = {"moveSuccessful": True, "from": self._task.data["source"], "to": targetFileData["fullPath"]}
         else:
             self.__cleanFromRemote(cachedSourceFile)
             self._filesCache.removeFile(cachedSourceFile.data.fullPath)
-            responseData = {"moveSuccessful": False}
-
+            responseData = {"moveSuccessful": False, "from": self._task.data["source"], "to": targetFileData["fullPath"]}
         response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(responseData).build()
         self._messageDispatcher.dispatchResponse(response)
         self._task = None
@@ -335,8 +334,6 @@ class MoveFileHandler(AbstractTaskHandler):
             part = storedParts[account.accountData.id]  # alma__1__2.enc
             newPartName = self.__getNewPartName(part.filename, movedFileData["filename"])
             newPartFullPath = f"{movedFileData['path']}/{newPartName}" if len(movedFileData['path']) > 0 else newPartName
-            print(f"\n NEW PART NAME {newPartName}")
-            print(f" NEW PART FULL PATH : {newPartFullPath}")
             account.moveFile(part, newPartFullPath)
             part.path = movedFileData["path"]
             part.fullPath = newPartFullPath

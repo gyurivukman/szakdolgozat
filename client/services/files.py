@@ -244,7 +244,11 @@ class FileSynchronizer(QObject):
         return task
 
     def __onMoveFileResponse(self, data):
-        self.__logger.debug(f"\nFileSyncer On Move File Response: {data}\n")
+        if data["moveSuccessful"]:
+            event = FileStatusEvent(eventType=FileEventTypes.MOVED, sourcePath=data["from"], destinationPath=data["to"], status=FileStatuses.SYNCED)
+            self.fileStatusChannel.emit(event)
+        else:
+            self.__logger.debug(f"\nFileSyncer should ")
 
 
 class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
