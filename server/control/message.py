@@ -103,7 +103,6 @@ class GetFileListHandler(AbstractTaskHandler):
     def __init__(self, *args):
         super().__init__(*args)
         self.__cloudAccounts = [CloudAPIFactory.fromAccountData(accData) for accData in self._databaseAccess.getAllAccounts()]
-        self.__partPattern = "(__[0-9]+){2}\.enc"
         self.__totalCountPattern = "__[0-9]+"
         self._filesCache = CloudFilesCache()
 
@@ -283,3 +282,72 @@ class DeleteFileHandler(AbstractTaskHandler):
 
     def _getLogger(self):
         return moduleLogger.getChild("DeleteFileHandler")
+
+
+class MoveFileHandler(AbstractTaskHandler):
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.__partPattern = "(__[0-9]+){2}\.enc"
+
+    def handle(self):
+        # targetPath has to be deleted if exists. No matter the parts.
+        cachedTargetFile = self._filesCache.getFile(self._task.data["target"]["fullPath"])
+        if cachedTargetFile:
+            self._logger.info("Pre-cleaning target file parts")
+            self.__cleanFromRemote(cachedTargetFile)
+            self._filesCache.removeFile(self._task.data["target"])
+
+        targetFileData = self._task.data["target"]
+        cachedSourceFile = self._filesCache.getFile(self._task.data["source"])
+        responseData = None
+
+        # if sourcePath is synced, simple move and respond with moved, else delete sourcePath and respond with reupload.
+        if self.__isSourceSynced(cachedSourceFile, targetFileData):
+            self.__moveFile(cachedSourceFile, targetFileData)
+            responseData = {"moveSuccessful": True}
+        else:
+            self.__cleanFromRemote(cachedSourceFile)
+            self._filesCache.removeFile(cachedSourceFile.data.fullPath)
+            responseData = {"moveSuccessful": False}
+
+        response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(responseData).build()
+        self._messageDispatcher.dispatchResponse(response)
+        self._task = None
+
+    def _getLogger(self):
+        return moduleLogger.getChild("MoveFileHandler")
+
+    def __cleanFromRemote(self, cachedFile):
+        storedParts = {partInfo.storingAccountID: partInfo for partName, partInfo in cachedFile.parts.items()}
+        cloudAccounts = [CloudAPIFactory.fromAccountData(account) for account in self._databaseAccess.getAllAccounts() if account.id in storedParts]
+        for account in cloudAccounts:
+            account.deleteFile(storedParts[account.accountData.id])
+
+    def __isSourceSynced(self, cachedSourceFile, movedFile):
+        return cachedSourceFile.availablePartCount == cachedSourceFile.totalPartCount and cachedSourceFile.data.modified == self._task.data["target"]["modified"]
+
+    def __moveFile(self, cachedSourceFile, movedFileData):
+        storedParts = {partInfo.storingAccountID: partInfo for partName, partInfo in cachedSourceFile.parts.items()}
+        cloudAccounts = [CloudAPIFactory.fromAccountData(account) for account in self._databaseAccess.getAllAccounts() if account.id in storedParts]
+
+        for account in cloudAccounts:
+            part = storedParts[account.accountData.id]  # alma__1__2.enc
+            newPartName = self.__getNewPartName(part.filename, movedFileData["filename"])
+            newPartFullPath = f"{movedFileData['path']}/{newPartName}" if len(movedFileData['path']) > 0 else newPartName
+            print(f"\n NEW PART NAME {newPartName}")
+            print(f" NEW PART FULL PATH : {newPartFullPath}")
+            account.moveFile(part, newPartFullPath)
+            part.path = movedFileData["path"]
+            part.fullPath = newPartFullPath
+        cachedSourceFile.data.path = movedFileData["path"]
+        cachedSourceFile.data.fullPath = movedFileData["fullPath"]
+        self._filesCache.moveFile(self._task.data["source"], movedFileData["fullPath"])
+
+    def __getNewPartName(self, partName, targetFileName):
+        match = re.search(self.__partPattern, partName)
+        matchStartIndex = match.span()[0]
+        partPostFix = partName[matchStartIndex:]
+        newPartName = f"{targetFileName}{partPostFix}"
+
+        return newPartName

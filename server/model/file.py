@@ -79,6 +79,10 @@ class CloudFilesCache(metaclass=Singleton):
     def getIncompleteFiles(self):
         return [cachedFile for key, cachedFile in self.__filesCache.items() if cachedFile.totalPartCount > cachedFile.availablePartCount]
 
+    def moveFile(self, sourcePath, targetPath):
+        self.__filesCache[targetPath] = self.__filesCache[sourcePath]
+        del self.__filesCache[sourcePath]
+
     def __getRealFilename(self, fileName):
         match = re.search(self.__partPattern, fileName)
         matchStartIndex = match.span()[0]

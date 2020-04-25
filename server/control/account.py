@@ -44,7 +44,7 @@ class CloudAPIWrapper:
     def deleteFile(self, partInfo):
         raise NotImplementedError("Derived class must implement method 'delete'!")
 
-    def move(self, oldPath, newPath):
+    def moveFile(self, partInfo, targetFullPath):
         raise NotImplementedError("Derived class must implement method 'move'!")
 
     def _getLogger(self):
@@ -123,6 +123,12 @@ class DropboxAccountWrapper(CloudAPIWrapper):
 
     def deleteFile(self, partInfo):
         self.__dbx.files_delete(f"/{partInfo.fullPath}")
+
+    def moveFile(self, partInfo, targetFullPath):
+        sourcePath = f"/{partInfo.fullPath}"
+        destinationPath = f"/{targetFullPath}"
+
+        self._logger.debug(self.__dbx.files_move(sourcePath, destinationPath))
 
     def __toFilePart(self, entry):
         return FilePart(
@@ -247,6 +253,11 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
             except TaskInterruptedException as e:
                 self._logger.info("Google drive upload interrupted, aborting and cleaning up..")
                 unlink(tmpFile)
+
+    def moveFile(self, partInfo, targetFullPath):
+        timeModified = datetime.utcfromtimestamp(partInfo.modified)
+        metadata = {"name": f"{targetFullPath}", "modifiedTime": timeModified.strftime("%Y-%m-%dT%H:%M:%SZ")}
+        self.__service.files().update(fileId=partInfo.extraInfo["id"], body=metadata).execute()
 
     def deleteFile(self, partInfo):
         self.__service.files().delete(fileId=partInfo.extraInfo["id"]).execute()

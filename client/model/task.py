@@ -12,5 +12,4 @@ class FileTask:
     uuid: str
     taskType: FileStatuses
     subject: Any
-    destinationPath: str = None
     stale: bool = False

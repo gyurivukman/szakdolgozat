@@ -218,6 +218,11 @@ class ServiceHub(QObject):
             data = {"fullPath": task.subject}
             message = NetworkMessage.Builder(MessageTypes.DELETE_FILE).withData(data).withUUID(task.uuid).build()
             self.sendNetworkMessage(message)
+        elif task.taskType == FileStatuses.MOVING:
+            # TODO Cancel ongoing tasks
+            data = {"source": task.subject["sourcePath"], "target": task.subject["target"].serialize()}
+            message = NetworkMessage.Builder(MessageTypes.MOVE_FILE).withData(data).withUUID(task.uuid).build()
+            self.sendNetworkMessage(message, task.subject["moveResultCallBack"])
 
     def __onNetworkConnectionEvent(self, event):
         self.networkStatusChannel.emit(event)

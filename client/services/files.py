@@ -91,8 +91,8 @@ class FileSynchronizer(QObject):
                     for path in toDelete:
                         del self.__toCheckLater[path]
                 else:
-                    print(f"Nothing to do. Local files :{self.__localFilesCache}")
-                    time.sleep(1)
+                    # print(f"Nothing to do. Local files :{self.__localFilesCache}")
+                    time.sleep(0.1)
 
         self.__logger.debug("Stopped")
 
@@ -163,18 +163,18 @@ class FileSynchronizer(QObject):
             else:
                 fullPath = entry.path.replace(f"{self.__syncDir}/", "")
                 splitted = fullPath.split("/")
-
-                path = "/".join(splitted[:-1])
                 filename = splitted[-1]
-                stats = entry.stat()
-
-                yield FileData(filename=filename, modified=int(stats.st_mtime), size=stats.st_size, path=path, fullPath=fullPath, status=FileStatuses.UPLOADING_FROM_LOCAL)
+                if not filename.startswith("."):
+                    path = "/".join(splitted[:-1])
+                    stats = entry.stat()
+                    yield FileData(filename=filename, modified=int(stats.st_mtime), size=stats.st_size, path=path, fullPath=fullPath, status=FileStatuses.UPLOADING_FROM_LOCAL)
+                else:
+                    os.unlink(entry.path)
 
     def __processEvent(self, event):
+        print(f"GYÜTT EVENT ÁM: {event}")
         eventType = FileEventTypes(event.event_type)
         sourcePath = event.src_path.replace(f"{self.__syncDir}/", "")
-        destinationPath = getattr(event, "dest_path", None)
-        destinationPath = destinationPath.replace(f"{self.__syncDir}/", "") if destinationPath else None
 
         if eventType == FileEventTypes.DELETED:
             # User could've changed his mind about a file being uploaded that was modified/created before.
@@ -200,6 +200,19 @@ class FileSynchronizer(QObject):
                 self.fileTaskChannel.emit(task)
         elif eventType == FileEventTypes.MODIFIED:
             self.__checkFileLater(sourcePath, eventType)
+        elif eventType == FileEventTypes.MOVED:
+            destinationPath = event.dest_path.replace(f"{self.__syncDir}/", "")
+            fileData = self.__createFileDataFromPath(destinationPath)
+
+            self.__localFilesCache.remove(sourcePath)
+            self.__localFilesCache.append(destinationPath)
+
+            event = FileStatusEvent(eventType=FileEventTypes.STATUS_CHANGED, sourcePath=sourcePath, status=FileStatuses.MOVING)
+            subject = {"sourcePath": sourcePath, "target": fileData, "moveResultCallBack": self.__onMoveFileResponse}
+            task = FileTask(uuid=uuid4().hex, taskType=FileStatuses.MOVING, subject=subject)
+
+            self.fileStatusChannel.emit(event)
+            self.fileTaskChannel.emit(task)
 
     def __checkFileLater(self, sourcePath, eventType):
         try:
@@ -229,6 +242,9 @@ class FileSynchronizer(QObject):
         task = FileTask(uuid=uuid4().hex, taskType=FileStatuses.UPLOADING_FROM_LOCAL, subject=fileData)
 
         return task
+
+    def __onMoveFileResponse(self, data):
+        self.__logger.debug(f"\nFileSyncer On Move File Response: {data}\n")
 
 
 class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
