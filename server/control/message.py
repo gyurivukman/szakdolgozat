@@ -296,7 +296,7 @@ class MoveFileHandler(AbstractTaskHandler):
         if cachedTargetFile:
             self._logger.info("Pre-cleaning target file parts")
             self.__cleanFromRemote(cachedTargetFile)
-            self._filesCache.removeFile(self._task.data["target"])
+            self._filesCache.removeFile(self._task.data["target"]["fullPath"])
 
         targetFileData = self._task.data["target"]
         cachedSourceFile = self._filesCache.getFile(self._task.data["source"])

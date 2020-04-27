@@ -172,7 +172,6 @@ class FileSynchronizer(QObject):
                     os.unlink(entry.path)
 
     def __processEvent(self, event):
-        print(f"GYÜTT EVENT ÁM: {event}")
         eventType = FileEventTypes(event.event_type)
         sourcePath = event.src_path.replace(f"{self.__syncDir}/", "")
 
