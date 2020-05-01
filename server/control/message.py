@@ -12,6 +12,7 @@ from control.util import chunkSizeGenerator
 from model.message import NetworkMessage, NetworkMessageHeader, MessageTypes
 from model.file import FileData, FileStatuses, CloudFilesCache
 from model.account import AccountData
+from model.task import TaskArchive, Task
 
 
 moduleLogger = logging.getLogger(__name__)
@@ -19,7 +20,11 @@ moduleLogger = logging.getLogger(__name__)
 
 class MessageDispatcher(metaclass=Singleton):
 
-    __INSTANT_TASK_TYPES = [MessageTypes.GET_ACCOUNT_LIST, MessageTypes.SET_ACCOUNT_LIST, MessageTypes.SYNC_FILES, MessageTypes.GET_WORKSPACE, MessageTypes.MOVE_FILE, MessageTypes.DELETE_FILE]
+    __INSTANT_TASK_TYPES = [
+        MessageTypes.GET_ACCOUNT_LIST, MessageTypes.SET_ACCOUNT_LIST,
+        MessageTypes.SYNC_FILES, MessageTypes.GET_WORKSPACE,
+        MessageTypes.MOVE_FILE, MessageTypes.DELETE_FILE,
+    ]
     __SLOW_TASK_TYPES = [MessageTypes.UPLOAD_FILE, MessageTypes.DOWNLOAD_FILE]
 
     def __init__(self):
@@ -28,14 +33,32 @@ class MessageDispatcher(metaclass=Singleton):
         self.outgoing_message_queue = Queue()
 
         self._logger = moduleLogger.getChild("MessageDispatcher")
+        self.__longFileTaskArchive = TaskArchive()
 
     def dispatchIncomingMessage(self, message):
         messageType = message.header.messageType
+        task = Task(taskType=messageType, stale=False, uuid=message.header.uuid, data=message.data)
 
         if messageType in self.__INSTANT_TASK_TYPES:
-            self.incoming_instant_task_queue.put(message)
+            if messageType == MessageTypes.DELETE_FILE:
+                path = message.data["fullPath"]
+                self.__longFileTaskArchive.cancelTask(path)
+                self.__longFileTaskArchive.removeTask(path)
+            elif messageType == MessageTypes.MOVE_FILE:
+                self.__longFileTaskArchive.cancelTask(message.data["source"])
+                self.__longFileTaskArchive.removeTask(message.data["source"])
+
+                self.__longFileTaskArchive.cancelTask(message.data["target"]["fullPath"])
+                self.__longFileTaskArchive.removeTask(message.data["target"]["fullPath"])
+            self.incoming_instant_task_queue.put(task)
         elif messageType in self.__SLOW_TASK_TYPES:
-            self.incoming_task_queue.put(message)
+            key = task.data["fullPath"]
+            self.__longFileTaskArchive.addTask(key, task)
+            self.incoming_task_queue.put(task)
+        elif messageType == MessageTypes.FILE_TASK_CANCELLED:
+            self._logger.debug(f"Cancelling task for file: {message.data['fullPath']}")
+            self.__longFileTaskArchive.cancelTask(message.data["fullPath"])
+            self.__longFileTaskArchive.removeTask(message.data["fullPath"])
         else:
             self._logger.warning(f"Unknown message: {message}")
 
@@ -51,6 +74,7 @@ class AbstractTaskHandler():
         self._databaseAccess = databaseAccess
         self._messageDispatcher = MessageDispatcher()
         self._filesCache = CloudFilesCache()
+        self._taskArchive = TaskArchive()
 
     def _getLogger(self):
         raise NotImplementedError("Derived class should implement method '_getLogger'!")
@@ -117,9 +141,11 @@ class GetFileListHandler(AbstractTaskHandler):
             self.__processAccountFiles(account.getFileList())
 
         fullFiles = self._filesCache.getFullFiles()
-        incompleteFilesMessage = "\n".join([f"{cachedFile.data.fullPath} (missing part count: {cachedFile.totalPartCount - cachedFile.availablePartCount})" for cachedFile in self._filesCache.getIncompleteFiles()])
+        incompleteFiles = self._filesCache.getIncompleteFiles()
         self._logger.debug(f"Found the following full files: {fullFiles}")
-        self._logger.warning(f"The following files have missing parts:\n{incompleteFilesMessage}")
+        if incompleteFiles:
+            incompleteFilesMessage = "\n".join([f"{cachedFile.data.fullPath} (missing part count: {cachedFile.totalPartCount - cachedFile.availablePartCount})" for cachedFile in incompleteFiles])
+            self._logger.warning(f"The following files have missing parts:\n{incompleteFilesMessage}")
 
         self.__sendResponse(fullFiles)
         self._task = None
@@ -166,7 +192,10 @@ class UploadFileHandler(AbstractTaskHandler):
                 self.__uploadToAllAccounts(accounts, perAccountSize, localFileHandle, cachedFile)
 
         self.__cleanUp(localFilePath)
-        self.__sendResponse()
+        if not self._task.stale:
+            self.__sendResponse()
+        else:
+            self._logger.info(f"Task '{self._task}' cancelled, not sending response.")
         self._task = None
 
     def __cleanUp(self, localFilePath):
@@ -206,8 +235,9 @@ class UploadFileHandler(AbstractTaskHandler):
                 cloudAccount = CloudAPIFactory.fromAccountData(account)
                 cloudFileName = f"{self._task.data['filename']}__{partIndex + 1}__{totalCount}.enc"
                 result = cloudAccount.upload(fileHandle, toUploadChunkInfo[0], cloudFileName, self._task)
-                self._logger.debug(f"Updating cache with result: {result}")
-                self.__updateFilesCache(result)
+                if result:
+                    self._logger.debug(f"Updating cache with result: {result}")
+                    self.__updateFilesCache(result)
 
     def __updateFilesCache(self, resultingFilePart):
         cachedFile = self._filesCache.getFile(resultingFilePart.fullPath)
@@ -256,6 +286,8 @@ class DownloadFileHandler(AbstractTaskHandler):
             localPath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}"
             targetPath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/client/{self._task.uuid}"
             os.rename(localPath, targetPath)
+        else:
+            os.remove(localPath)
 
     def __sendResponse(self):
         if not self._task.stale:
@@ -271,14 +303,15 @@ class DownloadFileHandler(AbstractTaskHandler):
 class DeleteFileHandler(AbstractTaskHandler):
 
     def handle(self):
+        toDeletePath = self._task.data["fullPath"]
         dbAccounts = {acc.id: acc for acc in self._databaseAccess.getAllAccounts()}
-        cachedFileInfo = self._filesCache.getFile(self._task.data["fullPath"])
+        cachedFileInfo = self._filesCache.getFile(toDeletePath)
         if cachedFileInfo:
             for partName, part in cachedFileInfo.parts.items():
                 self._logger.debug(f"Removing part: {partName} from accountID: {part.storingAccountID}")
                 cloudAccount = CloudAPIFactory.fromAccountData(dbAccounts[part.storingAccountID])
                 cloudAccount.deleteFile(part)
-            self._filesCache.removeFile(self._task.data["fullPath"])
+            self._filesCache.removeFile(toDeletePath)
 
     def _getLogger(self):
         return moduleLogger.getChild("DeleteFileHandler")

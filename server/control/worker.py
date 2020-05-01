@@ -8,7 +8,7 @@ from .message import *
 from .abstract import Singleton
 from .database import DatabaseAccess
 
-from model.task import Task
+from model.task import Task, TaskArchive
 
 
 moduleLogger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ class Worker():
                 self._work()
                 self._finishTask()
             except Empty:
-                time.sleep(1.0) # TODO Busy waiting is bad mkay?
+                time.sleep(1.0)
 
     def _getLogger(self):
         raise NotImplementedError("Derived class must implement method '_getLogger'! It should return a logger.")
@@ -94,8 +94,7 @@ class LongTaskWorker(Worker):
         return moduleLogger.getChild("LongTaskWorker")
 
     def _getNewTask(self):
-        message = self._messageDispatcher.incoming_task_queue.get_nowait()
-        return Task(taskType=message.header.messageType, stale=False, state="INIT", uuid=message.header.uuid, data=message.data)
+        return self._messageDispatcher.incoming_task_queue.get_nowait()
 
     def _finishTask(self):
         self._messageDispatcher.incoming_task_queue.task_done()
@@ -120,8 +119,7 @@ class InstantWorker(Worker):
         self._currentTask = None
 
     def _getNewTask(self):
-        message = self._messageDispatcher.incoming_instant_task_queue.get_nowait()
-        return Task(taskType=message.header.messageType, stale=False, state="INIT", uuid=message.header.uuid, data=message.data)
+        return self._messageDispatcher.incoming_instant_task_queue.get_nowait()
 
     def _getLogger(self):
         return moduleLogger.getChild("InstantWorker")

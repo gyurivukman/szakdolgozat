@@ -17,6 +17,7 @@ class MessageTypes(IntEnum):
     DELETE_FILE = 8
 
     FILE_STATUS_UPDATE = 9
+    FILE_TASK_CANCELLED = 10
 
 
 class NetworkMessageHeader():

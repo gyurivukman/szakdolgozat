@@ -153,8 +153,15 @@ class TaskInterruptedException(Exception):
 
 class InterruptibleGoogleDriveUploadFileHandle(BufferedReader):
 
-    def __init__(self, handle):
+    def __init__(self, handle, task):
         super().__init__(handle)
+        self.__task = task
+
+    def read(self, chunk):
+        if not self.__task.stale:
+            return super().read(chunk)
+        else:
+            raise TaskInterruptedException("")
 
     def close(self):
         pass
@@ -227,6 +234,7 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
             status, done = downloader.next_chunk()
 
     def upload(self, fileHandle, toUploadSize, partName, task):
+        self._logger.debug("Uploading to Google Drive.")
         timeModified = datetime.utcfromtimestamp(task.data['utcModified'])
         uploadName = task.data["fullPath"].replace(task.data["filename"], partName)
 
@@ -234,25 +242,31 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
 
         tmpFile = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{uuid4().hex}"
         cipher = AES.new(self.accountData.cryptoKey.encode(), AES.MODE_CFB)
-
-        with open(tmpFile, "wb") as outputFile:
-            outputFile.write(cipher.iv)
-            for chunk, remainder in chunkSizeGenerator(toUploadSize, self.__UPLOAD_CHUNK_SIZE):
-                data = fileHandle.read(chunk)
-                encrypted = cipher.encrypt(data)
-                outputFile.write(encrypted)
-
-        with open(tmpFile, "rb") as rawHandle:
-            interruptibleHandle = InterruptibleGoogleDriveUploadFileHandle(rawHandle)
-            try:
-                media = MediaIoBaseUpload(interruptibleHandle, mimetype="application/octet-stream", resumable=True, chunksize=self.__UPLOAD_CHUNK_SIZE)
-                res = self.__service.files().create(body=metadata, media_body=media, fields="id, name, modifiedTime, size").execute()
-                self._logger.debug(f"Finishing google drive upload {res}")
-                unlink(tmpFile)
-                return self.__toFilePart(res)
-            except TaskInterruptedException as e:
-                self._logger.info("Google drive upload interrupted, aborting and cleaning up..")
-                unlink(tmpFile)
+        if not task.stale:
+            with open(tmpFile, "wb") as outputFile:
+                outputFile.write(cipher.iv)
+                for chunk, remainder in chunkSizeGenerator(toUploadSize, self.__UPLOAD_CHUNK_SIZE):
+                    if task.stale:
+                        break
+                    else:
+                        data = fileHandle.read(chunk)
+                        encrypted = cipher.encrypt(data)
+                        outputFile.write(encrypted)
+        if task.stale:
+            self._logger.info("Google drive upload cancelled, aborting and cleaning up..")
+            unlink(tmpFile)
+        else:
+            with open(tmpFile, "rb") as rawHandle:
+                interruptibleHandle = InterruptibleGoogleDriveUploadFileHandle(rawHandle, task)
+                try:
+                    media = MediaIoBaseUpload(interruptibleHandle, mimetype="application/octet-stream", resumable=True, chunksize=self.__UPLOAD_CHUNK_SIZE)
+                    res = self.__service.files().create(body=metadata, media_body=media, fields="id, name, modifiedTime, size").execute()
+                    self._logger.debug(f"Finishing google drive upload {res}")
+                    unlink(tmpFile)
+                    return self.__toFilePart(res)
+                except TaskInterruptedException:
+                    self._logger.info("Google drive upload cancelled, aborting and cleaning up..")
+                    unlink(tmpFile)
 
     def moveFile(self, partInfo, targetFullPath):
         timeModified = datetime.utcfromtimestamp(partInfo.modified)

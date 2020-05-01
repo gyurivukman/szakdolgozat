@@ -6,7 +6,7 @@ from queue import Queue, Empty
 
 from model.networkevents import ConnectionEvent, ConnectionEventTypes
 from model.file import FileStatuses, FileStatusEvent, FileEventTypes, FileData
-from model.task import FileTask
+from model.task import FileTask, TaskArchive
 from model.message import NetworkMessage, MessageTypes
 
 from .network import NetworkClient, SshClient
@@ -52,6 +52,8 @@ class ServiceHub(QObject):
             self.__isSshServiceRunning = False
             self.__sshThread = None
             self.__sshTaskQueu = None
+
+            self.__fileTaskArchive = TaskArchive()
 
     def __shutDownThreadedService(self, service, serviceThread):
         service.stop()
@@ -195,6 +197,7 @@ class ServiceHub(QObject):
             self.filesChannel.emit(statusChangeEvent)
             if message.data.status == FileStatuses.DOWNLOADING_TO_LOCAL:
                 task = FileTask(message.header.uuid, FileStatuses.DOWNLOADING_TO_LOCAL, message.data)
+                self.__fileTaskArchive.addTask(message.data.fullPath, task)
                 self.enqueuSSHTask(task)
         elif message.header.uuid in self.__messageArchive:
             self.__logger.debug(f"Response: {message.header} {message.data}")
@@ -207,19 +210,26 @@ class ServiceHub(QObject):
     def __onNewFileTask(self, task):
         self.__logger.debug(f"New filetask: {task}")
         if task.taskType == FileStatuses.UPLOADING_FROM_LOCAL:
-            #  TODO cancel ongoing tasks.
+            self.__fileTaskArchive.cancelTask(task.subject.fullPath)
+            self.__fileTaskArchive.addTask(task.subject.fullPath, task)
+
+            data = {"fullPath": task.subject.fullPath}
+            message = NetworkMessage.Builder(MessageTypes.FILE_TASK_CANCELLED).withData(data).withUUID(task.uuid).build()
+            self.sendNetworkMessage(message)
             self.enqueuSSHTask(task)
         elif task.taskType == FileStatuses.DOWNLOADING_FROM_CLOUD:
             data = task.subject.serialize()
             message = NetworkMessage.Builder(MessageTypes.DOWNLOAD_FILE).withData(data).withUUID(task.uuid).build()
             self.sendNetworkMessage(message)
         elif task.taskType == FileStatuses.DELETED:
-            #  TODO cancel ongoing tasks.
+            self.__fileTaskArchive.cancelTask(task.subject)
+            self.__fileTaskArchive.removeTask(task.subject)
             data = {"fullPath": task.subject}
             message = NetworkMessage.Builder(MessageTypes.DELETE_FILE).withData(data).withUUID(task.uuid).build()
             self.sendNetworkMessage(message)
         elif task.taskType == FileStatuses.MOVING:
-            # TODO Cancel ongoing tasks
+            self.__fileTaskArchive.cancelTask(task.subject["sourcePath"])
+            self.__fileTaskArchive.cancelTask(task.subject["target"].fullPath)
             data = {"source": task.subject["sourcePath"], "target": task.subject["target"].serialize()}
             message = NetworkMessage.Builder(MessageTypes.MOVE_FILE).withData(data).withUUID(task.uuid).build()
             self.sendNetworkMessage(message, task.subject["moveResultCallBack"])
@@ -231,18 +241,22 @@ class ServiceHub(QObject):
         self.sshStatusChannel.emit(event)
 
     def __onSSHTaskCompleted(self, task):
-        if task.taskType == FileStatuses.UPLOADING_FROM_LOCAL:
-            event = FileStatusEvent(FileEventTypes.STATUS_CHANGED, task.subject.fullPath, FileStatuses.UPLOADING_TO_CLOUD)
-            localTime = time.localtime()
-            dstActive = True if localTime.tm_isdst == 1 else False
-            data = {"filename": task.subject.filename, "utcModified": task.subject.modified, "userTimezone": time.strftime("%z", localTime), "dstActive": dstActive, "path": task.subject.path, "size": task.subject.size, "fullPath": task.subject.fullPath}
-            message = NetworkMessage.Builder(MessageTypes.UPLOAD_FILE).withData(data).withUUID(task.uuid).build()
-            self.sendNetworkMessage(message)
-            self.filesChannel.emit(event)
-        elif task.taskType == FileStatuses.DOWNLOADING_TO_LOCAL:
-            self.__fileSyncService.finalizeDownload(task)
-        else:
-            raise Exception(f"Unknown tasktype received from sshService: {task.taskType}")
+        if not task.stale:
+            if task.taskType == FileStatuses.UPLOADING_FROM_LOCAL:
+                event = FileStatusEvent(FileEventTypes.STATUS_CHANGED, task.subject.fullPath, FileStatuses.UPLOADING_TO_CLOUD)
+                localTime = time.localtime()
+                dstActive = True if localTime.tm_isdst == 1 else False
+                data = {"filename": task.subject.filename, "utcModified": task.subject.modified, "userTimezone": time.strftime("%z", localTime), "dstActive": dstActive, "path": task.subject.path, "size": task.subject.size, "fullPath": task.subject.fullPath}
+                message = NetworkMessage.Builder(MessageTypes.UPLOAD_FILE).withData(data).withUUID(task.uuid).build()
+
+                self.__fileTaskArchive.removeTask(task.subject.fullPath)
+                self.sendNetworkMessage(message)
+                self.filesChannel.emit(event)
+            elif task.taskType == FileStatuses.DOWNLOADING_TO_LOCAL:
+                self.__fileTaskArchive.removeTask(task.subject.fullPath)
+                self.__fileSyncService.finalizeDownload(task)
+            else:
+                raise Exception(f"Unknown tasktype received from sshService: {task.taskType}")
 
     def __onLocalFileStatusChanged(self, event):
         self.filesChannel.emit(event)

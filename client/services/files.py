@@ -128,6 +128,9 @@ class FileSynchronizer(QObject):
             time.sleep(0.5)
             shutil.move(absoluteNonTriggeringPath, absoluteTargetPath)
 
+        if task.subject.fullPath not in self.__localFilesCache:
+            self.__localFilesCache.append(task.subject.fullPath)
+
         event = FileStatusEvent(eventType=FileEventTypes.STATUS_CHANGED, sourcePath=task.subject.fullPath, status=FileStatuses.SYNCED)
         self.__logger.debug(f"Emitting event {event}")
         self.fileStatusChannel.emit(event)
@@ -188,6 +191,7 @@ class FileSynchronizer(QObject):
             self.fileTaskChannel.emit(task)
         elif eventType == FileEventTypes.CREATED:
             if sourcePath not in self.__localFilesCache:
+                self.__localFilesCache.append(sourcePath)
                 self.__checkFileLater(sourcePath, eventType)
             else:
                 event = FileStatusEvent(eventType=FileEventTypes.STATUS_CHANGED, sourcePath=sourcePath, status=FileStatuses.UPLOADING_FROM_LOCAL)
@@ -247,7 +251,7 @@ class FileSynchronizer(QObject):
             event = FileStatusEvent(eventType=FileEventTypes.MOVED, sourcePath=data["from"], destinationPath=data["to"], status=FileStatuses.SYNCED)
             self.fileStatusChannel.emit(event)
         else:
-            self.__logger.debug(f"\nFileSyncer should ")
+            self.__logger.debug(f"\nMOVE FAILED, FileSyncer should start the upload again!!!\n")
 
 
 class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
@@ -283,11 +287,3 @@ class FileSystemEventDetector(QObject):
         self.__observer.start()
         while True:
             time.sleep(0.02)
-
-    # def stop(self):
-    #     self.__logger.debug("Stopping observer")
-    #     if self.__observer.is_alive():
-    #         self.__observer.stop()
-    #         self.__observer.join()
-    #         self.__logger.debug("Stopped observer")
-    #     self.__logger.debug("Stopped detector.")

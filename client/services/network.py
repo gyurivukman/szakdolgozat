@@ -252,7 +252,8 @@ class SshClient(QObject):
             self.__handleDownload()
         else:
             self.__logger.debug(f"Unknown task! {self.__currentTask}")
-        self.__logger.debug(f"Task done! ({self.__currentTask.taskType.name} {self.__currentTask.subject.fullPath})")
+        if not self.__currentTask.stale:
+            self.__logger.debug(f"Task done! ({self.__currentTask.taskType.name} {self.__currentTask.subject.fullPath})")
         self.taskCompleted.emit(self.__currentTask)
         self.__currentTask = None
 
@@ -264,7 +265,12 @@ class SshClient(QObject):
                 while data and self.__shouldRun and not self.__currentTask.stale:
                     remoteFileHandle.write(data)
                     data = localFileHandle.read(self.__UPLOAD_CHUNK_SIZE)
-        self.__sftp.rename(f"{self.__sftp.getcwd()}/{self.__currentTask.uuid}", f"{self.__workSpacePath}/server/{self.__currentTask.uuid}")
+        if not self.__currentTask.stale:
+            self.__sftp.rename(f"{self.__sftp.getcwd()}/{self.__currentTask.uuid}", f"{self.__workSpacePath}/server/{self.__currentTask.uuid}")
+        else:
+            path = f"{self.__sftp.getcwd()}/{self.__currentTask.uuid}"
+            self.__logger.info(f"Task got cancelled, removing remote path: {path}")
+            self.__sftp.remove(path)
 
     def __handleDownload(self):
         syncDir = QSettings().value('syncDir/path')

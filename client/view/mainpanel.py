@@ -48,12 +48,14 @@ class MainPanel(QWidget):
 
     __fileWidgets = {}
     __serviceHub = None
+    __stateSuccessionMap = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setAttribute(Qt.WA_StyledBackground)
         self.__serviceHub = ServiceHub.getInstance()
         self.__serviceHub.filesChannel.connect(self.__onFileStatusEvent)
+        self.__stateSuccessionMap = self.__createStateSuccessionMap()
 
         self.__fileTrackerIconAtlas = FileTrackerIconAtlas()
         self.__logger = moduleLogger.getChild("MainPanel")
@@ -166,6 +168,18 @@ class MainPanel(QWidget):
 
         return layout
 
+    def __createStateSuccessionMap(self):
+        successionMap = {
+            FileStatuses.DOWNLOADING_FROM_CLOUD: [FileStatuses.UPLOADING_FROM_LOCAL, FileStatuses.MOVING, FileStatuses.DOWNLOADING_TO_LOCAL, FileStatuses.DELETED],
+            FileStatuses.UPLOADING_TO_CLOUD: [FileStatuses.SYNCED, FileStatuses.UPLOADING_FROM_LOCAL, FileStatuses.MOVING, FileStatuses.DELETED],
+            FileStatuses.DOWNLOADING_TO_LOCAL: [FileStatuses.SYNCED, FileStatuses.UPLOADING_FROM_LOCAL, FileStatuses.MOVING, FileStatuses.DELETED],
+            FileStatuses.UPLOADING_FROM_LOCAL: [FileStatuses.UPLOADING_FROM_LOCAL, FileStatuses.UPLOADING_TO_CLOUD, FileStatuses.MOVING, FileStatuses.DELETED],
+            FileStatuses.SYNCED: [FileStatuses.UPLOADING_FROM_LOCAL, FileStatuses.MOVING, FileStatuses.DELETED],
+            FileStatuses.MOVING: [FileStatuses.UPLOADING_FROM_LOCAL, FileStatuses.MOVING, FileStatuses.DELETED, FileStatuses.SYNCED]
+        }
+
+        return successionMap
+
     def syncFileList(self):
         self.__logger.debug("Syncing file list")
         message = NetworkMessage.Builder(MessageTypes.SYNC_FILES).withRandomUUID().build()
@@ -186,7 +200,10 @@ class MainPanel(QWidget):
             self.__fileWidgets[event.sourcePath] = fileTrackerWidget
             self.__filesLayout.insertWidget(self.__filesLayout.count() - 1, fileTrackerWidget)
         elif event.eventType == FileEventTypes.STATUS_CHANGED:
-            self.__fileWidgets[event.sourcePath].setStatus(event.status)
+            if event.sourcePath in self.__fileWidgets and event.status in self.__stateSuccessionMap[self.__fileWidgets[event.sourcePath].getStatus()]:
+                self.__fileWidgets[event.sourcePath].setStatus(event.status)
+            else:
+                self.__logger.warning(f"Invalid status transition: {event}. Ignoring.")
         elif event.eventType == FileEventTypes.MODIFIED:
             self.__fileWidgets[event.sourcePath].setStatus(event.status)
         elif event.eventType == FileEventTypes.DELETED:
@@ -210,14 +227,14 @@ class FileTrackerWidget(QWidget):
     def __init__(self, *args, **kwargs):
         self.__fileTrackerIconAtlas = kwargs.pop("iconAtlas")
         fullPath = kwargs.pop("fullPath")
-        status = kwargs.pop("status")
+        self.__status = kwargs.pop("status")
 
         super().__init__(*args, **kwargs)
 
         self.__fileLabel = QLabel(fullPath)
-        self.__statusLabel = QLabel(self.__displayValueOfStatus(status))
+        self.__statusLabel = QLabel(self.__displayValueOfStatus(self.__status))
         self.__statusIcon = QLabel()
-        self.__statusIcon.setPixmap(self.__fileTrackerIconAtlas.fromFileState(status))
+        self.__statusIcon.setPixmap(self.__fileTrackerIconAtlas.fromFileState(self.__status))
 
         self.setLayout(self.__createLayout())
         self.setStyleSheet("QWidget#fileTrackerContainerWidget{border:2px solid #E36410;}")
@@ -255,7 +272,11 @@ class FileTrackerWidget(QWidget):
     def setFullPath(self, fullPath):
         self.__fileLabel.setText(fullPath)
 
+    def getStatus(self):
+        return self.__status
+
     def setStatus(self, status):
+        self.__status = status
         self.__statusLabel.setText(self.__statusDisplayValues[status])
         self.__statusIcon.setPixmap(self.__fileTrackerIconAtlas.fromFileState(status))
 

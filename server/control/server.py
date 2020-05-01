@@ -11,6 +11,7 @@ from Crypto.Cipher import AES
 from .message import MessageDispatcher
 from .worker import WorkerPool
 from model.message import NetworkMessage, MessageTypes
+from model.task import TaskArchive
 
 
 class Server(object):
@@ -39,6 +40,7 @@ class Server(object):
 
         self._messageDispatcher = MessageDispatcher()
         self._workerPool = WorkerPool()
+        self._taskArchive = TaskArchive()
 
     def start(self):
         self._workerPool.start()
@@ -94,7 +96,7 @@ class Server(object):
             self._handleDisconnect(client)
 
     def _handleDisconnect(self, client, error=""):
-        self._logger.info(f"Client disconnected {error}")
+        self._logger.info(f"Client disconnected {error}. Cleaning up connections and resetting tasks.")
         if client in self._outputs:
             self._outputs.remove(client)
         if client in self._inputs:
@@ -103,6 +105,7 @@ class Server(object):
             client.close()
         self._client = None
         self._clientAddress = None
+        self._taskArchive.clearAllTasks()
 
     def _processIncomingMessages(self):
         for message in self._unpacker:
