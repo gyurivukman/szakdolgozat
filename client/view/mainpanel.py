@@ -200,6 +200,8 @@ class MainPanel(QWidget):
             self.__fileWidgets[event.sourcePath] = fileTrackerWidget
             self.__filesLayout.insertWidget(self.__filesLayout.count() - 1, fileTrackerWidget)
         elif event.eventType == FileEventTypes.STATUS_CHANGED:
+            print(f"\n\n{self.__fileWidgets.keys()}\n\n")
+            self.__logger.debug(f"Checking validity of transition from {self.__fileWidgets[event.sourcePath].getStatus()} to {event.status}...")
             if event.sourcePath in self.__fileWidgets and event.status in self.__stateSuccessionMap[self.__fileWidgets[event.sourcePath].getStatus()]:
                 self.__fileWidgets[event.sourcePath].setStatus(event.status)
             else:

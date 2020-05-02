@@ -248,10 +248,17 @@ class FileSynchronizer(QObject):
 
     def __onMoveFileResponse(self, data):
         if data["moveSuccessful"]:
+            self.__logger.debug(f"Moving from {data['from']} to {data['to']} successful, updating local data.")
             event = FileStatusEvent(eventType=FileEventTypes.MOVED, sourcePath=data["from"], destinationPath=data["to"], status=FileStatuses.SYNCED)
             self.fileStatusChannel.emit(event)
         else:
-            self.__logger.debug(f"\nMOVE FAILED, FileSyncer should start the upload again!!!\n")
+            self.__logger.debug(f"Moving from {data['from']} to {data['to']} was unsuccessful, reuploading file again.")
+            fileData = self.__createFileDataFromPath(data["to"])
+            event = FileStatusEvent(eventType=FileEventTypes.MOVED, sourcePath=data["from"], destinationPath=data["to"], status=FileStatuses.UPLOADING_FROM_LOCAL)
+            task = FileTask(uuid=uuid4().hex, taskType=FileStatuses.UPLOADING_FROM_LOCAL, subject=fileData)
+
+            self.fileStatusChannel.emit(event)
+            self.fileTaskChannel.emit(task)
 
 
 class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):

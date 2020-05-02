@@ -114,7 +114,10 @@ class DropboxAccountWrapper(CloudAPIWrapper):
         cipher = AES.new(self.accountData.cryptoKey.encode(), AES.MODE_CFB, iv=res.content)
 
         for interval in httpRangeHeaderIntervalGenerator(partInfo.size, self.__DOWNLOAD_CHUNK_SIZE):
-            if not task.stale:
+            if task.stale:
+                self._logger.info("Dropbox download interrupted.")
+                break
+            else:
                 headers["Range"] = f"bytes={interval[0]}-{interval[1]}"
 
                 res = requests.get(self.__DOWNLOAD_URL, headers=headers)
@@ -169,9 +172,10 @@ class InterruptibleGoogleDriveUploadFileHandle(BufferedReader):
 
 class InterruptibleGoogleDriveDownloadFileHandle(BufferedWriter):
 
-    def __init__(self, handle, aesKey):
+    def __init__(self, handle, aesKey, task):
         self.__cipher = None
         self.__aesKey = aesKey
+        self.__task = task
         super().__init__(handle)
 
     def write(self, data):
@@ -180,8 +184,11 @@ class InterruptibleGoogleDriveDownloadFileHandle(BufferedWriter):
             super().write(self.__cipher.decrypt(data[16:]))
             super().flush()
         else:
-            super().write(self.__cipher.decrypt(data))
-            super().flush()
+            if not task.stale:
+                super().write(self.__cipher.decrypt(data))
+                super().flush()
+            else:
+                raise TaskInterruptedException("")
 
     def close(self):
         pass
@@ -224,14 +231,16 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
 
     def download(self, fileHandle, partInfo, task):
         self._logger.debug(f"Downloading: {partInfo}")
+        try:
+            handle = InterruptibleGoogleDriveDownloadFileHandle(fileHandle, self.accountData.cryptoKey)
+            request = self.__service.files().get_media(fileId=partInfo.extraInfo["id"])
+            downloader = MediaIoBaseDownload(handle, request, chunksize=self.__DOWNLOAD_CHUNK_SIZE)
 
-        handle = InterruptibleGoogleDriveDownloadFileHandle(fileHandle, self.accountData.cryptoKey)
-        request = self.__service.files().get_media(fileId=partInfo.extraInfo["id"])
-        downloader = MediaIoBaseDownload(handle, request, chunksize=self.__DOWNLOAD_CHUNK_SIZE)
-
-        done = False
-        while not done:
-            status, done = downloader.next_chunk()
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+        except TaskInterruptedException:
+            self._logger.info("Google drive download interrupted.")
 
     def upload(self, fileHandle, toUploadSize, partName, task):
         self._logger.debug("Uploading to Google Drive.")
@@ -247,6 +256,7 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
                 outputFile.write(cipher.iv)
                 for chunk, remainder in chunkSizeGenerator(toUploadSize, self.__UPLOAD_CHUNK_SIZE):
                     if task.stale:
+                        self._logger.info("Dropbox upload interrupted")
                         break
                     else:
                         data = fileHandle.read(chunk)

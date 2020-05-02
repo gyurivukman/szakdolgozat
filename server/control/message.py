@@ -46,9 +46,9 @@ class MessageDispatcher(metaclass=Singleton):
                 self.__longFileTaskArchive.removeTask(path)
             elif messageType == MessageTypes.MOVE_FILE:
                 self.__longFileTaskArchive.cancelTask(message.data["source"])
-                self.__longFileTaskArchive.removeTask(message.data["source"])
-
                 self.__longFileTaskArchive.cancelTask(message.data["target"]["fullPath"])
+
+                self.__longFileTaskArchive.removeTask(message.data["source"])
                 self.__longFileTaskArchive.removeTask(message.data["target"]["fullPath"])
             self.incoming_instant_task_queue.put(task)
         elif messageType in self.__SLOW_TASK_TYPES:
@@ -340,8 +340,9 @@ class MoveFileHandler(AbstractTaskHandler):
             self.__moveFile(cachedSourceFile, targetFileData)
             responseData = {"moveSuccessful": True, "from": self._task.data["source"], "to": targetFileData["fullPath"]}
         else:
-            self.__cleanFromRemote(cachedSourceFile)
-            self._filesCache.removeFile(cachedSourceFile.data.fullPath)
+            if cachedSourceFile:
+                self.__cleanFromRemote(cachedSourceFile)
+                self._filesCache.removeFile(cachedSourceFile.data.fullPath)
             responseData = {"moveSuccessful": False, "from": self._task.data["source"], "to": targetFileData["fullPath"]}
         response = NetworkMessage.Builder(MessageTypes.RESPONSE).withUUID(self._task.uuid).withData(responseData).build()
         self._messageDispatcher.dispatchResponse(response)
@@ -357,7 +358,7 @@ class MoveFileHandler(AbstractTaskHandler):
             account.deleteFile(storedParts[account.accountData.id])
 
     def __isSourceSynced(self, cachedSourceFile, movedFile):
-        return cachedSourceFile.availablePartCount == cachedSourceFile.totalPartCount and cachedSourceFile.data.modified == self._task.data["target"]["modified"]
+        return cachedSourceFile and cachedSourceFile.availablePartCount == cachedSourceFile.totalPartCount and cachedSourceFile.data.modified == self._task.data["target"]["modified"]
 
     def __moveFile(self, cachedSourceFile, movedFileData):
         storedParts = {partInfo.storingAccountID: partInfo for partName, partInfo in cachedSourceFile.parts.items()}
