@@ -130,7 +130,10 @@ class NetworkClient(QObject):
                     msg_obj = NetworkMessage(message)
                     self.messageArrived.emit(msg_obj)
             else:
+                self._logger.info("Lost connection to the server!")
                 self.disconnect()
+                disconnectionEvent = ConnectionEvent(ConnectionEventTypes.NETWORK_DISCONNECTED, None)
+                self.connectionStatusChanged.emit(disconnectionEvent)
 
     def _handleOutgoingMessage(self, writable):
         for s in writable:

@@ -171,6 +171,13 @@ class MainWindow(QMainWindow):
         elif event.eventType == ConnectionEventTypes.NETWORK_CONNECTION_ERROR:
             self.__errorPanel = self.__createErrorPanel()
             self.setCentralWidget(self.__errorPanel)
+        elif event.eventType == ConnectionEventTypes.NETWORK_DISCONNECTED:
+            errorDialog = QMessageBox(self)
+            errorDialog.setIcon(QMessageBox.Critical)
+            errorDialog.setWindowTitle("Lost connection")
+            errorDialog.setText("Lost connection to the server!")
+            errorDialog.buttonClicked.connect(self.__exitApplication)
+            errorDialog.show()
 
     @pyqtSlot(ConnectionEvent)
     def __onSSHStatusChanged(self, event):

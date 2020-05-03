@@ -131,7 +131,7 @@ class ServiceHub(QObject):
         self.__logger.debug("File Sync service stopped")
 
     def shutdownSsh(self):
-        self.___shutDownThreadedService(self._sshService, self.__sshThread)
+        self.__shutDownThreadedService(self.__sshService, self.__sshThread)
         self.__sshService = None
         self.__sshThread = None
         self.__isSshServiceRunning = False
