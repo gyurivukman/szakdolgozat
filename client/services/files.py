@@ -91,7 +91,6 @@ class FileSynchronizer(QObject):
                     for path in toDelete:
                         del self.__toCheckLater[path]
                 else:
-                    # print(f"Nothing to do. Local files :{self.__localFilesCache}")
                     time.sleep(0.1)
 
         self.__logger.debug("Stopped")

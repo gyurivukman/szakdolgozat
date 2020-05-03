@@ -247,7 +247,7 @@ class UploadFileHandler(AbstractTaskHandler):
         else:
             self._logger.debug(f"Updating file cache with a new file: {resultingFilePart.fullPath}")
             self._filesCache.insertFilePart(resultingFilePart)
-            self._logger.debug(f"Inserted new file to cache after upload {self._filesCache.getFile('pizza.jpeg')}")
+            self._logger.debug(f"Inserted new file to cache after upload, from part: {resultingFilePart}")
 
     def __updateAlreadyExistingEntry(self, cachedFile, resultingFilePart):
         if cachedFile.parts[resultingFilePart.filename].storingAccountID == resultingFilePart.storingAccountID:
@@ -282,9 +282,9 @@ class DownloadFileHandler(AbstractTaskHandler):
         self._task = None
 
     def __finalizeDownload(self):
+        localPath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}"
+        targetPath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/client/{self._task.uuid}"
         if not self._task.stale:
-            localPath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}"
-            targetPath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/client/{self._task.uuid}"
             os.rename(localPath, targetPath)
         else:
             os.remove(localPath)

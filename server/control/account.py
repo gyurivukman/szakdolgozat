@@ -184,7 +184,7 @@ class InterruptibleGoogleDriveDownloadFileHandle(BufferedWriter):
             super().write(self.__cipher.decrypt(data[16:]))
             super().flush()
         else:
-            if not task.stale:
+            if not self.__task.stale:
                 super().write(self.__cipher.decrypt(data))
                 super().flush()
             else:
@@ -232,7 +232,7 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
     def download(self, fileHandle, partInfo, task):
         self._logger.debug(f"Downloading: {partInfo}")
         try:
-            handle = InterruptibleGoogleDriveDownloadFileHandle(fileHandle, self.accountData.cryptoKey)
+            handle = InterruptibleGoogleDriveDownloadFileHandle(fileHandle, self.accountData.cryptoKey, task)
             request = self.__service.files().get_media(fileId=partInfo.extraInfo["id"])
             downloader = MediaIoBaseDownload(handle, request, chunksize=self.__DOWNLOAD_CHUNK_SIZE)
 
@@ -263,7 +263,7 @@ class GoogleDriveAccountWrapper(CloudAPIWrapper):
                         encrypted = cipher.encrypt(data)
                         outputFile.write(encrypted)
         if task.stale:
-            self._logger.info("Google drive upload cancelled, aborting and cleaning up..")
+            self._logger.info("Google drive upload interrupted, aborting and cleaning up..")
             unlink(tmpFile)
         else:
             with open(tmpFile, "rb") as rawHandle:
