@@ -135,12 +135,8 @@ class MainWindow(QMainWindow):
         menuBar.setStyleSheet("""QMenu:item:selected{background-color: #e36410;}""")
         fileMenu = menuBar.addMenu("File")
 
-        settingsAction = QAction("Settings", self)
-        settingsAction.triggered.connect(self.__onSettingsMenuItemClicked)
-
         exitAction = QAction("Exit", self)
         exitAction.triggered.connect(self.__onExitMenuItemClicked)
-        fileMenu.addAction(settingsAction)
         fileMenu.addAction(exitAction)
 
     def __createErrorPanel(self):
@@ -155,6 +151,14 @@ class MainWindow(QMainWindow):
         isFirstStart = self.__settings.value("firstStart/isFirstStart")
 
         return True if isFirstStart is None or isFirstStart == "true" else False
+
+    def __createConnectionLostDialog(self, title, text):
+        errorDialog = QMessageBox(self)
+        errorDialog.setIcon(QMessageBox.Critical)
+        errorDialog.setWindowTitle(title)
+        errorDialog.setText(text)
+        errorDialog.buttonClicked.connect(self.__exitApplication)
+        errorDialog.show()
 
     @pyqtSlot(ConnectionEvent)
     def __onNetworkStatusChanged(self, event):
@@ -172,12 +176,7 @@ class MainWindow(QMainWindow):
             self.__errorPanel = self.__createErrorPanel()
             self.setCentralWidget(self.__errorPanel)
         elif event.eventType == ConnectionEventTypes.NETWORK_DISCONNECTED:
-            errorDialog = QMessageBox(self)
-            errorDialog.setIcon(QMessageBox.Critical)
-            errorDialog.setWindowTitle("Lost connection")
-            errorDialog.setText("Lost connection to the server!")
-            errorDialog.buttonClicked.connect(self.__exitApplication)
-            errorDialog.show()
+            self.__createConnectionLostDialog("Lost connection", "Lost connection to the server!")
 
     @pyqtSlot(ConnectionEvent)
     def __onSSHStatusChanged(self, event):
@@ -209,10 +208,6 @@ class MainWindow(QMainWindow):
         self.__serviceHub.connectToServer()
 
     @pyqtSlot()
-    def __onSettingsMenuItemClicked(self):
-        self.__settingsDialog.show()
-
-    @pyqtSlot()
     def __onExitMenuItemClicked(self):
         self.__exitApplication()
 
@@ -232,8 +227,11 @@ class MainWindow(QMainWindow):
         elif event.eventType == ConnectionEventTypes.NETWORK_HANDSHAKE_SUCCESSFUL:
             self.__loader.setStatusText("Handshake successful")
             self.__serviceHub.networkStatusChannel.disconnect(self.__onFirstStartNetworkConnectionChanged)
-            # TODO ha közben DC valahol, akkor kezeljük.
             self.__firstStartSetupAccounts()
+        elif event.eventType == ConnectionEventTypes.NETWORK_CONNECTION_ERROR:
+            self.__createConnectionLostDialog("Connection error", "A connection error occured. Exiting...")
+        elif event.eventType == ConnectionEventTypes.NETWORK_DISCONNECTED:
+            self.__createConnectionLostDialog("Lost connection", "Lost connection to the server! Exiting...")
 
     def __firstStartSetupAccounts(self):
         self.__loader.setStatusText("Updating accounts")

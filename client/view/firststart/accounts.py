@@ -6,18 +6,22 @@ from enum import IntEnum
 from uuid import uuid4
 
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel,
-    QDialog, QHBoxLayout, QPushButton,
-    QLineEdit, QFileDialog, QScrollArea
+    QWidget, QVBoxLayout, QLabel, QDialog,
+    QHBoxLayout, QPushButton, QLineEdit, QFileDialog,
+    QScrollArea, QMessageBox
 )
 
 from view.firststart.help import DropboxHelpPage, DriveHelpPage
 
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QRect, QSize
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QRect, QSize, QCoreApplication
 from PyQt5.QtGui import QColor, QPainter, QFont, QPen, QPixmap, QFontMetrics, QIcon
 
-from model.config import AccountData, AccountTypes
+from model.config import AccountData, AccountTypes, AccountSavedEvent
 from model.message import NetworkMessage, MessageTypes
+from model.networkevents import ConnectionEventTypes
+
+from services.util import DriveAccountTester, DropboxAccountTester, InvalidAccountCredentialsException, AccountDuplicationError
+
 from view import resources
 from view.loaders import LoaderWidget
 from view.firststart.abstract import FirstStartWizardMiddleWidget, SetupableComponent
@@ -99,6 +103,7 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
         return True
 
     def initData(self):
+        self._serviceHub.networkStatusChannel.connect(self.__onNetworkStatusChanged)
         self._serviceHub.startNetworkService()
         self._serviceHub.connectToServer()
         message = NetworkMessage.Builder(MessageTypes.GET_ACCOUNT_LIST).withRandomUUID().build()
@@ -119,6 +124,23 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
             self._serviceHub.shutdownNetwork()
             self._serviceHub.initNetworkService()
 
+    def __onNetworkStatusChanged(self, event):
+        if event.eventType == ConnectionEventTypes.NETWORK_CONNECTION_ERROR:
+            self.__createConnectionLostDialog("Network connection error", "Couldn't connect to remote! Please check your internet connection.")
+
+    def __createConnectionLostDialog(self, title, text):
+        errorDialog = QMessageBox(self)
+        errorDialog.setIcon(QMessageBox.Critical)
+        errorDialog.setWindowTitle(title)
+        errorDialog.setText(text)
+        errorDialog.buttonClicked.connect(self.__exitApplication)
+        errorDialog.show()
+
+    def __exitApplication(self):
+        self._serviceHub.shutdownAllServices()
+        self.hide()
+        QCoreApplication.instance().quit()
+
     def __onAccountsRetrieved(self, response):
         serializedAccounts = [
             AccountData(
@@ -129,6 +151,7 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
                 data=raw['data']
             ) for raw in response['accounts']
         ]
+        self._serviceHub.networkStatusChannel.disconnect(self.__onNetworkStatusChanged)
         self._serviceHub.disconnectServer()
         self.__inited = True
         self.__accountsWidget.setAccounts(serializedAccounts)
@@ -226,6 +249,14 @@ class SetupAccountsWidget(QWidget, SetupableComponent):
         self.__accountListLayout.removeWidget(self.__accountCardWidgets[index])
         del self.__accountCardWidgets[index]
 
+    def __validateForNoDuplicates(self, accountData):
+        for accountCard in self.__accountCardWidgets:
+            existingAccountData = accountCard.getAccountData()
+            if accountData.identifier == existingAccountData.identifier:
+                raise AccountDuplicationError(f"Account identifier '{existingAccountData.identifier}' is already taken! Please choose another one.")
+            elif accountData.data == existingAccountData.data:
+                raise AccountDuplicationError(f"Existing account '{existingAccountData.identifier}' has the same credentials!")
+
     def getAccounts(self):
         return [accountCard.getAccountData() for accountCard in self.__accountCardWidgets]
 
@@ -247,8 +278,13 @@ class SetupAccountsWidget(QWidget, SetupableComponent):
 
         self.__accountCardWidgets = []
 
-    def __onAccountSaveClicked(self, account):
-        self.__accountCardWidgets[self.__selectedAccountIndex].setAccountData(account)
+    def __onAccountSaveClicked(self, accountSavedEvent):
+        try:
+            self.__validateForNoDuplicates(accountSavedEvent.accountData)
+            self.__accountCardWidgets[self.__selectedAccountIndex].setAccountData(accountSavedEvent.accountData)
+            accountSavedEvent.callBack(None)
+        except AccountDuplicationError as e:
+            accountSavedEvent.callBack(str(e))
 
     def __onAccountCardSelected(self, index):
         if self.__selectedAccountIndex is not None:
@@ -281,7 +317,7 @@ class SetupAccountsWidget(QWidget, SetupableComponent):
 
 
 class AccountEditorWidget(QWidget, SetupableComponent):
-    onSaveAccount = pyqtSignal(object)
+    onSaveAccount = pyqtSignal(AccountSavedEvent)
 
     __hasAccountData = False
     __accountTypeButtons = []
@@ -306,6 +342,12 @@ class AccountEditorWidget(QWidget, SetupableComponent):
         self.__accountTypeChangeDisabledLabel = QLabel("Already existing accounts cannot have their type changed!")
         self.__accountTypeChangeDisabledLabel.setObjectName("noTypeChangeLabel")
         self.__accountTypeChangeDisabledLabel.setFont(QFont("Arial", 12, 2))
+
+        self.__accountTestResultLabel = QLabel()
+        self.__accountTestResultLabel.setFont(QFont("Arial", 13))
+        self.__accountTestResultLabel.setFixedHeight(20)
+        self.__accountTestResultLabel.setAlignment(Qt.AlignBottom)
+
         self.setFixedSize(960, 480)
         self.setObjectName("accountEditor")
         self.setStyleSheet("#accountEditor{border-right:2px solid #777777;} QLabel#noTypeChangeLabel{color:red;}")
@@ -372,7 +414,8 @@ class AccountEditorWidget(QWidget, SetupableComponent):
             self.__displayNewAccountForm(index)
             self.__selectedAccountTypeIndex = index
             self.__accountForms[index].reset()
-            self.__saveAccountButton.setEnabled(self.__accountForms[self.__selectedAccountTypeIndex].isFormValid())
+            isFormValid = self.__accountForms[self.__selectedAccountTypeIndex].isFormValid()
+            self.__accountTesterButton.setEnabled(isFormValid)
             # TODO invalidálni ha más accra vált a user.
 
     def __updateAccountTypeButtons(self, index, canChangeType=True):
@@ -396,44 +439,83 @@ class AccountEditorWidget(QWidget, SetupableComponent):
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 50, 0, 0)
         layout.setAlignment(Qt.AlignTrailing)
+
+        controlButtonStyleSheet = """
+            QPushButton{
+                background-color:#e36410;
+                color:white;
+                width:150px;
+                border:0px;
+                height:30px;
+                margin-top:15px;
+                margin-left:8px;
+            }
+
+            QPushButton:pressed {background-color:#e68a4e;}
+            QPushButton:disabled {background-color:#D8D8D8;}
+        """
+
+        self.__accountTesterButton = QPushButton("Test Account")
+        self.__accountTesterButton.setFocusPolicy(Qt.NoFocus)
+        self.__accountTesterButton.clicked.connect(self.__onTestAccountClicked)
+        self.__accountTesterButton.setStyleSheet(controlButtonStyleSheet)
+
         self.__saveAccountButton = QPushButton("Save")
         self.__saveAccountButton.setDisabled(True)
-        self.__saveAccountButton.setStyleSheet(
-            """
-                QPushButton{
-                    background-color:#e36410;
-                    color:white;
-                    width:150px;
-                    border:0px;
-                    height:30px;
-                    margin-top:15px;
-                }
-
-                QPushButton:pressed {background-color:#e68a4e;}
-                QPushButton:disabled {background-color:#D8D8D8;}
-            """
-        )
+        self.__saveAccountButton.setStyleSheet(controlButtonStyleSheet)
         self.__saveAccountButton.setFocusPolicy(Qt.NoFocus)
         self.__saveAccountButton.clicked.connect(self.__onAccountSave)
+
+        layout.addWidget(self.__accountTestResultLabel)
+        layout.addWidget(self.__accountTesterButton)
         layout.addWidget(self.__saveAccountButton)
 
         return layout
 
+    @pyqtSlot()
     def __onAccountSave(self):
-        accountForm = self.__accountForms[self.__selectedAccountTypeIndex]
-        self.onSaveAccount.emit(accountForm.getAccountData())
+        self.__accountTesterButton.setEnabled(False)
+        accountData = self.__accountForms[self.__selectedAccountTypeIndex].getAccountData()
+        event = AccountSavedEvent(accountData, self.__afterSaveValidationCallback)
+        self.onSaveAccount.emit(event)
+
+    @pyqtSlot()
+    def __onTestAccountClicked(self):
+        self.__accountTesterButton.setEnabled(False)
+        accountData = self.__accountForms[self.__selectedAccountTypeIndex].getAccountData()
+        tester = DropboxAccountTester(accountData) if self.__selectedAccountTypeIndex == 0 else DriveAccountTester(accountData)
+        self.__accountTestResultLabel.hide()
+        try:
+            tester.validate()
+            self.__saveAccountButton.setEnabled(True)
+            self.__accountTestResultLabel.setText("Account validated successfully!")
+            self.__accountTestResultLabel.setStyleSheet("color:green;")
+        except InvalidAccountCredentialsException as e:
+            self.__accountTestResultLabel.setText(str(e))
+            self.__accountTestResultLabel.setStyleSheet("color:red;")
+        self.__accountTestResultLabel.show()
+        self.__accountTesterButton.setEnabled(True)
 
     @pyqtSlot(bool)
     def __onFormValidityChanged(self, value):
-        if self.__saveAccountButton.isEnabled() != value:
-            self.__saveAccountButton.setDisabled(not value)
+        self.__saveAccountButton.setDisabled(True)
+        if self.__accountTesterButton.isEnabled() != value:
+            self.__accountTesterButton.setDisabled(not value)
 
     def setAccountData(self, accountData):
+        self.__accountTestResultLabel.hide()
         index = 0 if accountData.accountType == AccountTypes.Dropbox else 1
         canChangeType = False if accountData.id is not None else True
         self.__updateAccountTypeButtons(index, canChangeType)
         self.__displayNewAccountForm(index)
         self.__accountForms[index].setAccountData(accountData)
+        self.__accountTesterButton.setEnabled(self.__accountForms[index].isFormValid())
+
+    def __afterSaveValidationCallback(self, validationErrorMessage):
+        self.__saveAccountButton.setEnabled(True)
+        if validationErrorMessage:
+            self.__accountTestResultLabel.setText(validationErrorMessage)
+            self.__accountTestResultLabel.setStyleSheet("color: red;")
 
 
 class AccountEditorSectionSeparatorWidget(QWidget):
@@ -666,7 +748,7 @@ class DropboxAccountForm(BaseAccountFormWidget):
 
     def __createHelpButtonLayout(self):
         layout = QHBoxLayout()
-        layout.setContentsMargins(-50, 50, 0, 0)
+        layout.setContentsMargins(-50, 15, 0, 0)
         helpButton = QPushButton("How to get an access token?")
         helpButton.setObjectName("helpButton")
         helpButton.clicked.connect(self._openHelpFrame)
@@ -809,8 +891,10 @@ class DriveAccountForm(BaseAccountFormWidget):
 
     def __openCredentialsBrowser(self):
         credentials_file = QFileDialog.getOpenFileUrl(self, "Select the service account credentials json")[0]
-        self.__readCredentialsFile(credentials_file)
-        self.formValidityChanged.emit(self.isFormValid())
+        if credentials_file:
+            self.__accountTestResultLabel.hide()
+            self.__readCredentialsFile(credentials_file)
+            self.formValidityChanged.emit(self.isFormValid())
 
     def __readCredentialsFile(self, credentials_file):
         credentials_file_path = credentials_file.toLocalFile()
@@ -844,6 +928,7 @@ class DriveAccountForm(BaseAccountFormWidget):
     def __createDriveCredentialsLayout(self):
         mainLayout = QVBoxLayout()
         mainLayout.setContentsMargins(5, 1, 5, 1)
+        mainLayout.setSpacing(1)
 
         firstRowLayout = QHBoxLayout()
         firstRowLayout.addWidget(self.__credentialsLabels['projectIDLabel'])

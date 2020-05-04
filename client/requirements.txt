@@ -2,3 +2,4 @@ pyqt5==5.13
 paramiko==2.6.0
 watchdog
 msgpack
+pyjwt

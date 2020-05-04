@@ -189,7 +189,6 @@ class MainPanel(QWidget):
     def __onFilelistRetrieved(self, rawFileList):
         serializedFileList = [FileData(**raw) for raw in rawFileList]
         self.__serviceHub.syncRemoteAndLocalFiles(serializedFileList)
-        # TODO újrakonfirmálni hogy fut-e a filesyncer first startnál és nem first startnál!
         self.ready.emit()
 
     @pyqtSlot(FileStatusEvent)

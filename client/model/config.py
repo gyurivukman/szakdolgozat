@@ -2,7 +2,7 @@ import types
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import List
+from typing import List, Callable
 
 
 class AccountTypes(IntEnum):
@@ -20,6 +20,12 @@ class AccountData:
 
     def serialize(self):
         return {'id': self.id, 'accountType': self.accountType, 'identifier': self.identifier, 'cryptoKey': self.cryptoKey, 'data': self.data}
+
+
+@dataclass
+class AccountSavedEvent:
+    accountData: AccountData
+    callBack: Callable
 
 
 @dataclass
