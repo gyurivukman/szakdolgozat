@@ -94,6 +94,7 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
         self.__layout.addWidget(self.__loadingWidget)
         self.__layout.addWidget(self.__accountsWidget)
         self.__accountsWidget.hide()
+        self.__accountsWidget.accountListValidityChanged.connect(self.__onAccountListChanged)
         self.setLayout(self.__layout)
 
     def canProceed(self):
@@ -158,11 +159,13 @@ class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
         self.__loadingWidget.hide()
         self.__accountsWidget.show()
 
-    def __onAccountListChanged(self, event):
-        self.formValidityChanged.emit(self.__canProceed)
+    def __onAccountListChanged(self, canProceed):
+        self.__canProceed = canProceed
+        self.formValidityChanged.emit()
 
 
 class SetupAccountsWidget(QWidget, SetupableComponent):
+    accountListValidityChanged = pyqtSignal(bool)
 
     __accountCardWidgets = []
     __accountListLayout = None
@@ -222,6 +225,7 @@ class SetupAccountsWidget(QWidget, SetupableComponent):
         self.__selectAccount(new_account_index)
         if len(self.__accountCardWidgets) == 8:
             self.__addAccountButton.hide()
+        self.accountListValidityChanged.emit(False)
 
     def __addAccountWidget(self, accountData):
         index = self.__accountListLayout.count() - 2  # Button + Spaceritem is there by default.
@@ -256,6 +260,7 @@ class SetupAccountsWidget(QWidget, SetupableComponent):
                 raise AccountDuplicationError(f"Account identifier '{existingAccountData.identifier}' is already taken! Please choose another one.")
             elif accountData.data == existingAccountData.data:
                 raise AccountDuplicationError(f"Existing account '{existingAccountData.identifier}' has the same credentials!")
+        self.accountListValidityChanged.emit(True)
 
     def getAccounts(self):
         return [accountCard.getAccountData() for accountCard in self.__accountCardWidgets]
@@ -291,6 +296,9 @@ class SetupAccountsWidget(QWidget, SetupableComponent):
             self.__accountCardWidgets[self.__selectedAccountIndex].setSelected(False)
         self.__selectAccount(index)
 
+    def __validateAccountData(self, accountData):
+        return len(accountData.identifier) > 0 and len(accountData.cryptoKey) > 0 and len(accountData.data) > 0
+
     def __onAccountCardRemoveClicked(self, index):
         self.__removeAccountCardAt(index)
         remainingAccountCount = len(self.__accountCardWidgets)
@@ -306,7 +314,12 @@ class SetupAccountsWidget(QWidget, SetupableComponent):
                 self.__selectAccount(remainingAccountCount - 1)
             elif index < self.__selectedAccountIndex:
                 self.__selectedAccountIndex = self.__selectedAccountIndex - 1
+            stillValid = len(self.__accountCardWidgets) > 0
+            for accountCard in self.__accountCardWidgets:
+                stillValid = stillValid and self.__validateAccountData(accountCard.getAccountData())
+            self.accountListValidityChanged.emit(stillValid)
         else:
+            self.accountListValidityChanged.emit(False)
             self.__setNoAccountsAvailable()
 
     def __onAddNewAccountClicked(self, _):
@@ -416,7 +429,6 @@ class AccountEditorWidget(QWidget, SetupableComponent):
             self.__accountForms[index].reset()
             isFormValid = self.__accountForms[self.__selectedAccountTypeIndex].isFormValid()
             self.__accountTesterButton.setEnabled(isFormValid)
-            # TODO invalidálni ha más accra vált a user.
 
     def __updateAccountTypeButtons(self, index, canChangeType=True):
         self.__accountTypeButtons[self.__selectedAccountTypeIndex].setStyleSheet(self.__unSelectedAccountTypeStyle)
@@ -510,9 +522,11 @@ class AccountEditorWidget(QWidget, SetupableComponent):
         self.__displayNewAccountForm(index)
         self.__accountForms[index].setAccountData(accountData)
         self.__accountTesterButton.setEnabled(self.__accountForms[index].isFormValid())
+        self.__saveAccountButton.setEnabled(False)
 
     def __afterSaveValidationCallback(self, validationErrorMessage):
-        self.__saveAccountButton.setEnabled(True)
+        self.__accountTesterButton.setEnabled(True)
+        self.__saveAccountButton.setEnabled(False)
         if validationErrorMessage:
             self.__accountTestResultLabel.setText(validationErrorMessage)
             self.__accountTestResultLabel.setStyleSheet("color: red;")
