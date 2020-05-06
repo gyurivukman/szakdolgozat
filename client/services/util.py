@@ -39,8 +39,6 @@ class DriveAccountTester():
         self.__creds = accountData.data
 
     def validate(self):
-        validityResult = {"isValid":True, "message": ""}
-
         iat = time.time()
         exp = iat + 3600
 
@@ -60,8 +58,6 @@ class DriveAccountTester():
             "assertion": signedJwt
         }
 
-        try:
-            tokenRes = requests.post(url="https://oauth2.googleapis.com/token", params=urlParams)
-            tokenRes.raise_for_status()
-        except requests.exceptions.HTTPError:
+        tokenRes = requests.post(url="https://oauth2.googleapis.com/token", params=urlParams)
+        if tokenRes.status_code != 200:
             raise InvalidAccountCredentialsException("Invalid Google Drive account credentials! Please review the provided json file.")
