@@ -57,10 +57,10 @@ class WorkspacePermissionValidator:
         permissionObject = UnixFilesystemPermissionsObject(self.__permissionCLIString)
         membershipObject = UnixUserGroupMembershipsObject(self.__membershipCLIString)
 
-        userIsOwner = permissionObject.owner == self.__username
+        userIsOwner = self.__username == permissionObject.owner
         ownerCanOperate = permissionObject.ownerPermissions.hasRead and permissionObject.ownerPermissions.hasWrite
 
-        userInGroup = self.__username in membershipObject.memberships
+        userInGroup = permissionObject.group in membershipObject.memberships
         groupCanOperate = permissionObject.groupPermissions.hasRead and permissionObject.groupPermissions.hasWrite
 
         otherCanOperate = permissionObject.otherPermissions.hasRead and permissionObject.otherPermissions.hasWrite

@@ -7,7 +7,6 @@ from uuid import uuid4
 from datetime import datetime
 
 
-from os import scandir
 from threading import Thread
 from queue import Empty
 from multiprocessing import Process
@@ -29,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 def startDetector(eventQueue, syncDir):
     logger.getChild("FileSynchronizer").info("Event detector process spawned!")
-    eventHandler = EnqueueAnyFileEventEventHandler(eventQueue, syncDir)
+    eventHandler = EnqueueAnyNonHiddenFileEventEventHandler(eventQueue)
     detector = FileSystemEventDetector(eventHandler, syncDir)
     detector.start()
 
@@ -56,8 +55,8 @@ class FileSynchronizer(QObject):
         self.__localFilesCache = [*localFiles]
         mergedFileList = self.__mergeLocalFilesWithRemoteFiles(localFiles, remoteFiles)
 
-        debug = '\n'.join([f'{key}: {value.status.name}' for key, value in mergedFileList.items()])
-        self.__logger.debug(f"Merged Filelist:\n {debug}")
+        debugMessage = '\n'.join([f'{key}: {value.status.name}' for key, value in mergedFileList.items()])
+        self.__logger.debug(f"Merged Filelist: {debugMessage}")
 
         for _, fileData in mergedFileList.items():
             # Created, so the UI makes a new entry
@@ -159,7 +158,7 @@ class FileSynchronizer(QObject):
         return {data.fullPath: data for data in self.__scantree(self.__syncDir)}
 
     def __scantree(self, path):
-        for entry in scandir(path):
+        for entry in os.scandir(path):
             if entry.is_dir(follow_symlinks=False):
                 yield from self.__scantree(entry.path)
             else:
@@ -260,12 +259,11 @@ class FileSynchronizer(QObject):
             self.fileTaskChannel.emit(task)
 
 
-class EnqueueAnyFileEventEventHandler(FileSystemEventHandler):
+class EnqueueAnyNonHiddenFileEventEventHandler(FileSystemEventHandler):
 
-    def __init__(self, eventQueue, syncDir):
+    def __init__(self, eventQueue):
         super().__init__()
         self.__eventQueue = eventQueue
-        self.__syncDirStartIndex = len(syncDir)
 
     def on_any_event(self, event):
         if self.__canReportEvent(event):

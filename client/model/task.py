@@ -1,4 +1,4 @@
-import logging 
+import logging
 
 from dataclasses import dataclass
 from typing import Any
@@ -30,7 +30,12 @@ class TaskArchive(metaclass=Singleton):
         self.__taskStorage = {}
 
     def addTask(self, key, task):
+        if type(task) != FileTask:
+            raise ValueError(f"Expected type 'FileTask' for argument task. Received {type(task)} instead!")
         self.__taskStorage[key] = task
+
+    def getTask(self, key):
+        return self.__taskStorage.get(key, None)
 
     def removeTask(self, key):
         try:
