@@ -9,6 +9,7 @@ from collections import namedtuple
 
 from services.files import FileSynchronizer, EnqueueAnyNonHiddenFileEventEventHandler
 from model.file import FileData, FileStatuses, FileEventTypes
+from model.task import FileTask
 
 logging.disable(logging.CRITICAL)
 
@@ -152,6 +153,76 @@ class FileSynchronizerTests(unittest.TestCase):
         self.assertEqual(self.fakeEventReceiver.events[1].status, FileStatuses.UPLOADING_FROM_LOCAL)
         self.assertEqual(self.fakeEventReceiver.events[2].status, FileStatuses.DOWNLOADING_FROM_CLOUD)
         self.assertEqual(self.fakeEventReceiver.events[3].status, FileStatuses.DOWNLOADING_FROM_CLOUD)
+
+    @mock.patch("time.sleep")
+    @mock.patch("shutil.move")
+    @mock.patch('os.utime')
+    def test_finalize_download_sends_out_synced_event_upon_completion(self, os_utimeMock, shutil_moveMock, time_sleepMock):
+        fileData = FileData(filename="testFileName", modified=5, size=10, path="", fullPath="testFileName", status=FileStatuses.DOWNLOADING_TO_LOCAL)
+        finalizeTask = FileTask(uuid="testUUID", taskType=FileStatuses.DOWNLOADING_TO_LOCAL, subject=fileData, stale=False)
+
+        self.syncer.finalizeDownload(finalizeTask)
+
+        self.assertEqual(len(self.fakeEventReceiver.events), 1)
+        self.assertEqual(self.fakeEventReceiver.events[0].eventType, FileEventTypes.STATUS_CHANGED)
+        self.assertEqual(self.fakeEventReceiver.events[0].sourcePath, fileData.fullPath)
+        self.assertEqual(self.fakeEventReceiver.events[0].status, FileStatuses.SYNCED)
+
+    @mock.patch("time.sleep")
+    @mock.patch("shutil.move")
+    @mock.patch('os.utime')
+    def test_finalize_download_requires_no_directory_creation(self, os_utimeMock, shutil_moveMock, time_sleepMock):
+        fileData = FileData(filename="testFileName", modified=5, size=10, path="", fullPath="testFileName", status=FileStatuses.DOWNLOADING_TO_LOCAL)
+        finalizeTask = FileTask(uuid="testUUID", taskType=FileStatuses.DOWNLOADING_TO_LOCAL, subject=fileData, stale=False)
+
+        self.syncer.finalizeDownload(finalizeTask)
+
+        self.assertEqual(os_utimeMock.called, True)
+        self.assertEqual(os_utimeMock.call_args[0][0], f"{self.testSyncDir}/.{finalizeTask.uuid}")
+        self.assertEqual(os_utimeMock.call_args[0][1], (fileData.modified, fileData.modified))
+
+        self.assertEqual(shutil_moveMock.called, True)
+        self.assertEqual(shutil_moveMock.call_args[0][0], f"{self.testSyncDir}/.{finalizeTask.uuid}")
+        self.assertEqual(shutil_moveMock.call_args[0][1], f"{self.testSyncDir}/{fileData.fullPath}")
+
+        self.assertEqual(time_sleepMock.called, True)
+        self.assertEqual(time_sleepMock.call_args[0][0], 0.5)
+
+    @mock.patch("os.mkdir")
+    @mock.patch("time.sleep")
+    @mock.patch("shutil.move")
+    @mock.patch('os.utime')
+    def test_finalize_download_requires_directory_creation(self, os_utimeMock, shutil_moveMock, time_sleepMock, os_mkdirMock):
+        fileData = FileData(filename="testFileName", modified=5, size=10, path="subDir/subSubDir", fullPath="subDir/subSubDir/testFileName", status=FileStatuses.DOWNLOADING_TO_LOCAL)
+        finalizeTask = FileTask(uuid="testUUID", taskType=FileStatuses.DOWNLOADING_TO_LOCAL, subject=fileData, stale=False)
+
+        shutil_moveMock.side_effect = [FileNotFoundError(), None, None]
+
+        self.syncer.finalizeDownload(finalizeTask)
+
+        self.assertTrue(shutil_moveMock.called)
+        self.assertEqual(shutil_moveMock.call_count, 3)
+
+        # First Move fails.
+        self.assertEqual(shutil_moveMock.call_args_list[0][0][0], f"{self.testSyncDir}/.{finalizeTask.uuid}")
+        self.assertEqual(shutil_moveMock.call_args_list[0][0][1], f"{self.testSyncDir}/{fileData.path}/.{finalizeTask.uuid}")
+
+        # Second Move moves the hidden file to its final place after the directories have been created.
+        self.assertEqual(shutil_moveMock.call_args_list[1][0][0], f"{self.testSyncDir}/.{finalizeTask.uuid}")
+        self.assertEqual(shutil_moveMock.call_args_list[1][0][1], f"{self.testSyncDir}/{fileData.path}/.{finalizeTask.uuid}")
+
+        # Final move renames the file from a hidden one to its actual file name, already in its final place.
+        self.assertEqual(shutil_moveMock.call_args_list[2][0][0], f"{self.testSyncDir}/{fileData.path}/.{finalizeTask.uuid}")
+        self.assertEqual(shutil_moveMock.call_args_list[2][0][1], f"{self.testSyncDir}/{fileData.path}/{fileData.filename}")
+
+        self.assertTrue(os_mkdirMock.called)
+        self.assertTrue(os_mkdirMock.calle_count, 2)
+        self.assertEqual(os_mkdirMock.call_args_list[0][0][0], f"{self.testSyncDir}/subDir")
+        self.assertEqual(os_mkdirMock.call_args_list[1][0][0], f"{self.testSyncDir}/subDir/subSubDir")
+
+        self.assertTrue(time_sleepMock.called)
+        self.assertEqual(time_sleepMock.call_count, 1)
+        self.assertEqual(time_sleepMock.call_args[0][0], 0.5)
 
     def __generateFullPath(self, filePath):
         return f"{self.testSyncDir}/{filePath}"
