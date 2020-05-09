@@ -166,7 +166,7 @@ class ServiceHub(QObject):
     def sendNetworkMessage(self, message, callBack=None):
         if callBack:
             self.__messageArchive[message.header.uuid] = callBack
-        self.__networkService.enqueuMessage(message)
+        self.__networkQueue.put(message)
 
     def isNetworkServiceRunning(self):
         return self.__isNetworkServiceRunning

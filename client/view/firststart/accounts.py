@@ -78,7 +78,7 @@ class AccountHelpDialog(QDialog, SetupableComponent):
 
 class SetupAccountsWrapperWidget(FirstStartWizardMiddleWidget):
     __inited = False
-    __canProceed = True
+    __canProceed = False
 
     def _getStyle(self):
         return ""
@@ -274,6 +274,7 @@ class SetupAccountsWidget(QWidget, SetupableComponent):
             self.__selectAccount(0)
             self.__noAccountsWidget.hide()
             self.__accountEditorWidget.show()
+            self.accountListValidityChanged.emit(True)
 
     def removeAllAccounts(self):
         self.__setNoAccountsAvailable()

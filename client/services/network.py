@@ -163,9 +163,6 @@ class NetworkClient(QObject):
         self._logger.debug("Stopping")
         self._shouldRun = False
 
-    def enqueuMessage(self, message):
-        self._outgoing_queue.put(message)
-
 
 class SshClient(QObject):
     connectionStatusChanged = pyqtSignal(ConnectionEvent)
@@ -227,9 +224,6 @@ class SshClient(QObject):
         if self.__sftp:
             self.__sftp.close()
         self.__isConnected = False
-
-    def setFileSyncer(self, fileSyncer):
-        self.__fileSyncer = fileSyncer
 
     def setSSHInformation(self, hostname, username, password):
         self.__hostname = hostname
