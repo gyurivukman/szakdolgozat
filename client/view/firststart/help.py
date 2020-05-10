@@ -105,11 +105,11 @@ class DriveHelpPage(AccountHelpPageBase):
             },
             {
                 "text": "4. Name your project and click \"Create\".",
-                "figure":None
+                "figure": None
             },
             {
                 "text": "5. Open the <a href=\"https://console.developers.google.com/\">developer console</a> ",
-                "figure":None
+                "figure": None
             },
             {
                 "text": "6. Select your newly created project from the dropdown menu at the top, then click 'Enable APIs and Services'.",
@@ -137,6 +137,6 @@ class DriveHelpPage(AccountHelpPageBase):
             },
             {
                 "text": "12. Locate and open the downloaded file with the 'Open Credentials File' button.",
-                "figure":None
+                "figure": None
             }
         ]

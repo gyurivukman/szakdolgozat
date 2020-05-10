@@ -16,7 +16,6 @@ from view.infopanels import ConnectionErrorPanel
 from view.loaders import LoaderWidget
 from view.firststart.wizard import FirstStartWizard
 from view.mainpanel import MainPanel
-from view.settings import SettingsDialog
 
 from . import resources
 

@@ -646,7 +646,7 @@ class BaseAccountFormWidget(QWidget):
         self._cryptoInput.setText("")
         self._identifierInput.setText("")
 
-    def resetAccountSpecificDataForm(self):
+    def _resetAccountSpecificDataForm(self):
         raise NotImplementedError(f"Derived class '{self.__class__}' must implement method '_resetAccountSpecificDataForm'. It should reset all fields to empty and default values.")
 
     def getAccountData(self):
@@ -864,10 +864,11 @@ class DriveAccountForm(BaseAccountFormWidget):
         self.__formData = accountData.data
 
         self.__credentialsLabels['errorLabel'].setText("")
-        self.__credentialsLabels['projectIDLabel'].setText(f"Project ID: {self.__formData['project_id']}")
-        self.__credentialsLabels['clientEmailLabel'].setText(f"Client Email: {self.__formData['client_email']}")
-        self.__credentialsLabels['clientIDLabel'].setText(f"Client ID: {self.__formData['client_id']}")
-        self.__credentialsLabels['disclaimerLabel'].show()
+        if accountData.data:
+            self.__credentialsLabels['projectIDLabel'].setText(f"Project ID: {self.__formData['project_id']}")
+            self.__credentialsLabels['clientEmailLabel'].setText(f"Client Email: {self.__formData['client_email']}")
+            self.__credentialsLabels['clientIDLabel'].setText(f"Client ID: {self.__formData['client_id']}")
+            self.__credentialsLabels['disclaimerLabel'].show()
 
     def _validateAccountSpecificForm(self):
         return len(self.__formData.keys()) > 0

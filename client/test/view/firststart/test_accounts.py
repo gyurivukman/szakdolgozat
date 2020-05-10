@@ -1,12 +1,11 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
-from PyQt5.QtTest import QTest
 from PyQt5.QtWidgets import QApplication, QWidget
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from services.hub import ServiceHub
-from view.firststart.accounts import SetupAccountsWrapperWidget, SetupAccountsWidget
+from view.firststart.accounts import SetupAccountsWrapperWidget, SetupAccountsWidget, DropboxAccountForm, DriveAccountForm
 from model.message import MessageTypes
 from model.config import AccountData, AccountTypes
 
@@ -158,3 +157,187 @@ class TestSetupAccountsWrapperWidget(unittest.TestCase):
         self.assertTrue(fakeHub.isNetworkServiceRunning.called)
         self.assertTrue(fakeHub.shutdownNetwork.called)
         self.assertTrue(fakeHub.initNetworkService.called)
+
+
+class TestDropboxAccountForm(unittest.TestCase):
+
+    def setUp(self):
+        self.app = QApplication([])
+        self.testAccountForm = DropboxAccountForm()
+
+    def tearDown(self):
+        self.app.deleteLater()
+        self.app.quit()
+
+    def test_setAccountData_sets_data(self):
+        testAccountData = AccountData(**{"accountType": AccountTypes.Dropbox, "identifier": "testAccount", "cryptoKey": "sixteen byte key", "data": {"apiToken": "testAPIToken"}, "id": 1})
+        self.testAccountForm.setAccountData(testAccountData)
+
+        componentAccountData = self.testAccountForm.getAccountData()
+
+        self.assertEqual(testAccountData.accountType, componentAccountData.accountType)
+        self.assertEqual(testAccountData.identifier, componentAccountData.identifier)
+        self.assertEqual(testAccountData.cryptoKey, componentAccountData.cryptoKey)
+        self.assertEqual(testAccountData.data, componentAccountData.data)
+        self.assertEqual(testAccountData.id, componentAccountData.id)
+
+    def test_reset_clears_account_specific_data_and_only_that(self):
+        testAccountData = AccountData(**{"accountType": AccountTypes.Dropbox, "identifier": "testAccount", "cryptoKey": "sixteen byte key", "data": {"apiToken": "testAPIToken"}, "id": 1})
+        self.testAccountForm.setAccountData(testAccountData)
+        self.testAccountForm.reset()
+
+        componentAccountData = self.testAccountForm.getAccountData()
+
+        self.assertEqual(componentAccountData.accountType, testAccountData.accountType)
+        self.assertEqual(componentAccountData.identifier, "")
+        self.assertEqual(componentAccountData.cryptoKey, "")
+        self.assertEqual(componentAccountData.data, {"apiToken": ""})
+        self.assertEqual(componentAccountData.id, testAccountData.id)
+
+    def test_isFormValid_returns_true_on_valid_account_data(self):
+        testAccountData = AccountData(**{"accountType": AccountTypes.Dropbox, "identifier": "testAccount", "cryptoKey": "sixteen byte key", "data": {"apiToken": "testAPIToken"}, "id": 1})
+        self.testAccountForm.setAccountData(testAccountData)
+
+        self.assertTrue(self.testAccountForm.isFormValid())
+
+    def test_isFormValid_returns_false_on_missing_identifier(self):
+        testAccountData = AccountData(**{"accountType": AccountTypes.Dropbox, "identifier": "", "cryptoKey": "sixteen byte key", "data": {"apiToken": "testAPIToken"}, "id": 1})
+        self.testAccountForm.setAccountData(testAccountData)
+
+        self.assertFalse(self.testAccountForm.isFormValid())
+
+    def test_isFormValid_returns_false_on_missing_cryptoKey(self):
+        testAccountData = AccountData(**{"accountType": AccountTypes.Dropbox, "identifier": "testAccount", "cryptoKey": "", "data": {"apiToken": "testAPIToken"}, "id": 1})
+        self.testAccountForm.setAccountData(testAccountData)
+
+        self.assertFalse(self.testAccountForm.isFormValid())
+
+    def test_isFormValid_returns_false_on_missing_apiToken(self):
+        testAccountData = AccountData(**{"accountType": AccountTypes.Dropbox, "identifier": "testAccount", "cryptoKey": "sixteen byte key", "data": {"apiToken": ""}, "id": 1})
+        self.testAccountForm.setAccountData(testAccountData)
+
+        self.assertFalse(self.testAccountForm.isFormValid())
+
+
+class TestDriveAccountForm(unittest.TestCase):
+
+    def setUp(self):
+        self.app = QApplication([])
+        self.testAccountForm = DriveAccountForm()
+
+    def tearDown(self):
+        self.app.deleteLater()
+        self.app.quit()
+
+    def test_setAccountData_sets_data(self):
+        testAccountSpecificData = {
+            "type": "service_account",
+            "project_id": "testID",
+            "private_key_id": "testPrivKeyID",
+            "private_key": "testPrivKey",
+            "client_email": "testEmail",
+            "client_id": "testClientID",
+            "auth_uri": "testAuthUri",
+            "token_uri": "testTokenUri",
+            "auth_provider_x509_cert_url": "testCertProviderUri",
+            "client_x509_cert_url": "testCertUri"
+        }
+
+        testAccountData = AccountData(**{"accountType": AccountTypes.GoogleDrive, "identifier": "testAccount", "cryptoKey": "sixteen byte key", "data": testAccountSpecificData, "id": 1})
+        self.testAccountForm.setAccountData(testAccountData)
+
+        componentAccountData = self.testAccountForm.getAccountData()
+
+        self.assertEqual(testAccountData.accountType, componentAccountData.accountType)
+        self.assertEqual(testAccountData.identifier, componentAccountData.identifier)
+        self.assertEqual(testAccountData.cryptoKey, componentAccountData.cryptoKey)
+        self.assertEqual(testAccountData.data, componentAccountData.data)
+        self.assertEqual(testAccountData.id, componentAccountData.id)
+
+    def test_reset_clears_account_specific_data_and_only_that(self):
+        testAccountSpecificData = {
+            "type": "service_account",
+            "project_id": "testID",
+            "private_key_id": "testPrivKeyID",
+            "private_key": "testPrivKey",
+            "client_email": "testEmail",
+            "client_id": "testClientID",
+            "auth_uri": "testAuthUri",
+            "token_uri": "testTokenUri",
+            "auth_provider_x509_cert_url": "testCertProviderUri",
+            "client_x509_cert_url": "testCertUri"
+        }
+
+        testAccountData = AccountData(**{"accountType": AccountTypes.GoogleDrive, "identifier": "testAccount", "cryptoKey": "sixteen byte key", "data": testAccountSpecificData, "id": 1})
+        self.testAccountForm.setAccountData(testAccountData)
+        self.testAccountForm.reset()
+
+        componentAccountData = self.testAccountForm.getAccountData()
+        self.assertEqual(componentAccountData.accountType, testAccountData.accountType)
+        self.assertEqual(componentAccountData.identifier, "")
+        self.assertEqual(componentAccountData.cryptoKey, "")
+        self.assertEqual(componentAccountData.data, {})
+        self.assertEqual(componentAccountData.id, testAccountData.id)
+
+    def test_isFormValid_returns_true_on_valid_account_data(self):
+        testAccountSpecificData = {
+            "type": "service_account",
+            "project_id": "testID",
+            "private_key_id": "testPrivKeyID",
+            "private_key": "testPrivKey",
+            "client_email": "testEmail",
+            "client_id": "testClientID",
+            "auth_uri": "testAuthUri",
+            "token_uri": "testTokenUri",
+            "auth_provider_x509_cert_url": "testCertProviderUri",
+            "client_x509_cert_url": "testCertUri"
+        }
+
+        testAccountData = AccountData(**{"accountType": AccountTypes.GoogleDrive, "identifier": "testAccount", "cryptoKey": "sixteen byte key", "data": testAccountSpecificData, "id": 1})
+        self.testAccountForm.setAccountData(testAccountData)
+
+        self.assertTrue(self.testAccountForm.isFormValid())
+
+    def test_isFormValid_returns_false_on_missing_identifier(self):
+        testAccountSpecificData = {
+            "type": "service_account",
+            "project_id": "testID",
+            "private_key_id": "testPrivKeyID",
+            "private_key": "testPrivKey",
+            "client_email": "testEmail",
+            "client_id": "testClientID",
+            "auth_uri": "testAuthUri",
+            "token_uri": "testTokenUri",
+            "auth_provider_x509_cert_url": "testCertProviderUri",
+            "client_x509_cert_url": "testCertUri"
+        }
+
+        testAccountData = AccountData(**{"accountType": AccountTypes.GoogleDrive, "identifier": "", "cryptoKey": "sixteen byte key", "data": testAccountSpecificData, "id": 1})
+        self.testAccountForm.setAccountData(testAccountData)
+
+        self.assertFalse(self.testAccountForm.isFormValid())
+
+    def test_isFormValid_returns_false_on_missing_cryptoKey(self):
+        testAccountSpecificData = {
+            "type": "service_account",
+            "project_id": "testID",
+            "private_key_id": "testPrivKeyID",
+            "private_key": "testPrivKey",
+            "client_email": "testEmail",
+            "client_id": "testClientID",
+            "auth_uri": "testAuthUri",
+            "token_uri": "testTokenUri",
+            "auth_provider_x509_cert_url": "testCertProviderUri",
+            "client_x509_cert_url": "testCertUri"
+        }
+
+        testAccountData = AccountData(**{"accountType": AccountTypes.GoogleDrive, "identifier": "testAccount", "cryptoKey": "", "data": testAccountSpecificData, "id": 1})
+        self.testAccountForm.setAccountData(testAccountData)
+
+        self.assertFalse(self.testAccountForm.isFormValid())
+
+    def test_isFormValid_returns_false_on_missing_drive_credentials(self):
+        testAccountData = AccountData(**{"accountType": AccountTypes.GoogleDrive, "identifier": "testAccount", "cryptoKey": "sixteen byte key", "data": {}, "id": 1})
+        self.testAccountForm.setAccountData(testAccountData)
+
+        self.assertFalse(self.testAccountForm.isFormValid())
