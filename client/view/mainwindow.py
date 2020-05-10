@@ -32,7 +32,6 @@ class MainWindow(QMainWindow):
         self.__loader = LoaderWidget(480, 720, "Connecting to server")
         self.__errorPanel = None
         self.__mainPanel = None
-        self.__settingsDialog = SettingsDialog()
         self.__errorDialog = None
 
         self.__settings = QSettings()

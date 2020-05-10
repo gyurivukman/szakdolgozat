@@ -1,7 +1,6 @@
 import unittest
-from unittest.mock import patch, MagicMock
 
-from PyQt5.QtWidgets import QApplication, QWidget
+from PyQt5.QtWidgets import QApplication
 
 from view.firststart.summary import FirstStartSummaryWidget
 

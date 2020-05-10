@@ -143,9 +143,6 @@ class DropboxAccountWrapper(CloudAPIWrapper):
             storingAccountID=self.accountData.id
         )
 
-    def __sendDownloadCompleteResponse(self):
-        data = self._task.subject
-
     def _getLogger(self):
         return moduleLogger.getChild("DropboxAccountWrapper")
 

@@ -24,7 +24,6 @@ class FileTrackerIconAtlas:
         self.diskUploadIcon = QPixmap(":disk_upload.png").scaled(20, 20, Qt.IgnoreAspectRatio)
         self.diskDownloadIcon = QPixmap(":disk_download.png").scaled(20, 20, Qt.IgnoreAspectRatio)
         self.syncedIcon = QPixmap(":check.png").scaled(20, 20, Qt.IgnoreAspectRatio)
-        self.encryptingIcon = QPixmap(":encrypting.png").scaled(20, 20, Qt.IgnoreAspectRatio)
         self.movingIcon = QPixmap(":move.png").scaled(20, 20, Qt.IgnoreAspectRatio)
 
         self.__stateMap = {
