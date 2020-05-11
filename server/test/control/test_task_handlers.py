@@ -1,12 +1,15 @@
 import unittest
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, PropertyMock
 from uuid import uuid4
 
+import control.cli
 from control.message import *
+from control.account import CloudAPIFactory
 from model.account import AccountData, AccountTypes
 from model.task import Task
 from model.message import MessageTypes
+from model.file import FilePart, CloudFilesCache
 
 
 class TestGetAccountsListHandler(unittest.TestCase):
@@ -63,3 +66,68 @@ class TestSetAccountListHandler(unittest.TestCase):
         self.assertEqual(dispatchResponseMock.call_count, 1)
         self.assertEqual(dispatchResponseMock.call_args[0][0].header.messageType, MessageTypes.RESPONSE)
         self.assertEqual(dispatchResponseMock.call_args[0][0].header.uuid, testTask.uuid)
+
+
+class TestGetFileListHandler(unittest.TestCase):
+
+    @patch("control.database.DatabaseAccess")
+    def setUp(self, fakeDB):
+        self.fakeDB = fakeDB
+
+    @patch.object(CloudAPIFactory, "fromAccountData")
+    @patch.object(MessageDispatcher, "dispatchResponse")
+    def test_get_file_list_returns_all_non_full_files(self, dispatchResponseMock, fakeAPIFactory):
+
+        fakeCloudAPI = MagicMock()
+        fakeGetFileListResponse = [
+            FilePart(filename="full_file__1__1.enc", modified=1, size=32, path="", fullPath="full_file__1__1.enc", storingAccountID=1),
+            FilePart(filename="partial_file__1__2.enc", modified=1, size=48, path="subDir", fullPath="subDir/partial_file__1__2.enc", storingAccountID=1)
+        ]
+        fakeCloudAPI.getFileList.return_value = fakeGetFileListResponse
+
+        self.fakeDB.getAllAccounts.return_value = [AccountData(id=1, identifier="testAccountID", accountType=AccountTypes.Dropbox, cryptoKey="sixteen byte key", data={"apiToken": "testApitoken"})]
+        fakeAPIFactory.return_value = fakeCloudAPI
+        testTask = Task(taskType=MessageTypes.SYNC_FILES, uuid=uuid4().hex)
+
+        testHandler = GetFileListHandler(self.fakeDB)
+        testHandler.setTask(testTask)
+        testHandler.handle()
+
+        self.assertEqual(fakeCloudAPI.getFileList.call_count, 1)
+        self.assertEqual(fakeAPIFactory.call_count, 1)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].header.messageType, MessageTypes.RESPONSE)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].header.uuid, testTask.uuid)
+
+        self.assertEqual(len(dispatchResponseMock.call_args[0][0].data), 1)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data[0]["filename"], "full_file")
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data[0]["modified"], fakeGetFileListResponse[0].modified)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data[0]["size"], fakeGetFileListResponse[0].size - 16)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data[0]["path"], fakeGetFileListResponse[0].path)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data[0]["fullPath"], "full_file")
+
+
+class FakeGlobalConsoleArguments:
+    def __init__(self, workspace):
+        self.workspace = workspace
+
+
+class TestGetWorkspaceHandler(unittest.TestCase):
+
+    @classmethod
+    @patch("control.database.DatabaseAccess")
+    def setUpClass(cls, fakeDB):
+        cls.fakeDB = fakeDB
+
+    @patch('control.cli.CONSOLE_ARGUMENTS', FakeGlobalConsoleArguments("testWorkspace"))
+    @patch.object(MessageDispatcher, "dispatchResponse")
+    def test_get_workspace_handler_returns_workspace_path_from_command_line_argument_in_message(self, dispatchResponseMock):
+        testTask = Task(taskType=MessageTypes.GET_WORKSPACE, uuid=uuid4().hex)
+        testHandler = GetWorkspaceHandler(self.fakeDB)
+
+        testHandler.setTask(testTask)
+        testHandler.handle()
+
+        self.assertEqual(dispatchResponseMock.call_count, 1)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].header.messageType, MessageTypes.RESPONSE)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].header.uuid, testTask.uuid)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data, {"workspace": "testWorkspace"})
