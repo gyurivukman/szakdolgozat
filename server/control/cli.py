@@ -1,9 +1,9 @@
 import stat
-from argparse import ArgumentTypeError, Action
-from os.path import isdir
+import os
+import shutil
 
-from os import access, R_OK, W_OK, mkdir, chmod
-from shutil import rmtree
+from argparse import ArgumentTypeError, Action
+
 
 CONSOLE_ARGUMENTS = None
 
@@ -38,10 +38,10 @@ class WorkspaceArgumentValidator(ArgumentValidator):
             raise ArgumentTypeError("Invalid type for --workspace! Value of --workspace must be a valid (absolute or relative) existing path with read and write permissions.")
 
         internalValue = str(value)
-        if isdir(internalValue):
-            if not access(internalValue, R_OK):
+        if os.path.isdir(internalValue):
+            if not os.access(internalValue, os.R_OK):
                 raise ArgumentTypeError(f"No read permission for directory '{internalValue}'! Please provide read and write permissions for cryptstorepi server for that path.")
-            elif not access(internalValue, W_OK):
+            elif not os.access(internalValue, os.W_OK):
                 raise ArgumentTypeError(f"No read permission for directory '{internalValue}'! Please provide read and write permissions for cryptstorepi server for that path.")
         else:
             raise ArgumentTypeError(f"'{internalValue}' is not a directory! Value of --workspace must be a valid (absolute or relative) existing path with read and write permissions.")
@@ -66,16 +66,16 @@ class CreateWorkspaceAction(Action):
     def __createServerWorkspace(self, workspacePath):
         path = f"{workspacePath}/server"
         try:
-            mkdir(path)
+            os.mkdir(path)
         except FileExistsError:
-            rmtree(path)
-            mkdir(path)
-        chmod(path, self.__WORKSPACE_PERMISSIONS)
+            shutil.rmtree(path)
+            os.mkdir(path)
+        os.chmod(path, self.__WORKSPACE_PERMISSIONS)
 
     def __createClientWorkspace(self, workspacePath):
         path = f"{workspacePath}/client"
         try:
-            mkdir(path)
+            os.mkdir(path)
         except FileExistsError:
             pass
-        chmod(path, self.__WORKSPACE_PERMISSIONS)
+        os.chmod(path, self.__WORKSPACE_PERMISSIONS)

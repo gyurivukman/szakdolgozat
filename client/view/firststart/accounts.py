@@ -254,11 +254,11 @@ class SetupAccountsWidget(QWidget, SetupableComponent):
         del self.__accountCardWidgets[index]
 
     def __validateForNoDuplicates(self, accountData):
-        for accountCard in self.__accountCardWidgets:
+        for accountCard, index in zip(self.__accountCardWidgets, range(len(self.__accountCardWidgets))):
             existingAccountData = accountCard.getAccountData()
-            if accountData.identifier == existingAccountData.identifier:
+            if accountData.identifier == existingAccountData.identifier and index != self.__selectedAccountIndex:
                 raise AccountDuplicationError(f"Account identifier '{existingAccountData.identifier}' is already taken! Please choose another one.")
-            elif accountData.data == existingAccountData.data:
+            elif accountData.data == existingAccountData.data and index != self.__selectedAccountIndex:
                 raise AccountDuplicationError(f"Existing account '{existingAccountData.identifier}' has the same credentials!")
         self.accountListValidityChanged.emit(True)
 

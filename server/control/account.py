@@ -176,16 +176,16 @@ class InterruptibleGoogleDriveDownloadFileHandle(BufferedWriter):
         super().__init__(handle)
 
     def write(self, data):
-        if not self.__cipher:
-            self.__cipher = AES.new(self.__aesKey.encode(), AES.MODE_CFB, iv=data[0:16])
-            super().write(self.__cipher.decrypt(data[16:]))
-            super().flush()
-        else:
-            if not self.__task.stale:
-                super().write(self.__cipher.decrypt(data))
+        if not self.__task.stale:
+            if not self.__cipher:
+                self.__cipher = AES.new(self.__aesKey.encode(), AES.MODE_CFB, iv=data[0:16])
+                super().write(self.__cipher.decrypt(data[16:]))
                 super().flush()
             else:
-                raise TaskInterruptedException("")
+                super().write(self.__cipher.decrypt(data))
+                super().flush()
+        else:
+            raise TaskInterruptedException("")
 
     def close(self):
         pass
@@ -323,39 +323,3 @@ class CloudAPIFactory:
     @staticmethod
     def fromAccountData(accountData):
         return CloudAPIFactory.__typeToClassMap[accountData.accountType](accountData)
-
-
-# *******************
-# SFTP is unused currently.
-# *******************
-class SFTPCloudAccount(CloudAPIWrapper):  # TODO Stretchgoal!
-
-    def __init__(self, *args):
-        super().__init__(*args)
-
-        self.__client = paramiko.SSHClient()
-        self.__client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.__client.connect("localhost", 22, self.accountData.data['username'], self.accountData.data['password'])
-
-        self.__sftp = self.__client.open_sftp()
-
-    def getFileList(self):
-        stdin, stdout, stderr = self.__client.exec_command("find remoteStorage/ -type f -name \*.enc -printf '%T@ %s %P %p\n'")
-
-        fileList = []
-
-        for line in stdout:
-            splitted = line.split(" ")
-            modified = int(float(splitted[0]))
-            size = int(splitted[1])
-            filename = splitted[2].split("/")[-1]
-            fullPath = splitted[3][:-1].replace("remoteStorage/", "")
-            path = fullPath.replace(f"{filename}", "").rstrip("/")
-
-            fileList.append(FileData(filename, modified, size, path, fullPath))
-
-        return fileList
-
-    def __del__(self):
-        self.__sftp.close()
-        self.__client.close()

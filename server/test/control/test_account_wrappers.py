@@ -5,7 +5,11 @@ import datetime
 from unittest.mock import patch, MagicMock
 from io import BytesIO
 
-from control.account import DropboxAccountWrapper, GoogleDriveAccountWrapper
+from control.account import (
+    DropboxAccountWrapper, GoogleDriveAccountWrapper,
+    InterruptibleGoogleDriveUploadFileHandle, InterruptibleGoogleDriveDownloadFileHandle,
+    TaskInterruptedException, CloudAPIFactory
+)
 from model.account import AccountTypes, AccountData
 from model.task import Task
 from model.message import MessageTypes
@@ -200,8 +204,31 @@ class TestDropboxAccountWrapper(unittest.TestCase):
         self.assertEqual(mockDropbox.return_value.files_move.call_args[0][1], f"/{destinationPath}")
 
 
-class TestGoogleDriveAccountWrapper(unittest.TestCase):
-    pass
+class TestInterruptibleGoogleDriveFileHandles(unittest.TestCase):
+
+    def test_upload_fileHandle_raises_exception_if_task_is_stale(self):
+        fakeFileHandle = BytesIO(b"lorem ipsum")
+        testFileData = {"userTimezone": "+0200", "utcModified": datetime.datetime(2020, 1, 1, 10, 5, 30).timestamp(), "path": "subDir"}
+        testTask = Task(taskType=MessageTypes.UPLOAD_FILE, data=testFileData, stale=True)
+
+        testInterruptibleHandle = InterruptibleGoogleDriveUploadFileHandle(fakeFileHandle, testTask)
+        try:
+            testInterruptibleHandle.read(8192)
+            self.fail("InterruptibleGoogleDriveUploadFileHandle failed to raise TaskInterruptedException on a stale task!")
+        except TaskInterruptedException:
+            pass
+
+    def test_download_fileHandle_raises_exception_if_task_is_stale(self):
+        fakeDownloadFileHandle = BytesIO()
+        testDownloadFileTask = Task(taskType=MessageTypes.DOWNLOAD_FILE, stale=True)
+
+        testInterruptibleHandle = InterruptibleGoogleDriveDownloadFileHandle(fakeDownloadFileHandle, "sixteen byte key", testDownloadFileTask)
+        try:
+            testInterruptibleHandle.write(b"fakeinitvectorrr")
+            testInterruptibleHandle.write(b"fake file data should raise exception")
+            self.fail("InterruptibleGoogleDriveDownloadFileHandle failed to raise TaskInterruptedException on a stale task!")
+        except TaskInterruptedException:
+            pass
 
 
 if __name__ == '__main__':
