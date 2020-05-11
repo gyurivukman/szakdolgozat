@@ -54,7 +54,6 @@ class DatabaseAccess():
             self.__updateAccount(accountData)
         else:
             self.__createAccount(accountData)
-        self.commit()
 
     def deleteAccount(self, id):
         self.__cursor.execute(f"DELETE FROM accounts WHERE id={id}")

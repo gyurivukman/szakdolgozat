@@ -100,7 +100,7 @@ class TestDatabase(unittest.TestCase):
         updateCommand = f"UPDATE accounts SET identifier = '{testAccountData[1].identifier}', cryptoKey = '{testAccountData[1].cryptoKey}', data = '{json.dumps(testAccountData[1].data)}' WHERE id = 1;"
         self.assertEqual(fakeCursor.execute.call_args_list[3][0][0], updateCommand)
 
-        self.assertEqual(fakeConnection.commit.call_count, 3)
+        self.assertEqual(fakeConnection.commit.call_count, 1)
 
     @patch("sqlite3.connect")
     @patch("os.mkdir")
