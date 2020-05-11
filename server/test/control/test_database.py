@@ -101,3 +101,33 @@ class TestDatabase(unittest.TestCase):
         self.assertEqual(fakeCursor.execute.call_args_list[3][0][0], updateCommand)
 
         self.assertEqual(fakeConnection.commit.call_count, 3)
+
+    @patch("sqlite3.connect")
+    @patch("os.mkdir")
+    @patch("os.path.expanduser")
+    def test_db_access_closes_connection(self, expanduserMock, mkdirMock, sqlite3_connectMock):
+        fakeConnection = MagicMock()
+        fakeCursor = MagicMock()
+
+        sqlite3_connectMock.return_value = fakeConnection
+        sqlite3_connectMock.return_value.cursor.return_value = fakeCursor
+
+        db = DatabaseAccess()
+        db.close()
+
+        self.assertEqual(fakeConnection.close.call_count, 1)
+
+    @patch("sqlite3.connect")
+    @patch("os.mkdir")
+    @patch("os.path.expanduser")
+    def test_db_access_commits_to_connection(self, expanduserMock, mkdirMock, sqlite3_connectMock):
+        fakeConnection = MagicMock()
+        fakeCursor = MagicMock()
+
+        sqlite3_connectMock.return_value = fakeConnection
+        sqlite3_connectMock.return_value.cursor.return_value = fakeCursor
+
+        db = DatabaseAccess()
+        db.commit()
+
+        self.assertEqual(fakeConnection.commit.call_count, 2)
