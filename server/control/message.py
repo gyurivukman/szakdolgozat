@@ -185,7 +185,7 @@ class UploadFileHandler(AbstractTaskHandler):
         cachedFile = self._filesCache.getFile(self._task.data["fullPath"])
 
         with open(localFilePath, "rb") as localFileHandle:
-            if perAccountSize <= 1.0 or len(accounts) == 1:
+            if len(accounts) == 1 or perAccountSize <= 1.0:
                 self._logger.info(f"Uploading to single account only: {self._task.data['fullPath']}")
                 self.__uploadToFirstAccountOnly(accounts[0], localFileHandle, cachedFile)
             else:
@@ -218,6 +218,7 @@ class UploadFileHandler(AbstractTaskHandler):
             if cachedFile:
                 self.__cleanFromRemote(cachedFile)
                 self._filesCache.removeFile(cachedFile.data.fullPath)
+
             cloudAccount = CloudAPIFactory.fromAccountData(account)
             cloudFileName = f"{self._task.data['filename']}__1__1.enc"
             result = cloudAccount.upload(fileHandle, self._task.data['size'], cloudFileName, self._task)
@@ -240,21 +241,12 @@ class UploadFileHandler(AbstractTaskHandler):
                     self.__updateFilesCache(result)
 
     def __updateFilesCache(self, resultingFilePart):
-        cachedFile = self._filesCache.getFile(resultingFilePart.fullPath)
-        if cachedFile:
-            self._logger.debug(f"Updating already existing file in file cache: '{cachedFile.data.fullPath}' with part {resultingFilePart.filename}")
-            self.__updateAlreadyExistingEntry(cachedFile, resultingFilePart)
-        else:
-            self._logger.debug(f"Updating file cache with a new file: {resultingFilePart.fullPath}")
-            self._filesCache.insertFilePart(resultingFilePart)
-            self._logger.debug(f"Inserted new file to cache after upload, from part: {resultingFilePart}")
+        self._logger.debug(f"Updating file cache with a new file: {resultingFilePart.fullPath}")
+        self._filesCache.insertFilePart(resultingFilePart)
+        self._logger.debug(f"Inserted new file to cache after upload, from part: {resultingFilePart}")
 
     def __updateAlreadyExistingEntry(self, cachedFile, resultingFilePart):
-        if cachedFile.parts[resultingFilePart.filename].storingAccountID == resultingFilePart.storingAccountID:
-            self._logger.debug("Upload result is stored by the same account as the file in the cache, updating values.")
-            cachedFile.parts[resultingFilePart.filename] = resultingFilePart
-        else:
-            self._logger.debug("Different account stores the newly uploaded file than it is in the cache! Must do cleanup!")
+        cachedFile.parts[resultingFilePart.filename] = resultingFilePart
 
 
 class DownloadFileHandler(AbstractTaskHandler):
