@@ -410,3 +410,189 @@ class TestDownloadFileHandler(unittest.TestCase):
 
         self.assertEqual(os_removeMock.call_count, 1)
         self.assertEqual(os_removeMock.call_args[0][0], f"testWorkspace/server/{testTask.uuid}")
+
+
+class TestDeleteFileHandler(unittest.TestCase):
+
+    @classmethod
+    @patch("control.database.DatabaseAccess")
+    def setUpClass(cls, fakeDB):
+        cls.fakeDB = fakeDB
+
+    @patch.object(CloudFilesCache, "removeFile")
+    @patch.object(CloudAPIFactory, "fromAccountData")
+    @patch.object(CloudFilesCache, "getFile")
+    def test_delete_file_handler_removes_filedata_from_all_accounts(self, getFileMock, cloudApiMock, removeFileMock):
+        testFileData = FileData(filename="apple.txt", modified=10, size=10, path="subDir", fullPath="subDir/apple.txt")
+        testTask = Task(taskType=MessageTypes.DELETE_FILE, data={"fullPath": "apple.txt"})
+        fakeAccounts = [
+            AccountData(id=1, identifier="testAccountID1", accountType=AccountTypes.Dropbox, cryptoKey="sixteen byte key", data={"apiToken": "testApitoken1"}),
+            AccountData(id=2, identifier="testAccountID2", accountType=AccountTypes.Dropbox, cryptoKey="sixteen byte key", data={"apiToken": "testApitoken2"})
+        ]
+        self.fakeDB.getAllAccounts.return_value = fakeAccounts
+        testFileParts = [
+            FilePart(
+                filename="apple.txt__1__2.enc", modified=10,
+                size=21, path="subDir",
+                fullPath="subDir/apple.txt__1__2.enc", storingAccountID=1
+            ),
+            FilePart(
+                filename="apple.txt__2__2.enc", modified=10,
+                size=21, path="subDir",
+                fullPath="subDir/apple.txt__2__2.enc", storingAccountID=2
+            )
+        ]
+        testCachedFileInfo = CachedFileData(data=testFileData, availablePartCount=2, totalPartCount=2, parts={filepart.filename: filepart for filepart in testFileParts})
+        getFileMock.return_value = testCachedFileInfo
+
+        fakeCloudAccount1 = MagicMock()
+        fakeCloudAccount2 = MagicMock()
+        cloudApiMock.side_effect = [fakeCloudAccount1, fakeCloudAccount2]
+
+        testHandler = DeleteFileHandler(self.fakeDB)
+        testHandler.setTask(testTask)
+        testHandler.handle()
+
+        self.assertEqual(getFileMock.call_count, 1)
+        self.assertEqual(getFileMock.call_args[0][0], testTask.data["fullPath"])
+
+        self.assertEqual(cloudApiMock.call_count, 2)
+        self.assertEqual(cloudApiMock.call_args_list[0][0][0], fakeAccounts[0])
+        self.assertEqual(cloudApiMock.call_args_list[1][0][0], fakeAccounts[1])
+
+        self.assertEqual(removeFileMock.call_count, 1)
+        self.assertEqual(removeFileMock.call_args[0][0], testTask.data["fullPath"])
+
+        self.assertEqual(fakeCloudAccount1.deleteFile.call_count, 1)
+        self.assertEqual(fakeCloudAccount1.deleteFile.call_args[0][0], testFileParts[0])
+
+        self.assertEqual(fakeCloudAccount2.deleteFile.call_count, 1)
+        self.assertEqual(fakeCloudAccount2.deleteFile.call_args[0][0], testFileParts[1])
+
+
+class TestMoveFileHandler(unittest.TestCase):
+
+    @classmethod
+    @patch("control.database.DatabaseAccess")
+    def setUpClass(cls, fakeDB):
+        cls.fakeDB = fakeDB
+
+    @patch.object(CloudFilesCache, "moveFile")
+    @patch.object(MessageDispatcher, "dispatchResponse")
+    @patch.object(CloudFilesCache, "removeFile")
+    @patch.object(CloudAPIFactory, "fromAccountData")
+    @patch.object(CloudFilesCache, "getFile")
+    def test_removes_destination_path_on_all_accounts_then_moves_synced_files_and_sends_successful_response(self, getFileMock, cloudApiMock, removeFileMock, dispatchResponseMock, moveFileMock):
+        testSourceFileData = FileData(filename="apple.txt", modified=10, size=10, path="", fullPath="apple.txt")
+        testTargetFileData = FileData(filename="apple.txt", modified=10, size=20, path="subDir", fullPath="subDir/apple.txt")
+
+        testTask = Task(taskType=MessageTypes.MOVE_FILE, data={"source": "apple.txt", "target": testTargetFileData.serialize()})
+        fakeAccounts = [
+            AccountData(id=1, identifier="testAccountID1", accountType=AccountTypes.Dropbox, cryptoKey="sixteen byte key", data={"apiToken": "testApitoken1"}),
+            AccountData(id=2, identifier="testAccountID2", accountType=AccountTypes.Dropbox, cryptoKey="sixteen byte key", data={"apiToken": "testApitoken2"})
+        ]
+        self.fakeDB.getAllAccounts.return_value = fakeAccounts
+
+        testSourceFileParts = [
+            FilePart(filename="apple.txt__1__2.enc", modified=10, size=21, path="", fullPath="apple.txt__1__2.enc", storingAccountID=1),
+            FilePart(filename="apple.txt__2__2.enc", modified=10, size=21, path="", fullPath="apple.txt__2__2.enc", storingAccountID=2)
+        ]
+        testTargetFileParts = [
+            FilePart(filename="apple.txt__1__2.enc", modified=15, size=26, path="subDir", fullPath="subDir/apple.txt__1__2.enc", storingAccountID=1),
+            FilePart(filename="apple.txt__2__2.enc", modified=15, size=26, path="subDir", fullPath="subDir/apple.txt__2__2.enc", storingAccountID=2)
+        ]
+
+        testSourceCachedFileInfo = CachedFileData(data=testSourceFileData, availablePartCount=2, totalPartCount=2, parts={filepart.filename: filepart for filepart in testSourceFileParts})
+        testTargetCachedFileInfo = CachedFileData(data=testTargetFileData, availablePartCount=2, totalPartCount=2, parts={filepart.filename: filepart for filepart in testTargetFileParts})
+        getFileMock.side_effect = [testTargetCachedFileInfo, testSourceCachedFileInfo]
+
+        fakeCloudAccount1 = MagicMock()
+        fakeCloudAccount1.accountData = fakeAccounts[0]
+        fakeCloudAccount2 = MagicMock()
+        fakeCloudAccount2.accountData = fakeAccounts[1]
+        cloudApiMock.side_effect = [fakeCloudAccount1, fakeCloudAccount2, fakeCloudAccount1, fakeCloudAccount2]
+
+        testHandler = MoveFileHandler(self.fakeDB)
+        testHandler.setTask(testTask)
+        testHandler.handle()
+
+        self.assertEqual(fakeCloudAccount1.deleteFile.call_count, 1)
+        self.assertEqual(fakeCloudAccount2.deleteFile.call_count, 1)
+        self.assertEqual(fakeCloudAccount1.moveFile.call_count, 1)
+        self.assertEqual(fakeCloudAccount2.moveFile.call_count, 1)
+        self.assertEqual(getFileMock.call_count, 2)
+        self.assertEqual(removeFileMock.call_count, 1)
+        self.assertEqual(dispatchResponseMock.call_count, 1)
+        self.assertEqual(moveFileMock.call_count, 1)
+
+        self.assertEqual(fakeCloudAccount1.deleteFile.call_args[0][0], testTargetFileParts[0])
+        self.assertEqual(fakeCloudAccount2.deleteFile.call_args[0][0], testTargetFileParts[1])
+        self.assertEqual(fakeCloudAccount1.moveFile.call_args[0][0], testSourceFileParts[0])
+        self.assertEqual(fakeCloudAccount1.moveFile.call_args[0][1], testTargetFileParts[0].fullPath)
+        self.assertEqual(fakeCloudAccount2.moveFile.call_args[0][0], testSourceFileParts[1])
+        self.assertEqual(fakeCloudAccount2.moveFile.call_args[0][1], testTargetFileParts[1].fullPath)
+
+        self.assertEqual(getFileMock.call_args_list[0][0][0], testTargetFileData.fullPath)
+        self.assertEqual(getFileMock.call_args_list[0][0][0], testSourceFileData.fullPath)
+        self.assertEqual(removeFileMock.call_args[0][0], testTargetFileData.fullPath)
+
+        self.assertEqual(dispatchResponseMock.call_args[0][0].header.messageType, MessageTypes.RESPONSE)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data, {"moveSuccessful": True, "from": "apple.txt", "to": testTargetFileData.fullPath})
+        self.assertEqual(moveFileMock.call_args[0][0], "apple.txt")
+        self.assertEqual(moveFileMock.call_args[0][1], "subDir/apple.txt")
+
+    @patch.object(CloudFilesCache, "moveFile")
+    @patch.object(MessageDispatcher, "dispatchResponse")
+    @patch.object(CloudFilesCache, "removeFile")
+    @patch.object(CloudAPIFactory, "fromAccountData")
+    @patch.object(CloudFilesCache, "getFile")
+    def test_removes_destination_path_on_all_accounts_then_tries_to_move_unsynced_files_and_sends_unsuccessful_response(self, getFileMock, cloudApiMock, removeFileMock, dispatchResponseMock, moveFileMock):
+        testSourceFileData = FileData(filename="apple.txt", modified=10, size=10, path="", fullPath="apple.txt")
+        testTargetFileData = FileData(filename="apple.txt", modified=10, size=20, path="subDir", fullPath="subDir/apple.txt")
+
+        testTask = Task(taskType=MessageTypes.MOVE_FILE, data={"source": "apple.txt", "target": testTargetFileData.serialize()})
+        fakeAccounts = [
+            AccountData(id=1, identifier="testAccountID1", accountType=AccountTypes.Dropbox, cryptoKey="sixteen byte key", data={"apiToken": "testApitoken1"}),
+            AccountData(id=2, identifier="testAccountID2", accountType=AccountTypes.Dropbox, cryptoKey="sixteen byte key", data={"apiToken": "testApitoken2"})
+        ]
+        self.fakeDB.getAllAccounts.return_value = fakeAccounts
+
+        testSourceFileParts = [
+            FilePart(filename="apple.txt__1__2.enc", modified=10, size=21, path="", fullPath="apple.txt__1__2.enc", storingAccountID=1),
+        ]
+        testTargetFileParts = [
+            FilePart(filename="apple.txt__1__2.enc", modified=15, size=26, path="subDir", fullPath="subDir/apple.txt__1__2.enc", storingAccountID=1),
+            FilePart(filename="apple.txt__2__2.enc", modified=15, size=26, path="subDir", fullPath="subDir/apple.txt__2__2.enc", storingAccountID=2)
+        ]
+
+        testSourceCachedFileInfo = CachedFileData(data=testSourceFileData, availablePartCount=1, totalPartCount=2, parts={filepart.filename: filepart for filepart in testSourceFileParts})
+        testTargetCachedFileInfo = CachedFileData(data=testTargetFileData, availablePartCount=2, totalPartCount=2, parts={filepart.filename: filepart for filepart in testTargetFileParts})
+        getFileMock.side_effect = [testTargetCachedFileInfo, testSourceCachedFileInfo]
+
+        fakeCloudAccount1 = MagicMock()
+        fakeCloudAccount1.accountData = fakeAccounts[0]
+        fakeCloudAccount2 = MagicMock()
+        fakeCloudAccount2.accountData = fakeAccounts[1]
+        cloudApiMock.side_effect = [fakeCloudAccount1, fakeCloudAccount2, fakeCloudAccount1, fakeCloudAccount2]
+
+        testHandler = MoveFileHandler(self.fakeDB)
+        testHandler.setTask(testTask)
+        testHandler.handle()
+
+        self.assertEqual(fakeCloudAccount1.deleteFile.call_count, 2)
+        self.assertEqual(fakeCloudAccount2.deleteFile.call_count, 1)
+        self.assertEqual(fakeCloudAccount1.moveFile.call_count, 0)
+        self.assertEqual(fakeCloudAccount2.moveFile.call_count, 0)
+        self.assertEqual(getFileMock.call_count, 2)
+        self.assertEqual(removeFileMock.call_count, 2)
+        self.assertEqual(dispatchResponseMock.call_count, 1)
+        self.assertEqual(moveFileMock.call_count, 0)
+
+        self.assertEqual(fakeCloudAccount1.deleteFile.call_args[0][0], testSourceFileParts[0])
+        self.assertEqual(fakeCloudAccount2.deleteFile.call_args[0][0], testTargetFileParts[1])
+
+        self.assertEqual(getFileMock.call_args_list[0][0][0], testTargetFileData.fullPath)
+        self.assertEqual(removeFileMock.call_args[0][0], testSourceFileData.fullPath)
+
+        self.assertEqual(dispatchResponseMock.call_args[0][0].header.messageType, MessageTypes.RESPONSE)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data, {"moveSuccessful": False, "from": "apple.txt", "to": testTargetFileData.fullPath})
