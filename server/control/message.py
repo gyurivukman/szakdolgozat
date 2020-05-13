@@ -222,7 +222,8 @@ class UploadFileHandler(AbstractTaskHandler):
             cloudAccount = CloudAPIFactory.fromAccountData(account)
             cloudFileName = f"{self._task.data['filename']}__1__1.enc"
             result = cloudAccount.upload(fileHandle, self._task.data['size'], cloudFileName, self._task)
-            self.__updateFilesCache(result)
+            if result:
+                self.__updateFilesCache(result)
 
     def __uploadToAllAccounts(self, accounts, perAccountSize, fileHandle, cachedFile):
         if not self._task.stale:
@@ -256,8 +257,10 @@ class DownloadFileHandler(AbstractTaskHandler):
 
     def handle(self):
         localFilePath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}"
+        targetFilePath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/client/{self._task.uuid}"
         cachedFileInfo = self._filesCache.getFile(self._task.data["fullPath"])
         parts = [part for key, part in cachedFileInfo.parts.items()]
+        parts.sort(key=lambda part: part.filename)
         storingAccounts = {account.id: account for account in self._databaseAccess.getAllAccounts() if account.id in [part.storingAccountID for part in parts]}
 
         self._logger.debug(f"Downloading file '{cachedFileInfo.data.fullPath}' from accounts: {[acc.identifier for key, acc in storingAccounts.items()]}")
@@ -269,27 +272,22 @@ class DownloadFileHandler(AbstractTaskHandler):
                 self._logger.debug(f"Downloading part {part.filename} from {cloudAccount.accountData.identifier}")
                 cloudAccount.download(outputFileHandle, part, self._task)
         self._logger.debug("Download finished, moving file to client workspace...")
-        self.__finalizeDownload()
-        self.__sendResponse()
+        self.__finalizeDownload(localFilePath, targetFilePath)
         self._task = None
 
-    def __finalizeDownload(self):
-        localPath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/server/{self._task.uuid}"
-        targetPath = f"{control.cli.CONSOLE_ARGUMENTS.workspace}/client/{self._task.uuid}"
+    def __finalizeDownload(self, localPath, targetPath):
         if not self._task.stale:
             os.rename(localPath, targetPath)
+            self.__sendResponse()
         else:
             os.remove(localPath)
 
     def __sendResponse(self):
-        if not self._task.stale:
-            data = self._task.data
-            data["status"] = FileStatuses.DOWNLOADING_TO_LOCAL
+        data = self._task.data
+        data["status"] = FileStatuses.DOWNLOADING_TO_LOCAL
 
-            response = NetworkMessage.Builder(MessageTypes.FILE_STATUS_UPDATE).withData(data).withUUID(self._task.uuid).build()
-            self._messageDispatcher.dispatchResponse(response)
-        else:
-            print("Download file handler doing cleanup....")
+        response = NetworkMessage.Builder(MessageTypes.FILE_STATUS_UPDATE).withData(data).withUUID(self._task.uuid).build()
+        self._messageDispatcher.dispatchResponse(response)
 
 
 class DeleteFileHandler(AbstractTaskHandler):

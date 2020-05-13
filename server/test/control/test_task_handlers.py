@@ -11,7 +11,7 @@ from control.account import CloudAPIFactory
 from model.account import AccountData, AccountTypes
 from model.task import Task
 from model.message import MessageTypes
-from model.file import FilePart, CloudFilesCache
+from model.file import FilePart, CloudFilesCache, CachedFileData, FileData
 
 
 class TestGetAccountsListHandler(unittest.TestCase):
@@ -275,3 +275,138 @@ class TestUploadFileHandler(unittest.TestCase):
         self.assertEqual(fakeCloudAccount2.upload.call_count, 1)
         self.assertEqual(fakeCloudAccount2.upload.call_args[0][2], f"{testTaskData['filename']}__2__2.enc")
 
+    @patch("control.cli.CONSOLE_ARGUMENTS", FakeGlobalConsoleArguments("testWorkspace"))
+    @patch.object(MessageDispatcher, "dispatchResponse")
+    @patch("os.unlink")
+    @patch.object(CloudFilesCache, "getFile")
+    @patch.object(CloudFilesCache, "insertFilePart")
+    @patch.object(CloudAPIFactory, "fromAccountData")
+    @patch("control.message.open")
+    def test_upload_is_interrupted_if_task_is_stale_and_no_response_is_sent(self, openMock, cloudApiMock, insertFilePartMock, getFileMock, os_unlinkMock, dispatchResponseMock):
+        fakeFile = BytesIO(b"Lorem ipsum")
+        openMock.return_value = fakeFile
+        fakeAccounts = [AccountData(id=1, identifier="testAccountID", accountType=AccountTypes.Dropbox, cryptoKey="sixteen byte key", data={"apiToken": "testApitoken"})]
+        self.fakeDB.getAllAccounts.return_value = fakeAccounts
+        getFileMock.return_value = None
+
+        testTaskData = {"filename": "apple.txt", "size": 11, "fullPath": "subDir/apple.txt", "status": None, "utcModified": 10, "path": "subDir"}
+        fakeUploadResult = None
+        cloudApiMock.return_value.upload.return_value = fakeUploadResult
+
+        testTask = Task(taskType=MessageTypes.UPLOAD_FILE, data=testTaskData, uuid=uuid4().hex, stale=True)
+        testHandler = UploadFileHandler(self.fakeDB)
+        testHandler.setTask(testTask)
+        testHandler.handle()
+
+        self.assertEqual(openMock.call_count, 1)
+        self.assertEqual(openMock.call_args[0][0], f"testWorkspace/server/{testTask.uuid}")
+        self.assertEqual(openMock.call_args[0][1], "rb")
+
+        self.assertEqual(cloudApiMock.call_count, 0)
+
+        self.assertEqual(insertFilePartMock.call_count, 0)
+
+        self.assertEqual(getFileMock.call_count, 1)
+        self.assertEqual(getFileMock.call_args[0][0], testTaskData["fullPath"])
+
+        self.assertEqual(os_unlinkMock.call_count, 1)
+        self.assertEqual(os_unlinkMock.call_args[0][0], f"testWorkspace/server/{testTask.uuid}")
+
+        self.assertEqual(dispatchResponseMock.call_count, 0)
+
+
+class TestDownloadFileHandler(unittest.TestCase):
+
+    @classmethod
+    @patch("control.database.DatabaseAccess")
+    def setUpClass(cls, fakeDB):
+        cls.fakeDB = fakeDB
+
+    @patch("control.cli.CONSOLE_ARGUMENTS", FakeGlobalConsoleArguments("testWorkspace"))
+    @patch("os.rename")
+    @patch.object(MessageDispatcher, "dispatchResponse")
+    @patch.object(CloudFilesCache, "getFile")
+    @patch.object(CloudAPIFactory, "fromAccountData")
+    @patch("control.message.open")
+    def test_downloads_file_and_moves_it_to_client_workspace_and_sends_response(self, openMock, cloudApiMock, getFileMock, dispatchResponseMock, os_renameMock):
+        openMock.return_value = BytesIO()
+        testFileData = FileData(filename="apple.txt", modified=10, size=10, path="subDir", fullPath="subDir/apple.txt")
+        testFilePart = FilePart(
+            filename="apple.txt__1__1.enc", modified=10,
+            size=testFileData.size + 16, path="subDir",
+            fullPath="subDir/apple.txt__1__1.enc", storingAccountID=1
+        )
+        fakeAccounts = [
+            AccountData(id=1, identifier="testAccountID1", accountType=AccountTypes.Dropbox, cryptoKey="sixteen byte key", data={"apiToken": "testApitoken1"}),
+            AccountData(id=2, identifier="testAccountID2", accountType=AccountTypes.Dropbox, cryptoKey="sixteen byte key", data={"apiToken": "testApitoken2"})
+        ]
+        self.fakeDB.getAllAccounts.return_value = fakeAccounts
+        testCachedFileInfo = CachedFileData(data=testFileData, availablePartCount=1, totalPartCount=1, parts={"subDir/apple.txt__1__1.enc": testFilePart})
+        getFileMock.return_value = testCachedFileInfo
+
+        testTask = Task(taskType=MessageTypes.DOWNLOAD_FILE, data=testFileData.serialize(), uuid=uuid4().hex)
+
+        testHandler = DownloadFileHandler(self.fakeDB)
+        testHandler.setTask(testTask)
+        testHandler.handle()
+
+        self.assertEqual(openMock.call_count, 1)
+        self.assertEqual(openMock.call_args[0][0], f"testWorkspace/server/{testTask.uuid}")
+        self.assertEqual(openMock.call_args[0][1], "wb")
+
+        self.assertEqual(cloudApiMock.call_count, 1)
+        self.assertEqual(cloudApiMock.call_args[0][0], fakeAccounts[0])
+
+        self.assertEqual(getFileMock.call_count, 1)
+        self.assertEqual(getFileMock.call_args[0][0], testFileData.fullPath)
+
+        self.assertEqual(dispatchResponseMock.call_count, 1)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].header.messageType, MessageTypes.FILE_STATUS_UPDATE)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].header.uuid, testTask.uuid)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data["filename"], testFileData.filename)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data["path"], testFileData.path)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data["fullPath"], testFileData.fullPath)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data["modified"], testFileData.modified)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data["size"], testFileData.size)
+        self.assertEqual(dispatchResponseMock.call_args[0][0].data["status"], FileStatuses.DOWNLOADING_TO_LOCAL)
+
+        self.assertEqual(os_renameMock.call_count, 1)
+        self.assertEqual(os_renameMock.call_args[0][0], f"testWorkspace/server/{testTask.uuid}")
+        self.assertEqual(os_renameMock.call_args[0][1], f"testWorkspace/client/{testTask.uuid}")
+
+    @patch("control.cli.CONSOLE_ARGUMENTS", FakeGlobalConsoleArguments("testWorkspace"))
+    @patch("os.remove")
+    @patch.object(MessageDispatcher, "dispatchResponse")
+    @patch.object(CloudFilesCache, "getFile")
+    @patch.object(CloudAPIFactory, "fromAccountData")
+    @patch("control.message.open")
+    def test_stops_download_and_does_not_send_response_and_cleans_up_if_file_download_is_interrupted(self, openMock, cloudApiMock, getFileMock, dispatchResponseMock, os_removeMock):
+        openMock.return_value = BytesIO()
+        testFileData = FileData(filename="apple.txt", modified=10, size=10, path="subDir", fullPath="subDir/apple.txt")
+        testFilePart = FilePart(
+            filename="apple.txt__1__1.enc", modified=10,
+            size=testFileData.size + 16, path="subDir",
+            fullPath="subDir/apple.txt__1__1.enc", storingAccountID=1
+        )
+        fakeAccounts = [
+            AccountData(id=1, identifier="testAccountID1", accountType=AccountTypes.Dropbox, cryptoKey="sixteen byte key", data={"apiToken": "testApitoken1"}),
+            AccountData(id=2, identifier="testAccountID2", accountType=AccountTypes.Dropbox, cryptoKey="sixteen byte key", data={"apiToken": "testApitoken2"})
+        ]
+        self.fakeDB.getAllAccounts.return_value = fakeAccounts
+        testCachedFileInfo = CachedFileData(data=testFileData, availablePartCount=1, totalPartCount=1, parts={"subDir/apple.txt__1__1.enc": testFilePart})
+        getFileMock.return_value = testCachedFileInfo
+
+        testTask = Task(taskType=MessageTypes.DOWNLOAD_FILE, data=testFileData.serialize(), uuid=uuid4().hex, stale=True)
+
+        testHandler = DownloadFileHandler(self.fakeDB)
+        testHandler.setTask(testTask)
+        testHandler.handle()
+
+        self.assertEqual(openMock.call_count, 1)
+        self.assertEqual(openMock.call_args[0][0], f"testWorkspace/server/{testTask.uuid}")
+        self.assertEqual(openMock.call_args[0][1], "wb")
+
+        self.assertEqual(dispatchResponseMock.call_count, 0)
+
+        self.assertEqual(os_removeMock.call_count, 1)
+        self.assertEqual(os_removeMock.call_args[0][0], f"testWorkspace/server/{testTask.uuid}")
