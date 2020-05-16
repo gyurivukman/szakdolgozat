@@ -7,7 +7,6 @@ from os import unlink
 from io import BufferedReader, BufferedWriter
 from datetime import datetime, timedelta, timezone
 
-import paramiko
 import dropbox
 import requests
 import googleapiclient
