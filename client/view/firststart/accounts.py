@@ -908,7 +908,6 @@ class DriveAccountForm(BaseAccountFormWidget):
     def __openCredentialsBrowser(self):
         credentials_file = QFileDialog.getOpenFileUrl(self, "Select the service account credentials json")[0]
         if credentials_file:
-            self.__accountTestResultLabel.hide()
             self.__readCredentialsFile(credentials_file)
             self.formValidityChanged.emit(self.isFormValid())
 
